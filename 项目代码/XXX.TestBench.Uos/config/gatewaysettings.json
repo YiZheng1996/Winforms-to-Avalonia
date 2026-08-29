@@ -1,0 +1,52 @@
+{
+  "schemaVersion": 1,
+  "firstBusinessSlice": "PressureAdjustmentValveB11",
+  "gateway": {
+    "schemaVersion": 1,
+    "runMode": "ReadOnly",
+    "transportMode": "OfflineSimulation",
+    "activeModbusTransport": "Tcp",
+    "disableCalibrationWritesOnStartup": true,
+    "pollIntervalMs": 250,
+    "connectionTimeoutMs": 3000,
+    "s7Endpoints": [
+      {
+        "id": "S7-200",
+        "model": "S7-200",
+        "ipAddress": "192.168.0.111",
+        "port": 102,
+        "rack": 0,
+        "slot": 2,
+        "readTimeoutMs": 3000,
+        "enabled": true
+      },
+      {
+        "id": "S7-1200",
+        "model": "S7-1200",
+        "ipAddress": "192.168.0.111",
+        "port": 102,
+        "rack": 0,
+        "slot": 0,
+        "readTimeoutMs": 3000,
+        "enabled": false
+      }
+    ],
+    "modbusRtu": {
+      "enabled": true,
+      "portName": "COM1",
+      "baudRate": 9600,
+      "dataBits": 8,
+      "parity": "None",
+      "stopBits": "One",
+      "slaveId": 1,
+      "readTimeoutMs": 3000
+    },
+    "modbusTcp": {
+      "enabled": true,
+      "host": "127.0.0.1",
+      "port": 502,
+      "unitId": 1,
+      "readTimeoutMs": 3000
+    }
+  }
+}

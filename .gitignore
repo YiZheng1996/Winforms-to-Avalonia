@@ -1,0 +1,33 @@
+# Build and publish outputs
+**/[Bb]in/
+**/[Oo]bj/
+**/[Dd]ebug/
+**/[Rr]elease/
+**/[Pp]ublish/
+**/[Aa]rtifacts/
+**/[Tt]est[Rr]esults*/
+**/tmp/
+
+# IDE and user-local files
+**/.vs/
+*.user
+*.rsuser
+*.suo
+*.userosscache
+*.sln.docstates
+*.csproj.user
+
+# Generated/build metadata
+*.pdb
+*.ilk
+*.nupkg
+*.snupkg
+*.binlog
+*.coverage
+*.coveragexml
+
+# Local legacy runtime data and third-party helper artifacts
+**/DB/*.db
+**/DB/*.sqlite
+**/DB/reports/
+**/DB/SumatraPDF.exe
