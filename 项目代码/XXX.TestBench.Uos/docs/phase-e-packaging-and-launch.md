@@ -3,7 +3,7 @@
 日期：2026-08-29  
 解目录：`D:\易峥\2026\2026-09\Avalonia_上位机通用模板\项目代码\XXX.TestBench.Uos`  
 当前实际目标：`net8.0`；Avalonia 11.3.9；自包含发布 RID 为 `win-x64`、`linux-x64`  
-配置：`config\gatewaysettings.json`；默认 `ReadOnly + OfflineSimulation`  
+配置：`config\gatewaysettings.json`；默认 `ReadOnly + OfflineSimulation`。信捷 `192.168.0.51:502` 仅完成独立仅读协议探针，未写入此配置。
 发布/临时目录：`D:\Codex相关\phase-e\publish`（不属于项目源目录）
 
 ## 1. 已验证发布物
@@ -84,6 +84,7 @@ chmod +x ./XXX.TestBench.Gateway.Host
 - Avalonia 当前在同一进程直接创建只读 Runtime；本轮没有实现“DeviceGateway → 本机 OPC UA → HMI”的生产 UA Server、证书和权限链。
 - 没有 `systemd` unit、安装脚本、升级替换脚本或回滚脚本；不应把 Gateway Host 候选包直接登记为已验收生产服务。
 - `gatewaysettings.json` 默认只能保持 `OfflineSimulation`。切换 `ConfiguredDevices` 是现场动作，必须先完成 S7/Modbus 地址、类型、字节序、权限和 P0/G0 记录；不能用本机 Windows 结果替代。
+- 信捷现场探针在 UnitId=1 候选下收到 M400、HD1074 候选、D0 和输入寄存器 0 的合法读取响应，但 CSV 未提供当前 P2 的 `CH00/WSD` 映射；不能把该探针当作发布包现场验收，也不能据此改写默认配置。
 - 所有写入仍关闭，包括 Zero/Gain、手动输出、Test00/自动试验、复位和校准；不提供写入开关绕过安全门。
 - 旧 WinForms、OPC DA、Office/报表和私有 DLL 仍作为对照/回滚基线保留，不复制进 UOS 发布包，也不删除。
 

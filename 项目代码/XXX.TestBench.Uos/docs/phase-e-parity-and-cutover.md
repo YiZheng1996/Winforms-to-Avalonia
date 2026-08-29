@@ -9,9 +9,9 @@
 
 ## 1. 证据边界
 
-当前工作区已初始化为 Git checkout，远端为 `origin`：<https://github.com/YiZheng1996/Winforms-to-Avalonia.git>。当前 `main` 基线提交为 `bebcb9e1858e35e10ca395e3b7e824c724286524`，并已用独立 clone 完成恢复验证。本报告的产品结论仍以实际源码、旧 WinForms 源码、迁移文档、自动化输出和用户提供的 Windows VS 启动截图为证据；公开仓库按安全策略排除本地运行数据和部分生成/用户工件。
+当前工作区已初始化为 Git checkout，远端为 `origin`：<https://github.com/YiZheng1996/Winforms-to-Avalonia.git>。当前 `main` 基线提交为 `863480b9ef90afafdb2b6de416f1efe4c311da2f`，并已用独立 clone 完成恢复验证。本报告的产品结论仍以实际源码、旧 WinForms 源码、迁移文档、自动化输出、现场仅读 Modbus 探针和用户提供的 Windows VS 启动截图为证据；公开仓库按安全策略排除本地运行数据和部分生成/用户工件。
 
-当前开发机证据：Windows 10.0.22621 x64，.NET SDK 9.0.300；迁移解实际目标为 `net8.0`，Avalonia 包为 11.3.9。当前没有真实 UOS 工控机、PLC、USB-RS485、Modbus TCP 仪表或现场 OPC UA 环境；以下 `PASS-OFFLINE` 只表示代码/仿真证据。
+当前开发机证据：Windows 10.0.22621 x64，.NET SDK 9.0.300；迁移解实际目标为 `net8.0`，Avalonia 包为 11.3.9。当前已具备信捷 PLC `192.168.0.51:502`，但只完成 UnitId=1 候选下的仅读 Modbus TCP 协议探针；没有真实 UOS 工控机、USB-RS485 或现场 OPC UA 环境。PLC 系列、UnitId、点表业务语义和字节字序尚未完成确认；以下 `PASS-OFFLINE` 只表示代码/测试/仿真证据，现场探针单独标为 `PASS-FIELD-PROBE`。
 
 固定安全边界：Gateway `ReadOnly`，只发布五点观测；不创建 Zero/Gain 自动写入、手动输出、复位写入、离线写队列或断线重放。任何真实 PLC/Modbus/UOS 兼容性、OPC UA 证书和 systemd 结论均保持未验收。
 
@@ -49,7 +49,8 @@
 | 登录 | `PARTIAL` | 仅 OfflineSimulation 提供明确的演示登录；ConfiguredDevices 不伪造成功；旧系统有数据库用户/密码流程 | 不能替代操作员认证和角色权限 | `BLOCKED` | `MainWindowViewModel.cs`、Core 测试、旧 `frmLogin.cs` |
 | 产品/型号选择 | `PARTIAL` | 新 UI 是有长度边界的产品标识输入并提交 Core；旧系统从数据库选择型号并刷新参数 | 型号、参数、产品编号/车号尚未闭合 | `BLOCKED` | `TestBenchStateMachine.cs`、VM 测试、旧 `frmMainMenu.cs`/`ucHMI.cs` |
 | Gateway 健康 | `PASS-OFFLINE` | 新 Runtime 派生 `NoError`/`Simulated`，携带质量、时间戳、连接代次；没有本机 OPC UA | 离线五点健康状态可验证，生产 UA 仍未实现 | `DEFERRED` | Runtime 测试、Host JSON |
-| P2 五点只读采样 | `PASS-OFFLINE` | 固定五点：NoError、Simulated、AI00、DI00、CH00；新侧没有旧系统完整点表 | 首条只读切片闭合；全量 102/124/140 点未迁移 | 保留切片，延期扩展 | `GatewayPointCatalog.cs`、Runtime/Headless |
+| P2 五点只读采样 | `PASS-OFFLINE` / 现场映射未闭合 | 固定五点：NoError、Simulated、AI00、DI00、CH00；新侧没有旧系统完整点表；信捷 CSV 的 AI/DI 地址尚未接入当前 P2 Runtime | 离线首条只读切片闭合；现场信捷只能证明协议读通，全量 102/124/140 点未迁移 | 保留离线切片；确认点表后再做最小只读映射 | `GatewayPointCatalog.cs`、Runtime/Headless、现场探针日志 |
+| 信捷 Modbus TCP 仅读探针 | `PASS-FIELD-PROBE` | `192.168.0.51:502` 在 UnitId=1 候选下对 M400、HD1074 候选、D0 和输入寄存器 0 返回合法响应；当前应用仍要求 S7 AI/DI，且 `CH00` 未由 CSV 提供 | 协议链路可继续做集成测试，但不能把原始响应当作 P2 业务值或 DI00 安全联锁 | `BLOCKED`；先确认机型/UnitId/CH00/字序，再提交最小配置化只读变更 | `phase-e-field\2026-08-29\modbus-readonly-probe.txt` |
 | 首样本 Unknown/Bad | `PASS-OFFLINE` | 新 Runtime 首样本五点为 Unknown，断链点为 Bad/null；不以 0/false 冒充 | 满足安全默认值 | 保留 | Runtime 测试 |
 | DI00 安全联锁 | `PASS-OFFLINE` | Core 区分 DI00 Unknown/Bad 与 false；运行中 false 请求 Stopping；当前 UI 仍因 Test00 未接入禁用控制 | 安全门有证据，真实点位/电气语义未现场确认 | 保留并等 P0 | Core 测试、VM/Headless |
 | Test00 手/自动 | `PARTIAL` | Core 有手动/自动门；P2 五点未包含 Test00，UI 不开放控制入口 | 不能宣称自动试验可用 | `DEFERRED` | Core 测试、UI 合同 |
@@ -76,11 +77,11 @@
 
 ## 6. 切换判断
 
-当前判定：`CUTOVER_NOT_READY`。
+当前判定：`CUTOVER_NOT_READY`。信捷现场探针将 Modbus TCP 状态从“未执行”推进到“仅读协议已响应”，但没有关闭 P2 业务映射、现场安全或完整产品切换门。
 
 允许的最小切换范围是“Windows 上的 Avalonia P2 离线仿真演示/开发维护线”。不允许把它切为现场生产唯一实现，原因是：
 
-- 没有 UOS、PLC、RS-485、Modbus TCP 和现场 OPC UA 证据；
+- 没有 UOS、S7、RS-485 和现场 OPC UA 证据；信捷 Modbus TCP 目前只有候选 UnitId 下的原始仅读协议证据，尚无 P2 业务映射闭环；
 - 没有真实认证、数据库产品选择、完整 B11、报表/上传和服务化边界；
 - P3 写入安全矩阵、质量/代次/联锁/回读/审计尚未实施，故所有写入继续关闭；
 - 已形成可引用的 `main` 提交基线并完成独立 clone 复现；但现场设备、UOS 和完整产品功能仍未验收，不能据此关闭 cutover。
@@ -93,8 +94,9 @@ Legacy 处理：当前工作区保留旧源码、OPF、原始数据库/报表和
 |---|---|---|---|
 | E-BLK-01 | Blocker | UOS 版本/架构/触控/字体、自包含 Avalonia 启动、非 root systemd | 目标机原始命令输出、冷启动/退出码、服务日志和包哈希 |
 | E-BLK-02 | Blocker | S7-200/S7-1200 AI00/DI00 地址、类型、字节序、Rack/Slot | 设备型号和点表签字，读取值/质量/时间戳，至少 2 小时日志 |
-| E-BLK-03 | Blocker | Modbus RTU/TCP CH00 串口/终点、功能区、站号、字节序、拔插恢复 | 报文、设备档案、恢复时间、连接代次和连续运行记录 |
+| E-BLK-03 | Blocker | Modbus RTU/TCP CH00 串口/终点、功能区、站号、字节序、拔插恢复 | 已有信捷终点的仅读响应；仍需 CH00 设备档案、功能码/地址、恢复时间、连接代次和连续运行记录 |
 | E-BLK-04 | Blocker | 本机 OPC UA 地址空间、证书、Gateway→UA→HMI 链路 | UA 客户端只读验证、证书权限、断线/重连和禁止写扫描 |
+| E-BLK-05 | Blocker | 信捷 CSV 的 `AI.MAI00=HD1074`、`DI.MDI00=M400` 与当前 P2 S7/Modbus 点模型未闭合 | 确认 PLC 系列和 UnitId；确认 HD 地址换算、浮点字序、M400 线圈语义和 `CH00` 映射；增加只读配置/测试后用应用快照、质量、时间戳和连接代次复核 |
 | E-HIGH-01 | High | 真实登录、权限和数据库产品/参数选择 | 认证失败分类、角色权限、数据库事务和不覆盖旧选择测试 |
 | E-HIGH-02 | High | 完整 B11 动作、人工确认、取消、安全收尾、记录和报表 | 逐项点表/时序/判定/报表字段对照和仿真/真机证据 |
 | E-HIGH-03 | High | Test00、手动输出、自动试验、复位和 P3 写矩阵 | 安全审批；质量/代次/联锁/超时/回读/审计全部自动化和真机通过 |
@@ -102,3 +104,13 @@ Legacy 处理：当前工作区保留旧源码、OPF、原始数据库/报表和
 | E-MED-01 | Medium | 启动失败的统一退出/Faulted 策略、UOS 本地化和触控 QA | 明确产品决策并补 Headless/UOS 手工记录 |
 
 这些是延期记录，不是已批准豁免；当前没有审批人或签字，因此不得关闭 Blocker。
+
+## 8. 信捷现场仅读协议探针
+
+现场输入文件：`E:\Users\Administrator\xwechat_files\wxid_ffvyd8y69mry21_6c83\msg\file\2026-08\ALL_PLC_XDP.csv`。该 CSV 是 XDP/OPC 标签表，不是当前 P2 `Modbus.WSD.CH00` 的完整设备映射；其中 `AI.MAI00=HD1074, Float`、`DI.MDI00=M400, Boolean`，没有 `CH00`、`WSD`、功能区或 UnitId 字段。其 `Client Access=R/W` 只作为旧标签属性记录，本轮未据此发送任何写入。
+
+地址探针口径：在适用的信捷以太网映射中，`M400` 作为线圈候选地址 400；按 `HD0` 起始 Modbus 地址 41088 的机型映射，`HD1074` 的候选寄存器起始地址为 `41088 + 1074 = 42162`。PLC 具体系列未提供，所以 42162 仅为验证候选，不是已签字的最终地址。参考：[信捷以太网通讯用户手册](https://cdn-en.xinje.com/TCPIP%20communication%20manual.pdf)。
+
+执行时间：2026-08-29 11:58（北京时间，日志使用 UTC 时间戳）。执行命令为 PowerShell 内联只读探针，目标 `192.168.0.51:502`、UnitId 候选 `1`，依次发送功能码 01 地址 400 数量 1、功能码 03 地址 42162 数量 2、功能码 03 地址 0 数量 1、功能码 04 地址 0 数量 1。四次均收到合法响应：M400 原始值 0；HD1074 候选原始字 `0x0000, 0x435C`；D0 为 0；输入寄存器 0 为 0。
+
+原始报文与命令结果：`D:\Codex相关\phase-e-field\2026-08-29\modbus-readonly-probe.txt`。本探针只验证网络/协议响应；没有修改 `config\gatewaysettings.json`，没有运行现场 `ConfiguredDevices` 应用快照，也没有发送写功能码。由于当前 Runtime 固定从 S7 读取 AI00/DI00、从 Modbus 读取 CH00，且 CSV 没有 CH00 映射，本轮不关闭 E-BLK-05。
