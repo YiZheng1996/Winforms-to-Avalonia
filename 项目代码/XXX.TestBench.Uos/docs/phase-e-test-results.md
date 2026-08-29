@@ -9,7 +9,7 @@
 
 | 检查 | 命令/范围 | 结果 |
 |---|---|---|
-| Phase A/P1 证据完整性 | `pwsh -NoProfile -ExecutionPolicy Bypass -File "项目代码\XXX.TestBench.Uos\tools\Test-MigrationEvidence.ps1"` | `PASS coverage_rows=393 tag_rows=140 legacy_subscription=102 source_capability=124 opf_only_reserve=16` |
+| Phase A/P1 证据完整性 | `pwsh -NoProfile -ExecutionPolicy Bypass -File "项目代码\XXX.TestBench.Uos\tools\Test-MigrationEvidence.ps1"` | `PASS coverage_rows=393 tag_rows=140 legacy_subscription=102 source_capability=124 opf_only_reserve=16 public_excluded_coverage_paths=13` |
 | Release 解决方案构建 | `dotnet build "...\XXX.TestBench.Uos.sln" --no-restore --configuration Release --verbosity minimal` | `PASS`；0 警告、0 错误 |
 | Core 行为 | `dotnet run --project tests\XXX.TestBench.Core.Tests ... --no-build --configuration Release` | `PASS`；初始化、登录、产品、DI00、Test00、停止、断线、收尾故障 |
 | Gateway 合同 | `dotnet run --project tests\XXX.TestBench.Gateway.ContractChecks ... --no-build --configuration Release -- config` | `PASS`；配置、只读、适配器构造、5 点仿真、B11 |
@@ -57,11 +57,29 @@
 
 曾用统一的外置 `BaseOutputPath`/`BaseIntermediateOutputPath` 对整个解决方案执行 `dotnet restore/build`，因所有项目共用同一个资产目录造成 `MSB4006 ResolveProjectReferences` 循环依赖；该命令不是产品测试失败。改用项目已有恢复资产执行标准 Release 构建后，9 个项目全部生成成功。后续日志和发布物仍放在 `D:\Codex相关\phase-e`，没有把临时日志写入项目源目录。
 
-## 5. 证据边界
+## 5. 远端 main 独立副本复现
+
+为确认公开仓库提交可独立恢复，在 `D:\Codex相关\phase-next\remote-clone` 创建了远端 `main` 的浅克隆；该目录是临时验证目录，不属于项目提交。复现提交为 `36e396d991537523c3c15efa8fc1c6dc17f12ef2`。
+
+```powershell
+$clone = 'D:\Codex相关\phase-next\remote-clone'
+git clone --branch main --depth 1 'https://github.com/YiZheng1996/Winforms-to-Avalonia.git' $clone
+git -C $clone pull --ff-only
+$repo = Join-Path $clone '项目代码\XXX.TestBench.Uos'
+dotnet restore "$repo\XXX.TestBench.Uos.sln" --verbosity minimal
+dotnet build "$repo\XXX.TestBench.Uos.sln" --no-restore --configuration Release --verbosity minimal
+pwsh -NoProfile -ExecutionPolicy Bypass -File "$repo\tools\Test-MigrationEvidence.ps1"
+```
+
+结果：`PASS`。Release 构建为 0 警告、0 错误；Core、Gateway Contract、Gateway Runtime、Avalonia VM、Avalonia Headless 五个项目按顺序通过；Gateway Host 使用 clone 内配置执行 `--once` 退出码为 0，输出 `OfflineSimulation`、`isSimulated=true`、`isHealthy=true`、`writesEnabled=False`，并包含 5 个点（含 DI00=true）。
+
+公开仓库不包含以下 13 个旧覆盖率清单中的本地/生成/用户/第三方工件；`legacy-coverage.csv` 仍保留其原始大小和 SHA-256 记录，证据脚本只对这 13 个明确路径允许缺失，并要求每个路径仍有唯一覆盖率记录。未生成替代数据库或报表。
+
+## 6. 证据边界
 
 测试是可执行的纯 Core、Gateway、VM 和独立 Headless 检查，不是读取源码文本的假测试。它们证明了当前离线实现的行为合同，不证明真实 PLC/Modbus 地址、字节序、串口、OPC UA、UOS 桌面、触控、systemd、连续运行或现场安全回读。
 
-## 6. 本轮完整命令
+## 7. 本轮完整命令
 
 以下命令按顺序执行；`XXX.TestBench.Avalonia.Headless.Tests` 是独立可执行项目，单独进程运行：
 
