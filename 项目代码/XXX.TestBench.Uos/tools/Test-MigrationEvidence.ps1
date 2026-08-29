@@ -13,6 +13,11 @@ if ([string]::IsNullOrWhiteSpace($ArtifactRoot)) {
 $coverage = @(Import-Csv (Join-Path $ArtifactRoot 'legacy-coverage.csv'))
 $tags = @(Import-Csv (Join-Path $ArtifactRoot 'tag-and-write-matrix.csv'))
 $failures = @()
+$publicExcludedReferenceOnly = @(
+    'src/master/DB/TestBed.db',
+    'src/master/DB/reports/report.xlsx',
+    'src/master/DB/SumatraPDF.exe'
+)
 
 $duplicateFiles = @($coverage | Group-Object File | Where-Object Count -gt 1)
 if ($duplicateFiles.Count -gt 0) { $failures += 'legacy-coverage.csv contains duplicate primary file rows' }
@@ -20,8 +25,21 @@ if ($duplicateFiles.Count -gt 0) { $failures += 'legacy-coverage.csv contains du
 $legacyRoot = Join-Path $repositoryRoot 'XXX试验台模板'
 foreach ($row in $coverage) {
     $path = Join-Path $legacyRoot ($row.File -replace '/', '\')
-    if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { $failures += "coverage file missing: $($row.File)" }
+    if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
+        $allowedPublicExclusion = $row.Disposition -eq 'ReferenceOnly' -and $row.File -in $publicExcludedReferenceOnly
+        if (-not $allowedPublicExclusion) { $failures += "coverage file missing: $($row.File)" }
+    }
     if ($row.File -match '(^|/)(bin|obj|tmp)(/|$)') { $failures += "generated path included: $($row.File)" }
+}
+
+foreach ($excludedPath in $publicExcludedReferenceOnly) {
+    $excludedRows = @($coverage | Where-Object File -eq $excludedPath)
+    if ($excludedRows.Count -ne 1) {
+        $failures += "public exclusion must have exactly one ReferenceOnly coverage row: $excludedPath"
+    }
+    elseif ($excludedRows[0].Disposition -ne 'ReferenceOnly') {
+        $failures += "public exclusion is not ReferenceOnly: $excludedPath"
+    }
 }
 
 $duplicateTags = @($tags | Group-Object LogicalPoint | Where-Object Count -gt 1)
@@ -104,4 +122,4 @@ if ($failures.Count -gt 0) {
     exit 1
 }
 
-Write-Output "PASS coverage_rows=$($coverage.Count) tag_rows=$($tags.Count) legacy_subscription=102 source_capability=124 opf_only_reserve=16"
+Write-Output "PASS coverage_rows=$($coverage.Count) tag_rows=$($tags.Count) legacy_subscription=102 source_capability=124 opf_only_reserve=16 public_reference_only_exclusions=$($publicExcludedReferenceOnly.Count)"
