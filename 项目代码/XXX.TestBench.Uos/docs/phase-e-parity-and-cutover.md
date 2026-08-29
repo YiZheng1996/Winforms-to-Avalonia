@@ -9,7 +9,7 @@
 
 ## 1. 证据边界
 
-当前工作区已初始化为 Git checkout，远端为 `origin`：<https://github.com/YiZheng1996/Winforms-to-Avalonia.git>。当前 `main` 基线提交为 `28a7eb292a00bf5c957a0008ca2713644a624eab`，并已用独立 clone 完成恢复验证。本报告的产品结论仍以实际源码、旧 WinForms 源码、迁移文档、自动化输出和用户提供的 Windows VS 启动截图为证据；公开仓库按安全策略排除本地运行数据和部分生成/用户工件。
+当前工作区已初始化为 Git checkout，远端为 `origin`：<https://github.com/YiZheng1996/Winforms-to-Avalonia.git>。当前 `main` 基线提交为 `bebcb9e1858e35e10ca395e3b7e824c724286524`，并已用独立 clone 完成恢复验证。本报告的产品结论仍以实际源码、旧 WinForms 源码、迁移文档、自动化输出和用户提供的 Windows VS 启动截图为证据；公开仓库按安全策略排除本地运行数据和部分生成/用户工件。
 
 当前开发机证据：Windows 10.0.22621 x64，.NET SDK 9.0.300；迁移解实际目标为 `net8.0`，Avalonia 包为 11.3.9。当前没有真实 UOS 工控机、PLC、USB-RS485、Modbus TCP 仪表或现场 OPC UA 环境；以下 `PASS-OFFLINE` 只表示代码/仿真证据。
 
