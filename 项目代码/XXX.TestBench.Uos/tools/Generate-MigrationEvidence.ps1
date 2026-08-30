@@ -36,7 +36,9 @@ function Get-PrimaryModule([string]$RelativePath) {
     if ($RelativePath -match '^src/master/MainUI/BLL/') { return 'persistence' }
     if ($RelativePath -match '^src/master/MainUI/(CurrencyHelper/OPCHelper\.cs|Modules/)') { return 'gateway-boundary' }
     if ($RelativePath -match '^src/master/MainUI/(CurrencyHelper|Config|Upload|Service)/') { return 'platform-boundary' }
-    if ($RelativePath -match '^src/master/MainUI/(frm|uc|UcHMI|Program|InsulationWithstand|Procedure/(Controls|Edit|Mask|User|TestFrm)|Modules/.*\.Designer\.cs|Modules/.*\.resx)') { return 'ui-shell' }
+    # Procedure/Test 已在上方归入 application-core；其余 Procedure 根控件、编辑窗体和
+    # 交互辅助类都属于 Legacy UI 证据，不能因位于子目录而误落到 build-distribution。
+    if ($RelativePath -match '^src/master/MainUI/(frm|uc|UcHMI|Program|InsulationWithstand|Procedure/(?!Test/)|Modules/.*\.Designer\.cs|Modules/.*\.resx)') { return 'ui-shell' }
     if ($RelativePath -match '^src/master/MainUI/Properties/(Resources|Resources\.Designer)') { return 'ui-assets' }
     if ($RelativePath -match '^src/master/MainUI/Properties/') { return 'platform-boundary' }
     return 'build-distribution'

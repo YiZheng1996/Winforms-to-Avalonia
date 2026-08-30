@@ -1,7 +1,7 @@
 # 平台、发布与验收记录
 
-版本：Phase E V1（2026-08-29）  
-状态：`P2_OFFLINE_VERIFIED`；当前无真机，P0/G0、现场 UOS、OPC UA、连续运行和 P3 仍未执行/通过。
+版本：Phase E V2（2026-08-30）
+状态：`P2_OFFLINE_VERIFIED + UI_COVERAGE_VERIFIED`；已有信捷 Modbus TCP 仅读协议探针，但 P0/G0、业务映射、现场 UOS、OPC UA、连续运行和 P3 仍未执行/通过。
 
 ## 1. 目标和固定边界
 
@@ -31,7 +31,7 @@ HMI 不直接访问 PLC、串口、OPC DA、Windows COM 或私有驱动。S7-120
 
 ## 3. P0 目标机与设备 POC 工单 S0
 
-当前现场状态：用户已确认暂时没有真实 UOS 工控机、PLC、USB-RS485 或 Modbus TCP 仪表可连接。因此本阶段允许使用离线仿真完成配置、质量、连接代次、断线恢复和 B11 纯逻辑测试，但仿真证据不能关闭 P0/G0。
+当前现场状态：没有真实 UOS 工控机、S7 或 USB-RS485 证据；已有一台信捷设备在 `192.168.0.51:502` 对 UnitId=1 候选的四个仅读请求返回合法 Modbus TCP 响应。该探针尚未确认 PLC 系列、UnitId、HD1074 字序、M400 语义、CH00 或 P2 应用映射，因此只标记 `PASS-FIELD-PROBE`，不能关闭 P0/G0。离线仿真继续用于配置、质量、连接代次、断线恢复、UI 和 B11 纯逻辑测试。
 
 | 检查项 | 本地状态 | 现场执行命令/证据 |
 |---|---|---|
@@ -40,7 +40,7 @@ HMI 不直接访问 PLC、串口、OPC DA、Windows COM 或私有驱动。S7-120
 | 非 root systemd | 等待真机 | `systemctl status xxx-testbench-gateway`；记录用户、权限、退出码和重启策略 |
 | NTP/RTC、断电冷启动 | 未执行 | 冷启动记录；采样时间与系统时钟偏差 |
 | S7-200/S7-1200 AI00、DI00 只读 | 等待真机 | 设备型号、IP/机架信息、地址、类型、字节序、至少 2 小时日志 |
-| Modbus RTU/TCP WSD CH00 只读 | 等待真机 | USB-RS485 芯片、串口固定名、TCP 终点、波特率/校验/站号/功能码、报文和读值 |
+| Modbus RTU/TCP WSD CH00 只读 | TCP 候选终点仅读协议已响应；CH00 未映射 | USB-RS485 芯片、串口固定名、TCP 终点、波特率/校验/站号/功能码、CH00 设备档案、报文和应用读值 |
 | 拔插恢复 | 等待真机 | udev 规则、拔插时间、质量降级、恢复时间、连接代次变化 |
 | 与旧 KEP 分时对照 | 未执行 | 同一输入样本的值、类型、时间戳和地址差异报告 |
 | 许可证和原生依赖 | 未执行 | 发布目录清单、SBOM、许可证扫描、禁止项扫描 |
@@ -51,8 +51,8 @@ P0 现场前，所有设备地址、类型、字节序、轮询周期和写权�
 
 | 工单 | 本轮结果 | 证据 |
 |---|---|---|
-| S0 工具链/备份/目标机 | 部分启动；目标机和设备未具备 | 本文件第 3 节；旧源文件 SHA-256 见 `legacy-coverage.csv` |
-| A01 文件与功能覆盖 | 已生成初版 | `legacy-coverage.csv`；运行 `tools/Generate-MigrationEvidence.ps1` 可重生成 |
+| S0 工具链/备份/目标机 | 部分启动；已有信捷仅读协议探针，目标 UOS、S7 和 USB-RS485 证据未具备 | 本文件第 3 节；旧源文件 SHA-256 见 `legacy-coverage.csv` |
+| A01 文件与功能覆盖 | 文件矩阵与 51 行 UI 专项矩阵已校验 | `legacy-coverage.csv`、`legacy-ui-coverage.csv`、`ui-test-evidence.csv`；证据脚本检查 Designer 无孤儿/重复、UI 归属及每个证据 ID 的真实文件/唯一 Marker |
 | A02 行为、点表、写安全 | 已生成初版，存在两个阻断 | `behavior-contracts.md`、`tag-and-write-matrix.csv`；`A02-SAFE-01`、`A02-POINT-01` |
 
 G1 通过条件：所有生产文件唯一归属；DI00、Test00、复位、标定、断线无未关闭歧义；全部生产写点有权限、质量、代次、前置、失败动作和回读；首发设备/排除设备签字完成。
@@ -87,7 +87,7 @@ G1 通过条件：所有生产文件唯一归属；DI00、Test00、复位、标�
 - `behavior-contracts.md` 的安全和自动试验主链无未关闭歧义；
 - `tag-and-write-matrix.csv` 每个生产写候选有前置、权限、质量、代次、回读、超时和失败动作；
 - 102、122、124、16 的点数关系已逐点复核并由 PLC/电气签字；
-- G1 前不建立批量 Avalonia 页面。
+- G1/现场安全门未关闭前，Avalonia 可以迁移纯界面状态、只读显示和外部依赖明确阻断的交互，但不得开放设备写入或把页面存在性当成产品验收。
 
 ## 7. P2 只读切片验收门 G2
 
@@ -100,7 +100,7 @@ G1 通过条件：所有生产文件唯一归属；DI00、Test00、复位、标�
 - 1920×1080 触控布局无阻塞；
 - 真实设备连续运行不少于 2 小时，完成不少于 5 次断线/拔插恢复。
 
-无真机期间可先完成前四项的离线仿真证据；最后一项必须等现场设备到位后执行。
+当前可先完成前四项的离线仿真证据；已有信捷探针只证明候选读取协议响应，最后一项和业务映射仍必须等设备档案与现场环境完备后执行。
 
 ## 8. P3 写安全与完整业务门 G3
 
@@ -121,21 +121,22 @@ G1 通过条件：所有生产文件唯一归属；DI00、Test00、复位、标�
 - `tests/XXX.TestBench.Gateway.Runtime.Tests`：覆盖离线成功、连接失败后的部分结果、取消、部分清理、结构化日志和设置上一版保留。
 - `gateway.transportMode=OfflineSimulation` 是当前安全默认值；切换到 `ConfiguredDevices` 是现场动作，不能由离线测试代替。
 
-本阶段验证结果：Gateway 0 警告/0 错误；Runtime 合同测试通过；Host 使用当前配置执行一次离线采样通过。仍未关闭 P0/G0 的目标 UOS、真实 PLC、RS-485、Modbus TCP、systemd、OPC UA 和连续运行验收。
+本阶段验证结果：Gateway 0 警告/0 错误；Runtime 合同测试通过；Host 使用当前配置执行一次离线采样通过。信捷 Modbus TCP 仅完成候选 UnitId 仅读协议探针；仍未关闭 P0/G0 的目标 UOS、S7、RS-485、Modbus 业务映射、systemd、OPC UA 和连续运行验收。
 
-## 11. Phase D Avalonia UI 实现（2026-08-29）
+## 11. Phase D Avalonia UI 实现（2026-08-30）
 
-已建立最小 Avalonia UI Shell：
+已从最小 P2 Shell 扩展为 8 个任务页面，并建立完整 Designer 覆盖证据：
 
-- `src/XXX.TestBench.Avalonia`：Avalonia 11.3.9、App 组合根、MainWindow XAML、MVVM 状态和异步命令。
-- `tests/XXX.TestBench.Avalonia.Tests`：ViewModel 启动、只读刷新、仿真登录、产品选择和 Test00 安全门测试。
-- `tests/XXX.TestBench.Avalonia.Headless.Tests`：独立 Headless 进程，验证实际 XAML 加载、双向绑定、命令驱动 Core、最小窗口尺寸和可访问名称。
-- `docs/ui-contracts.md`：UI 区域、命令映射、布局、可访问性和当前限制。
+- `docs/legacy-ui-coverage.csv`：51 行，逐一映射 Legacy Designer、resx、入口、真实能力、Avalonia 目标、实现状态、安全处置、行为/Headless 证据和外部缺口；`docs/ui-test-evidence.csv` 把覆盖矩阵中的每个证据 ID 绑定到真实测试/脚本及唯一 Marker；`Test-MigrationEvidence.ps1` 校验无孤儿、重复或悬空证据。
+- `src/XXX.TestBench.Avalonia/Views`：运行总览、试验作业、工艺与手动、参数管理、数据查询与报表、硬件校准、日志与维护、绝缘耐压。
+- `src/XXX.TestBench.Avalonia/ViewModels`：21 个试验类唯一映射；9 个管理入口按用户/角色/权限/权限分配/车型/型号/项点/项点配置/试验参数建立专项会话字段和交互；组合查询/翻页；12 个输入通道/6 个 AO 槽位；本地校准公式；日志当天、七级、别名、倒序与 500 条边界；仪器参数校验；启动取消/Faulted、导航与安全门。
+- `tests/XXX.TestBench.Avalonia.Tests`：上述 ViewModel 行为和危险命令禁用。
+- `tests/XXX.TestBench.Avalonia.Headless.Tests`：独立 Headless 进程真实发送 Ctrl+1～Ctrl+8 并通过 ListBox 到达页面，验证 XAML、双向绑定、命令、AutomationProperties、44 高度交互目标、窄/宽布局和写入锁定。
 
-当前 UI 仅消费 P2 只读快照。Test00 尚未纳入 P2 五点，所以自动/手动控制按钮保持禁用；这不是功能缺失误报，而是按 Core 安全合同保持不可用。Avalonia 构建和 Headless 结果不能替代 UOS 目标机和真机验收。
+UI 覆盖不等于外部能力通过：参数管理只改变当前会话，真实登录/权限过滤、SQLite/INI、型号真实发布、项点动态 C# 文件副作用全部未接入；试验参数不虚构 Legacy 空白“参数界面”能力。日志关键字筛选是有意增强，历史 SQLite 日志仍未接入。报表默认不注入伪造记录，维护页不启用 Legacy 明确隐藏的三个功能，校准/手动/仪器设备命令全部固定禁用。Test00 尚未纳入 P2 五点，所以自动/手动入口继续按 Core 合同不可用。
 
 ## 12. Phase E 当前结论（2026-08-29）
 
 Phase E 的正式产物为 `phase-e-parity-and-cutover.md`、`phase-e-acceptance.md`、`phase-e-test-results.md` 和 `phase-e-packaging-and-launch.md`。本轮已验证 Windows Release 构建、Core/Gateway/Avalonia/Headless 自动化、Gateway Host 离线采样，以及 `win-x64`/`linux-x64` 自包含发布物；读异常后的 Bad→断开→新连接代次恢复和连接代次 UI 绑定也已补测。
 
-本轮只关闭 P2 离线仿真证据，不关闭 G0/P0。当前 Avalonia 可作为该只读切片的维护线，但旧 WinForms 仍保留为对照/回滚基线；真实认证、数据库产品选择、完整 B11 设备流程、OPC UA Host、UOS systemd、现场设备和所有写入能力均延期。
+本轮关闭 P2 离线仿真和 Phase D UI 覆盖/交互证据，不关闭 G0/P0，也不把 `ImplementedSessionOnly`、`ImplementedSafetyLocked` 或 `ExternalBlocked` 计为完整产品 parity。当前 Avalonia 可作为只读/UI 迁移维护线，但旧 WinForms 仍保留为对照/回滚基线；真实认证、SQLite、报表、完整 B11/EP 设备流程、OPC UA Host、UOS systemd、现场业务映射和所有写入能力仍延期。

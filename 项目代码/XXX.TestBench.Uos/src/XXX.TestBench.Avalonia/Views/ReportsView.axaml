@@ -1,0 +1,87 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:XXX.TestBench.Avalonia.ViewModels"
+             x:Class="XXX.TestBench.Avalonia.Views.ReportsView"
+             x:DataType="vm:ReportsViewModel"
+             AutomationProperties.Name="数据查询与报表">
+  <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
+    <StackPanel MinWidth="820" Spacing="11">
+      <TextBlock Text="数据查询与报表" FontSize="22" FontWeight="SemiBold" />
+      <TextBlock Text="{Binding PersistenceBoundaryText}" Classes="warning" TextWrapping="Wrap" />
+
+      <WrapPanel Orientation="Horizontal">
+        <StackPanel Width="150" Margin="0,0,8,8" Spacing="3">
+          <TextBlock Text="车型" Classes="caption" />
+          <TextBox Text="{Binding VehicleTypeFilter, Mode=TwoWay}" AutomationProperties.Name="报表车型筛选" />
+        </StackPanel>
+        <StackPanel Width="150" Margin="0,0,8,8" Spacing="3">
+          <TextBlock Text="产品型号" Classes="caption" />
+          <TextBox Text="{Binding ModelFilter, Mode=TwoWay}" AutomationProperties.Name="报表型号筛选" />
+        </StackPanel>
+        <StackPanel Width="165" Margin="0,0,8,8" Spacing="3">
+          <TextBlock Text="产品编号" Classes="caption" />
+          <TextBox Text="{Binding ProductNumberFilter, Mode=TwoWay}" AutomationProperties.Name="报表产品编号筛选" />
+        </StackPanel>
+        <StackPanel Width="145" Margin="0,0,8,8" Spacing="3">
+          <TextBlock Text="车号" Classes="caption" />
+          <TextBox Text="{Binding VehicleNumberFilter, Mode=TwoWay}" AutomationProperties.Name="报表车号筛选" />
+        </StackPanel>
+        <StackPanel Width="155" Margin="0,0,8,8" Spacing="3">
+          <TextBlock Text="开始日期" Classes="caption" />
+          <DatePicker SelectedDate="{Binding StartDate, Mode=TwoWay}" AutomationProperties.Name="报表开始日期" />
+        </StackPanel>
+        <StackPanel Width="155" Margin="0,0,8,8" Spacing="3">
+          <TextBlock Text="结束日期" Classes="caption" />
+          <DatePicker SelectedDate="{Binding EndDate, Mode=TwoWay}" AutomationProperties.Name="报表结束日期" />
+        </StackPanel>
+      </WrapPanel>
+      <Button x:Name="ReportQueryButton" Width="130" HorizontalAlignment="Left" Content="搜索"
+              Command="{Binding QueryCommand}" AutomationProperties.Name="搜索试验记录" />
+
+      <Grid ColumnDefinitions="*,14,310" MinHeight="330">
+        <Grid RowDefinitions="Auto,*">
+          <TextBlock Text="{Binding QueryResultText}" FontWeight="SemiBold" />
+          <ListBox Grid.Row="1" Margin="0,8,0,0" ItemsSource="{Binding Records}"
+                   SelectedItem="{Binding SelectedRecord, Mode=TwoWay}" AutomationProperties.Name="试验记录列表">
+            <ListBox.ItemTemplate>
+              <DataTemplate x:DataType="vm:ReportRecordViewModel">
+                <Border Margin="3" Padding="9" Background="#F8FAFC" CornerRadius="5">
+                  <Grid ColumnDefinitions="120,110,130,100,120,*" RowDefinitions="Auto,Auto">
+                    <TextBlock Text="{Binding VehicleType}" FontWeight="SemiBold" />
+                    <TextBlock Grid.Column="1" Text="{Binding Model}" />
+                    <TextBlock Grid.Column="2" Text="{Binding ProductNumber}" />
+                    <TextBlock Grid.Column="3" Text="{Binding VehicleNumber}" />
+                    <TextBlock Grid.Column="4" Text="{Binding Tester}" />
+                    <TextBlock Grid.Column="5" Text="{Binding UploadStatus}" HorizontalAlignment="Right" />
+                    <TextBlock Grid.Row="1" Grid.ColumnSpan="6" Text="{Binding TestTimeText}" Classes="caption" />
+                  </Grid>
+                </Border>
+              </DataTemplate>
+            </ListBox.ItemTemplate>
+          </ListBox>
+        </Grid>
+
+        <StackPanel Grid.Column="2" Spacing="8">
+          <TextBlock Text="报表预览入口" FontSize="17" FontWeight="SemiBold" />
+          <Border Padding="12" MinHeight="150" Background="#F4F7FA" CornerRadius="5">
+            <TextBlock Text="{Binding PreviewText}" TextWrapping="Wrap" />
+          </Border>
+          <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
+            <Button Content="上翻" Command="{Binding PreviousPageCommand}" IsEnabled="{Binding CanPreviousPage}"
+                    AutomationProperties.Name="报表上翻" />
+            <Button Grid.Column="1" Content="下翻" Command="{Binding NextPageCommand}" IsEnabled="{Binding CanNextPage}"
+                    AutomationProperties.Name="报表下翻" />
+          </Grid>
+          <Button Content="查看报表" Command="{Binding ViewReportCommand}" IsEnabled="{Binding CanViewReport}"
+                  AutomationProperties.Name="查看报表" />
+          <Button Content="打印报表" IsEnabled="False" AutomationProperties.Name="打印报表" />
+          <Button Content="重新上传" Command="{Binding RetryUploadCommand}" IsEnabled="{Binding CanRetryUpload}"
+                  AutomationProperties.Name="重新上传报表" />
+          <Button Content="删除记录" Command="{Binding DeleteRecordCommand}" IsEnabled="{Binding CanDeleteRecord}"
+                  AutomationProperties.Name="删除试验记录" />
+          <TextBlock Text="{Binding FeedbackText}" TextWrapping="Wrap" Classes="secondary" />
+        </StackPanel>
+      </Grid>
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>

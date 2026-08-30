@@ -7,21 +7,26 @@ namespace XXX.TestBench.Avalonia;
 
 public partial class App : Application
 {
-    private AppComposition? _composition;
-
     public override void Initialize() => AvaloniaXamlLoader.Load(this);
 
     public override void OnFrameworkInitializationCompleted()
     {
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
-            _composition = AppComposition.Create();
+            var composition = AppComposition.Create();
+            var lifetimeCancellation = new CancellationTokenSource();
             desktop.MainWindow = new MainWindow
             {
-                DataContext = _composition.MainWindow
+                DataContext = composition.MainWindow
             };
-            desktop.Exit += (_, _) => _composition.DisposeAsync().AsTask().GetAwaiter().GetResult();
-            _ = _composition.MainWindow.StartAsync();
+            desktop.Exit += (_, _) =>
+            {
+                // 先取消尚未完成的只读轮询，再释放 Runtime，避免退出后迟到结果回写 UI。
+                lifetimeCancellation.Cancel();
+                composition.DisposeAsync().AsTask().GetAwaiter().GetResult();
+                lifetimeCancellation.Dispose();
+            };
+            _ = composition.MainWindow.StartAsync(lifetimeCancellation.Token);
         }
 
         base.OnFrameworkInitializationCompleted();

@@ -1,0 +1,75 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:XXX.TestBench.Avalonia.ViewModels"
+             x:Class="XXX.TestBench.Avalonia.Views.OverviewView"
+             x:DataType="vm:MainWindowViewModel"
+             AutomationProperties.Name="运行总览">
+  <Grid ColumnDefinitions="300,12,*">
+    <ScrollViewer Grid.Column="0" VerticalScrollBarVisibility="Auto">
+      <StackPanel Spacing="12">
+        <TextBlock Text="试验流程" FontSize="20" FontWeight="SemiBold" />
+        <TextBlock Text="{Binding WorkflowText}" TextWrapping="Wrap" Classes="secondary" />
+        <TextBlock Text="产品标识" Classes="caption" />
+        <TextBox x:Name="ProductIdInput" Text="{Binding ProductId, Mode=TwoWay}"
+                 Watermark="输入产品标识" AutomationProperties.Name="产品标识输入框" />
+        <Button Content="选择产品" Command="{Binding SelectProductCommand}"
+                IsEnabled="{Binding CanSelectProduct}" AutomationProperties.Name="选择产品" />
+        <Button x:Name="LoginButton" Content="进入仿真会话" Command="{Binding LoginCommand}"
+                IsEnabled="{Binding CanLogin}" AutomationProperties.Name="进入仿真会话" />
+        <Button x:Name="RefreshButton" Content="刷新只读数据" Command="{Binding RefreshCommand}"
+                IsEnabled="{Binding CanRefresh}" AutomationProperties.Name="刷新只读数据" />
+        <Border Padding="10" CornerRadius="5" Background="#F4F7FA">
+          <StackPanel Spacing="5">
+            <TextBlock Text="运行方式" Classes="caption" />
+            <TextBlock Text="{Binding TransportModeText}" />
+            <TextBlock Text="{Binding TestModeText}" />
+            <TextBlock Text="{Binding WritesText}" Foreground="#A33A2B" TextWrapping="Wrap" />
+          </StackPanel>
+        </Border>
+        <TextBlock Text="核心命令" FontSize="16" FontWeight="SemiBold" />
+        <Button Content="启动自动试验" Command="{Binding StartAutomaticTestCommand}"
+                IsEnabled="{Binding CanStartAutomaticTest}" AutomationProperties.Name="启动自动试验" />
+        <Button Content="进入手动模式" Command="{Binding EnterManualCommand}"
+                IsEnabled="{Binding CanEnterManual}" AutomationProperties.Name="进入手动模式" />
+        <Button Content="请求停止" Command="{Binding StopCommand}"
+                IsEnabled="{Binding CanStop}" AutomationProperties.Name="请求停止" />
+        <Button Content="故障恢复" Command="{Binding RecoverFaultCommand}"
+                IsEnabled="{Binding CanRecoverFault}" AutomationProperties.Name="故障恢复" />
+      </StackPanel>
+    </ScrollViewer>
+
+    <Grid Grid.Column="2" RowDefinitions="Auto,*,Auto">
+      <Grid Grid.Row="0" ColumnDefinitions="*,Auto">
+        <StackPanel Spacing="3">
+          <TextBlock Text="首条只读业务切片" FontSize="20" FontWeight="SemiBold" />
+          <TextBlock Text="压力调整阀 B11 / P2 五点" Classes="secondary" />
+        </StackPanel>
+        <TextBlock Grid.Column="1" Text="{Binding LastSampleText}" VerticalAlignment="Center" Classes="secondary" />
+      </Grid>
+      <ScrollViewer Grid.Row="1" Margin="0,12" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
+        <ItemsControl ItemsSource="{Binding Points}" MinWidth="650">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="vm:PointDisplayViewModel">
+              <Border Margin="0,0,0,8" Padding="11" CornerRadius="5" Background="#F8FAFC">
+                <Grid ColumnDefinitions="210,*,100,90,70" RowDefinitions="Auto,Auto">
+                  <TextBlock Grid.Row="0" Grid.RowSpan="2" Text="{Binding PointId}" VerticalAlignment="Center" FontWeight="SemiBold" TextWrapping="Wrap" />
+                  <TextBlock Grid.Column="1" Text="{Binding Description}" Classes="secondary" TextWrapping="Wrap" />
+                  <TextBlock Grid.Column="2" Text="{Binding DisplayValue}" HorizontalAlignment="Right" FontSize="18" FontWeight="SemiBold" />
+                  <TextBlock Grid.Column="3" Text="{Binding QualityText}" HorizontalAlignment="Center" Foreground="{Binding QualityColor}" />
+                  <StackPanel Grid.Column="4" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="2">
+                    <TextBlock Text="#" Classes="secondary" />
+                    <TextBlock Text="{Binding ConnectionGeneration}" Classes="secondary" />
+                  </StackPanel>
+                  <TextBlock Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="4" Text="{Binding DetailText}" Classes="caption" TextWrapping="Wrap" />
+                </Grid>
+              </Border>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </ScrollViewer>
+      <Border Grid.Row="2" Padding="10" CornerRadius="5" Background="#FFF8E1">
+        <TextBlock Text="{Binding FeedbackText}" TextWrapping="Wrap" AutomationProperties.Name="运行反馈" />
+      </Border>
+    </Grid>
+  </Grid>
+</UserControl>

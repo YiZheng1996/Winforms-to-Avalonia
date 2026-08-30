@@ -1,0 +1,173 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:XXX.TestBench.Avalonia.ViewModels"
+             x:Class="XXX.TestBench.Avalonia.Views.ManagementView"
+             x:DataType="vm:ManagementViewModel"
+             AutomationProperties.Name="参数管理">
+  <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
+    <Grid MinWidth="1080" ColumnDefinitions="220,14,*,14,390" RowDefinitions="Auto,*">
+      <StackPanel Grid.ColumnSpan="5" Margin="0,0,0,12" Spacing="3">
+        <TextBlock Text="参数管理" FontSize="22" FontWeight="SemiBold" />
+        <TextBlock Text="{Binding PersistenceBoundaryText}" Classes="warning" TextWrapping="Wrap" />
+      </StackPanel>
+
+      <ListBox x:Name="ManagementCategoryList" Grid.Row="1" Grid.Column="0"
+               ItemsSource="{Binding Categories}" SelectedItem="{Binding SelectedCategory, Mode=TwoWay}"
+               AutomationProperties.Name="参数管理模块">
+        <ListBox.ItemTemplate>
+          <DataTemplate x:DataType="vm:ManagementCategoryViewModel">
+            <StackPanel Margin="5,8" Spacing="2">
+              <TextBlock Text="{Binding Title}" FontWeight="SemiBold" />
+              <TextBlock Text="{Binding Fields}" Classes="caption" TextWrapping="Wrap" />
+            </StackPanel>
+          </DataTemplate>
+        </ListBox.ItemTemplate>
+      </ListBox>
+
+      <Grid Grid.Row="1" Grid.Column="2" RowDefinitions="Auto,Auto,*">
+        <TextBlock Text="{Binding CategoryTitle}" FontSize="18" FontWeight="SemiBold" />
+        <StackPanel Grid.Row="1" Margin="0,4,0,9" Spacing="3">
+          <TextBlock Text="{Binding CategoryFields}" Classes="secondary" TextWrapping="Wrap" />
+          <TextBlock Text="{Binding CategoryEvidence}" Classes="caption" TextWrapping="Wrap" />
+          <!-- 每个外部副作用都在界面上给出状态，防止把会话演示误认为正式授权或持久化。 -->
+          <TextBlock Text="{Binding CategoryBoundaryText}" Classes="warning" TextWrapping="Wrap" />
+          <TextBlock Text="{Binding RecordSummary}" Classes="caption" />
+        </StackPanel>
+        <ListBox x:Name="ManagementRecordList" Grid.Row="2" ItemsSource="{Binding Records}"
+                 SelectedItem="{Binding SelectedRecord, Mode=TwoWay}" AutomationProperties.Name="参数记录列表">
+          <ListBox.ItemTemplate>
+            <DataTemplate x:DataType="vm:ManagementRecordViewModel">
+              <Border Margin="3" Padding="8" Background="#F8FAFC" CornerRadius="4">
+                <StackPanel Spacing="2">
+                  <TextBlock Text="{Binding Name}" FontWeight="SemiBold" />
+                  <TextBlock Text="{Binding Code}" Classes="caption" />
+                  <TextBlock Text="{Binding Description}" Classes="secondary" TextWrapping="Wrap" />
+                  <TextBlock Text="{Binding Status}" Classes="caption" />
+                </StackPanel>
+              </Border>
+            </DataTemplate>
+          </ListBox.ItemTemplate>
+        </ListBox>
+      </Grid>
+
+      <StackPanel Grid.Row="1" Grid.Column="4" Spacing="8">
+        <TextBlock Text="会话内编辑" FontSize="18" FontWeight="SemiBold" />
+
+        <TextBlock Text="{Binding NameLabel}" Classes="caption" />
+        <TextBox x:Name="ManagementNameInput" IsVisible="{Binding ShowNameTextInput}"
+                 Text="{Binding DraftName, Mode=TwoWay}" MaxLength="100"
+                 AutomationProperties.Name="{Binding NameLabel}" />
+        <ComboBox x:Name="ManagementNameSelector" IsVisible="{Binding NameUsesSelection}"
+                  ItemsSource="{Binding NameOptions}" SelectedItem="{Binding DraftName, Mode=TwoWay}"
+                  AutomationProperties.Name="{Binding NameLabel}" />
+
+        <StackPanel IsVisible="{Binding ShowCode}" Spacing="4">
+          <TextBlock Text="{Binding CodeLabel}" Classes="caption" />
+          <TextBox x:Name="ManagementCodeInput" IsVisible="{Binding ShowCodeTextInput}"
+                   Text="{Binding DraftCode, Mode=TwoWay}" MaxLength="100"
+                   AutomationProperties.Name="{Binding CodeLabel}" />
+          <ComboBox x:Name="ManagementCodeSelector" IsVisible="{Binding CodeUsesSelection}"
+                    ItemsSource="{Binding CodeOptions}" SelectedItem="{Binding DraftCode, Mode=TwoWay}"
+                    AutomationProperties.Name="{Binding CodeLabel}" />
+        </StackPanel>
+
+        <StackPanel IsVisible="{Binding ShowDescription}" Spacing="4">
+          <TextBlock Text="{Binding DescriptionLabel}" Classes="caption" />
+          <TextBox x:Name="ManagementDescriptionInput" IsVisible="{Binding ShowDescriptionTextInput}"
+                   Text="{Binding DraftDescription, Mode=TwoWay}"
+                   MaxLength="500" AcceptsReturn="True" Height="76"
+                   AutomationProperties.Name="{Binding DescriptionLabel}" />
+          <ComboBox x:Name="ManagementDescriptionSelector" IsVisible="{Binding DescriptionUsesSelection}"
+                    ItemsSource="{Binding DescriptionOptions}" SelectedItem="{Binding DraftDescription, Mode=TwoWay}"
+                    AutomationProperties.Name="{Binding DescriptionLabel}" />
+        </StackPanel>
+
+        <!-- 专属字段由 ViewModel 的字段定义驱动；文本和布尔值仍走同一条新增/修改命令路径。 -->
+        <ItemsControl IsVisible="{Binding HasEditorFields}" ItemsSource="{Binding EditorFields}">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="vm:ManagementFieldViewModel">
+              <StackPanel Margin="0,0,0,7" Spacing="4">
+                <TextBlock IsVisible="{Binding IsText}" Text="{Binding Label}" Classes="caption" />
+                <TextBox IsVisible="{Binding IsText}" Text="{Binding Value, Mode=TwoWay}" MaxLength="260"
+                         AutomationProperties.Name="{Binding Label}" />
+                <CheckBox IsVisible="{Binding IsBoolean}" Content="{Binding Label}"
+                          IsChecked="{Binding BooleanValue, Mode=TwoWay}"
+                          AutomationProperties.Name="{Binding Label}" />
+              </StackPanel>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+
+        <Border IsVisible="{Binding ShowPermissionChecklist}" Padding="9" Background="#F8FAFC" CornerRadius="5">
+          <StackPanel Spacing="6">
+            <TextBlock Text="权限勾选（至少一项）" FontWeight="SemiBold" />
+            <TextBlock Text="候选权限来自本页“权限管理”的会话记录；未接入真实授权库。"
+                       Classes="caption" TextWrapping="Wrap" />
+            <ItemsControl x:Name="ManagementPermissionList" ItemsSource="{Binding PermissionOptions}"
+                          AutomationProperties.Name="权限勾选列表">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:ManagementOptionViewModel">
+                  <CheckBox Margin="0,2" Content="{Binding Name}" IsChecked="{Binding IsSelected, Mode=TwoWay}"
+                            AutomationProperties.Name="{Binding Name}" />
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </StackPanel>
+        </Border>
+
+        <!-- Legacy 项点配置的左右列表顺序有业务意义；移动命令只改变会话顺序，不触发外部写库。 -->
+        <Border IsVisible="{Binding ShowDualList}" Padding="9" Background="#F8FAFC" CornerRadius="5">
+          <StackPanel Spacing="7">
+            <TextBlock Text="项点配置（顺序保留）" FontWeight="SemiBold" />
+            <TextBlock Text="候选项点来自同车型的“项点管理”会话记录；配置页不能新建项点。"
+                       Classes="caption" TextWrapping="Wrap" />
+            <Grid ColumnDefinitions="*,Auto,*" ColumnSpacing="7">
+              <StackPanel Spacing="4">
+                <TextBlock Text="已配置项点" Classes="caption" />
+                <ListBox x:Name="ManagementConfiguredList" Height="140" ItemsSource="{Binding ConfiguredOptions}"
+                         SelectedItem="{Binding SelectedConfiguredOption, Mode=TwoWay}"
+                         AutomationProperties.Name="已配置项点列表">
+                  <ListBox.ItemTemplate>
+                    <DataTemplate x:DataType="vm:ManagementOptionViewModel">
+                      <TextBlock Text="{Binding Name}" />
+                    </DataTemplate>
+                  </ListBox.ItemTemplate>
+                </ListBox>
+              </StackPanel>
+              <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="7">
+                <Button x:Name="ManagementMoveToConfiguredButton" Content="←" Command="{Binding MoveToConfiguredCommand}"
+                        IsEnabled="{Binding CanMoveToConfigured}" AutomationProperties.Name="配置选中项点" />
+                <Button x:Name="ManagementMoveToAvailableButton" Content="→" Command="{Binding MoveToAvailableCommand}"
+                        IsEnabled="{Binding CanMoveToAvailable}" AutomationProperties.Name="移回选中项点" />
+              </StackPanel>
+              <StackPanel Grid.Column="2" Spacing="4">
+                <TextBlock Text="候选项点" Classes="caption" />
+                <ListBox x:Name="ManagementAvailableList" Height="140" ItemsSource="{Binding AvailableOptions}"
+                         SelectedItem="{Binding SelectedAvailableOption, Mode=TwoWay}"
+                         AutomationProperties.Name="候选项点列表">
+                  <ListBox.ItemTemplate>
+                    <DataTemplate x:DataType="vm:ManagementOptionViewModel">
+                      <TextBlock Text="{Binding Name}" />
+                    </DataTemplate>
+                  </ListBox.ItemTemplate>
+                </ListBox>
+              </StackPanel>
+            </Grid>
+          </StackPanel>
+        </Border>
+
+        <Button x:Name="ManagementAddButton" Content="新增" Command="{Binding AddCommand}" IsEnabled="{Binding CanAdd}"
+                AutomationProperties.Name="新增参数记录" />
+        <Button x:Name="ManagementUpdateButton" Content="修改" Command="{Binding UpdateCommand}" IsEnabled="{Binding CanUpdate}"
+                AutomationProperties.Name="修改参数记录" />
+        <Button x:Name="ManagementDeleteButton" Content="删除" Command="{Binding DeleteCommand}" IsEnabled="{Binding CanDelete}"
+                AutomationProperties.Name="删除参数记录" />
+        <Button x:Name="ManagementPublishButton" IsVisible="{Binding ShowPublishAction}" Content="会话内发布"
+                Command="{Binding PublishSelectedCommand}" IsEnabled="{Binding CanPublishSelected}"
+                AutomationProperties.Name="会话内发布型号" />
+        <Button Content="清空输入" Command="{Binding ResetCommand}" AutomationProperties.Name="清空参数输入" />
+        <TextBlock Text="{Binding FeedbackText}" TextWrapping="Wrap" Classes="secondary" />
+      </StackPanel>
+    </Grid>
+  </ScrollViewer>
+</UserControl>

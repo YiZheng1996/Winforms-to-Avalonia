@@ -1,0 +1,63 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:XXX.TestBench.Avalonia.ViewModels"
+             x:Class="XXX.TestBench.Avalonia.Views.ProcessOverviewView"
+             x:DataType="vm:ProcessOverviewViewModel"
+             AutomationProperties.Name="工艺与手动">
+  <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
+    <StackPanel MinWidth="720" Spacing="12">
+      <TextBlock Text="工艺与手动" FontSize="22" FontWeight="SemiBold" />
+      <TextBlock Text="{Binding BoundaryText}" Classes="warning" TextWrapping="Wrap" />
+
+      <TextBlock Text="当前可验证只读点" FontSize="17" FontWeight="SemiBold" />
+      <ItemsControl ItemsSource="{Binding AvailableSignals}">
+        <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="vm:PointDisplayViewModel">
+            <Border Margin="0,0,0,6" Padding="9" Background="#F8FAFC" CornerRadius="5">
+              <Grid ColumnDefinitions="240,*,100,90">
+                <TextBlock Text="{Binding PointId}" FontWeight="SemiBold" />
+                <TextBlock Grid.Column="1" Text="{Binding Description}" Classes="secondary" />
+                <TextBlock Grid.Column="2" Text="{Binding DisplayValue}" HorizontalAlignment="Right" />
+                <TextBlock Grid.Column="3" Text="{Binding QualityText}" HorizontalAlignment="Right" Foreground="{Binding QualityColor}" />
+              </Grid>
+            </Border>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+
+      <TextBlock Text="Legacy 信号分组" FontSize="17" FontWeight="SemiBold" />
+      <ItemsControl ItemsSource="{Binding LegacySignalGroups}">
+        <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="vm:LegacySignalGroupViewModel">
+            <Border Margin="0,0,0,6" Padding="10" BorderBrush="#D0D7DE" BorderThickness="1" CornerRadius="5">
+              <Grid ColumnDefinitions="150,210,*">
+                <TextBlock Text="{Binding Title}" FontWeight="SemiBold" />
+                <TextBlock Grid.Column="1" Text="{Binding Points}" />
+                <TextBlock Grid.Column="2" Text="{Binding StatusText}" Classes="secondary" TextWrapping="Wrap" />
+              </Grid>
+            </Border>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+
+      <TextBlock Text="手动输出与复位（安全锁定）" FontSize="17" FontWeight="SemiBold" />
+      <ItemsControl ItemsSource="{Binding Outputs}">
+        <ItemsControl.ItemsPanel>
+          <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
+        </ItemsControl.ItemsPanel>
+        <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="vm:OutputControlViewModel">
+            <Border Width="220" Margin="0,0,8,8" Padding="10" Background="#FFF3F0" CornerRadius="5">
+              <StackPanel Spacing="5">
+                <TextBlock Text="{Binding Name}" FontWeight="SemiBold" />
+                <TextBlock Text="{Binding Purpose}" Classes="caption" />
+                <Button Content="{Binding StatusText}" IsEnabled="{Binding IsEnabled}"
+                        AutomationProperties.Name="{Binding Name}" />
+              </StackPanel>
+            </Border>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>

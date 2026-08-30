@@ -1,0 +1,73 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:XXX.TestBench.Avalonia.ViewModels"
+             x:Class="XXX.TestBench.Avalonia.Views.InstrumentView"
+             x:DataType="vm:InstrumentViewModel"
+             AutomationProperties.Name="绝缘耐压">
+  <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
+    <StackPanel MinWidth="720" Spacing="11">
+      <TextBlock Text="绝缘耐压电阻测试" FontSize="22" FontWeight="SemiBold" />
+      <TextBlock Text="{Binding SafetyBoundaryText}" Classes="warning" TextWrapping="Wrap" />
+
+      <Grid ColumnDefinitions="*,14,*">
+        <StackPanel Spacing="8">
+          <TextBlock Text="服务器连接" FontSize="17" FontWeight="SemiBold" />
+          <TextBlock Text="IP 地址" Classes="caption" />
+          <TextBox x:Name="InstrumentIpInput" Text="{Binding IpAddress, Mode=TwoWay}"
+                   AutomationProperties.Name="仪器 IP 地址" />
+          <TextBlock Text="端口号" Classes="caption" />
+          <NumericUpDown Value="{Binding Port, Mode=TwoWay}" Minimum="1" Maximum="65535" Increment="1"
+                         AutomationProperties.Name="仪器端口号" />
+          <TextBlock Text="{Binding ConnectionStatusText}" />
+          <Button Content="连接服务器" Command="{Binding ConnectCommand}" IsEnabled="{Binding CanUseDeviceCommands}"
+                  AutomationProperties.Name="连接绝缘仪器" />
+        </StackPanel>
+
+        <StackPanel Grid.Column="2" Spacing="8">
+          <TextBlock Text="试验参数" FontSize="17" FontWeight="SemiBold" />
+          <TextBlock Text="试验类型" Classes="caption" />
+          <ComboBox ItemsSource="{Binding TestTypes}" SelectedItem="{Binding SelectedTestType, Mode=TwoWay}"
+                    AutomationProperties.Name="绝缘试验类型" />
+          <Grid ColumnDefinitions="*,*,*" RowDefinitions="Auto,Auto,Auto,Auto" ColumnSpacing="8" RowSpacing="6">
+            <TextBlock Text="耐压电压(V)" Classes="caption" />
+            <TextBlock Grid.Column="1" Text="时间(S)" Classes="caption" />
+            <TextBlock Grid.Column="2" Text="限值(mA)" Classes="caption" />
+            <NumericUpDown Grid.Row="1" Value="{Binding WithstandVoltage, Mode=TwoWay}" Minimum="0"
+                           AutomationProperties.Name="耐压试验电压" />
+            <NumericUpDown Grid.Row="1" Grid.Column="1" Value="{Binding WithstandSeconds, Mode=TwoWay}" Minimum="0"
+                           AutomationProperties.Name="耐压试验时间" />
+            <NumericUpDown Grid.Row="1" Grid.Column="2" Value="{Binding WithstandLimit, Mode=TwoWay}" Minimum="0"
+                           AutomationProperties.Name="耐压电流限值" />
+            <TextBlock Grid.Row="2" Text="绝缘电压(V)" Classes="caption" />
+            <TextBlock Grid.Row="2" Grid.Column="1" Text="限值(MΩ)" Classes="caption" />
+            <TextBlock Grid.Row="2" Grid.Column="2" Text="电阻限值(Ω)" Classes="caption" />
+            <NumericUpDown Grid.Row="3" Value="{Binding InsulationVoltage, Mode=TwoWay}" Minimum="0"
+                           AutomationProperties.Name="绝缘试验电压" />
+            <NumericUpDown Grid.Row="3" Grid.Column="1" Value="{Binding InsulationLimit, Mode=TwoWay}" Minimum="0"
+                           AutomationProperties.Name="绝缘电阻限值" />
+            <NumericUpDown Grid.Row="3" Grid.Column="2" Value="{Binding ResistanceLimit, Mode=TwoWay}" Minimum="0"
+                           AutomationProperties.Name="电阻测试限值" />
+          </Grid>
+          <Button x:Name="InstrumentValidateButton" Content="校验参数格式" Command="{Binding ValidateDraftCommand}"
+                  AutomationProperties.Name="校验绝缘参数" />
+        </StackPanel>
+      </Grid>
+
+      <Grid ColumnDefinitions="*,*,*,*,*" ColumnSpacing="8">
+        <Button Content="发送试验参数" Command="{Binding SendParametersCommand}" IsEnabled="{Binding CanUseDeviceCommands}"
+                AutomationProperties.Name="发送绝缘参数" />
+        <Button Grid.Column="1" Content="请求试验" Command="{Binding RequestTestCommand}" IsEnabled="{Binding CanUseDeviceCommands}"
+                AutomationProperties.Name="请求绝缘试验" />
+        <Button Grid.Column="2" Content="结束试验" Command="{Binding EndTestCommand}" IsEnabled="{Binding CanUseDeviceCommands}"
+                AutomationProperties.Name="结束绝缘试验" />
+        <Button Grid.Column="3" Content="取消试验" Command="{Binding CancelTestCommand}" IsEnabled="{Binding CanUseDeviceCommands}"
+                AutomationProperties.Name="取消绝缘试验" />
+        <Button Grid.Column="4" Content="电阻测试" Command="{Binding RequestTestCommand}" IsEnabled="{Binding CanUseDeviceCommands}"
+                AutomationProperties.Name="请求电阻测试" />
+      </Grid>
+      <Border Padding="10" Background="#F4F7FA" CornerRadius="5">
+        <TextBlock Text="{Binding FeedbackText}" TextWrapping="Wrap" />
+      </Border>
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>

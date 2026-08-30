@@ -1,6 +1,6 @@
 # Phase E：Cutover Checklist
 
-日期：2026-08-29  
+日期：2026-08-30
 当前判定：`CUTOVER_NOT_READY`  
 允许范围：Avalonia P2 只读离线仿真作为 Windows 开发/演示维护线  
 不允许范围：现场生产唯一实现、启用写入、删除旧 WinForms、宣称 UOS/PLC/Modbus 业务兼容已验收。信捷 `192.168.0.51:502` 已完成仅读协议探针，但尚未完成 P2 映射验收。
@@ -21,7 +21,10 @@
 - [x] DI00 Unknown/Bad/false 与 Test00 手动门禁有 Core/UI 证据。
 - [x] B11 纯范围判定、人工调整、通过和最大次数失败有合同测试。
 - [x] 读异常后的 Bad→断开→下一轮重连/新代次有 Runtime 测试。
-- [x] Windows Release 构建、Windows Host 包内 config 启动和 Windows Avalonia apphost 启动已验证。
+- [x] 51 个 Legacy Designer 均有唯一 Avalonia 目标、实现状态、行为/Headless 证据、安全处置和剩余缺口；证据脚本验证无孤儿/重复。
+- [ ] 8 个任务页、21 个试验类、9 个管理专项模块、Legacy 日志日期/七级语义和 6 个 AO 槽位已有源码与测试；管理/日志最后修订后的 VM/Headless 顺序复验与日志归档待完成。
+- [x] Zero/Gain、VX/AO/DO、复位、Test00/自动试验、仪器通信、报表删除/重传的命令自身保持不可执行。
+- [ ] Windows Release 构建、Windows Host 包内 config 启动和 Windows Avalonia apphost 启动需针对本轮最终源码重新验证；旧结果早于最后的管理/日志修订。
 - [ ] 真实登录、权限、型号/参数数据库和旧数据迁移验证。
 - [ ] 完整 B11 设备动作、时序、人工确认、取消、收尾、记录与报表验证。
 - [ ] OPC UA Server/证书/只读地址空间/权限和 HMI 链路验证。
@@ -32,10 +35,10 @@
 
 ## 3. Packaging / operations
 
-- [x] Avalonia `win-x64` 自包含包生成于 `D:\Codex相关\phase-e\publish\avalonia-win-x64`。
-- [x] Avalonia `linux-x64` 自包含候选包生成于 `D:\Codex相关\phase-e\publish\avalonia-linux-x64`。
-- [x] Gateway Host `win-x64`/`linux-x64` 自包含包已生成，包内包含 `config\gatewaysettings.json`。
-- [x] 发布目录精确旧依赖名扫描未发现 `Interop.OPCAutomation.dll`、SunnyUI、AntdUI、rw3、rwdsl2、Office 或 Report.dll。
+- [ ] 针对最终源码重新生成 Avalonia `win-x64` 自包含包到 `D:\Codex相关\phase-d-ui-2026-08-30\publish\avalonia-win-x64`。
+- [ ] 针对最终源码重新生成 Avalonia `linux-x64` 自包含候选包到 `D:\Codex相关\phase-d-ui-2026-08-30\publish\avalonia-linux-x64`。
+- [ ] 针对最终源码重新生成 Gateway Host `win-x64`/`linux-x64` 自包含包，并验证包内 `config\gatewaysettings.json`。
+- [ ] 对四个新发布目录重新执行精确旧依赖名扫描；不得沿用早于管理/日志修订的扫描结论。
 - [ ] 目标 UOS 现场安装/启动/卸载或升级替换策略。
 - [ ] systemd unit、专用非 root 用户、权限、自动重启和日志轮转。
 - [ ] 包哈希、SBOM、许可证扫描和现场介质归档。
@@ -60,8 +63,8 @@
 
 只有同时满足以下条件才可重新评审：
 
-1. E-BLK-01～E-BLK-04 的目标机、真实设备和 OPC UA 证据全部归档；
+1. E-BLK-01～E-BLK-05 的目标机、真实设备、信捷业务映射和 OPC UA 证据全部归档；
 2. E-HIGH-01～E-HIGH-04 的认证、完整 B11、写安全、数据库/报表链路完成并通过回归；
 3. Phase A 全部必需能力逐项有自动化或现场记录，所有有意差异有审批；
 4. 发布、升级、回滚、旧系统观察期和异常处置演练完成；
-5. 形成可追踪的 Git 提交/分支基线。该项已具备：远端 `main` 当前为 `863480b9ef90afafdb2b6de416f1efe4c311da2f`，并已完成独立 clone 复现；其余现场和产品条件仍未满足。
+5. 形成可追踪的 Git 提交/分支基线。本轮起点为 `acf604f54a998a4e35d0e64476cb6350d7978a44`；本轮实现恢复点及独立 clone 结果在中文提交推送后登记。其余现场和产品条件仍未满足。

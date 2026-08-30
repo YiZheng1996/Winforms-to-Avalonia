@@ -1,12 +1,16 @@
 using System.Collections.ObjectModel;
 using System.Windows.Input;
 using XXX.TestBench.Avalonia.Composition;
+using XXX.TestBench.Avalonia.Localization;
 using XXX.TestBench.Core.Application;
 using XXX.TestBench.Gateway.Domain;
 using XXX.TestBench.Gateway.Infrastructure;
 
 namespace XXX.TestBench.Avalonia.ViewModels;
 
+/// <summary>
+/// Avalonia 组合后的主状态源：负责导航和 Core/只读 Gateway 协调，不直接访问 PLC、数据库或仪器。
+/// </summary>
 public sealed class MainWindowViewModel : ObservableObject, IDisposable
 {
     private readonly TestBenchStateMachine _stateMachine;
@@ -14,6 +18,9 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     private readonly UiGatewayLogSink? _log;
     private readonly string _configPath;
     private readonly string _transportMode;
+    private readonly string? _startupError;
+    private readonly PresentationTextCatalog _texts;
+    private readonly CancellationTokenSource _lifetimeCancellation = new();
     private BenchStateSnapshot _state;
     private GatewayPollSnapshot? _gatewaySnapshot;
     private string _productId = "B11-Offline-Demo";
@@ -21,6 +28,8 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     private string _lastLogText = "暂无日志";
     private bool _isBusy;
     private bool _started;
+    private bool _disposed;
+    private NavigationItemViewModel _selectedNavigationItem;
 
     public MainWindowViewModel(
         TestBenchStateMachine stateMachine,
@@ -28,13 +37,16 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         UiGatewayLogSink? log,
         string configPath,
         string transportMode,
-        string? startupError = null)
+        string? startupError = null,
+        PresentationTextCatalog? texts = null)
     {
         _stateMachine = stateMachine ?? throw new ArgumentNullException(nameof(stateMachine));
         _runtime = runtime;
         _log = log;
         _configPath = configPath;
         _transportMode = transportMode;
+        _startupError = startupError;
+        _texts = texts ?? new PresentationTextCatalog();
         _state = _stateMachine.Snapshot;
         _feedbackText = startupError ?? "等待初始化通信和应用核心。";
 
@@ -51,6 +63,29 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
 
         if (_log is not null)
             _log.EntryWritten += OnLogEntry;
+
+        // 按用户任务而不是 Legacy 控件类型拆分页面；每个页面共享同一 Core/Gateway 状态源。
+        TestOperation = new TestOperationViewModel(this);
+        ProcessOverview = new ProcessOverviewViewModel(Points);
+        Management = new ManagementViewModel();
+        Reports = new ReportsViewModel();
+        Calibration = new CalibrationViewModel();
+        Diagnostics = new DiagnosticsViewModel(_log);
+        Instrument = new InstrumentViewModel();
+
+        NavigationItems = new ReadOnlyCollection<NavigationItemViewModel>(
+        [
+            CreateNavigation("overview", "Nav.Overview"),
+            CreateNavigation("test", "Nav.Test"),
+            CreateNavigation("process", "Nav.Process"),
+            CreateNavigation("management", "Nav.Management"),
+            CreateNavigation("reports", "Nav.Reports"),
+            CreateNavigation("calibration", "Nav.Calibration"),
+            CreateNavigation("diagnostics", "Nav.Diagnostics"),
+            CreateNavigation("instrument", "Nav.Instrument")
+        ]);
+        _selectedNavigationItem = NavigationItems[0];
+        NavigateCommand = new RelayCommand(Navigate);
     }
 
     public ObservableCollection<PointDisplayViewModel> Points { get; }
@@ -61,8 +96,47 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     public ICommand EnterManualCommand { get; }
     public ICommand StopCommand { get; }
     public ICommand RecoverFaultCommand { get; }
+    public ICommand NavigateCommand { get; }
+    public IReadOnlyList<NavigationItemViewModel> NavigationItems { get; }
+    public TestOperationViewModel TestOperation { get; }
+    public ProcessOverviewViewModel ProcessOverview { get; }
+    public ManagementViewModel Management { get; }
+    public ReportsViewModel Reports { get; }
+    public CalibrationViewModel Calibration { get; }
+    public DiagnosticsViewModel Diagnostics { get; }
+    public InstrumentViewModel Instrument { get; }
 
-    public string AppTitle => "XXX 试验台";
+    public string AppTitle => _texts.Get("App.Title");
+    public NavigationItemViewModel SelectedNavigationItem
+    {
+        get => _selectedNavigationItem;
+        set
+        {
+            if (value is null || !SetProperty(ref _selectedNavigationItem, value))
+                return;
+            OnPropertyChanged(nameof(SelectedPageTitle));
+            OnPropertyChanged(nameof(SelectedPageDescription));
+            OnPropertyChanged(nameof(IsOverviewVisible));
+            OnPropertyChanged(nameof(IsTestOperationVisible));
+            OnPropertyChanged(nameof(IsProcessOverviewVisible));
+            OnPropertyChanged(nameof(IsManagementVisible));
+            OnPropertyChanged(nameof(IsReportsVisible));
+            OnPropertyChanged(nameof(IsCalibrationVisible));
+            OnPropertyChanged(nameof(IsDiagnosticsVisible));
+            OnPropertyChanged(nameof(IsInstrumentVisible));
+        }
+    }
+
+    public string SelectedPageTitle => SelectedNavigationItem.Title;
+    public string SelectedPageDescription => SelectedNavigationItem.Description;
+    public bool IsOverviewVisible => IsPage("overview");
+    public bool IsTestOperationVisible => IsPage("test");
+    public bool IsProcessOverviewVisible => IsPage("process");
+    public bool IsManagementVisible => IsPage("management");
+    public bool IsReportsVisible => IsPage("reports");
+    public bool IsCalibrationVisible => IsPage("calibration");
+    public bool IsDiagnosticsVisible => IsPage("diagnostics");
+    public bool IsInstrumentVisible => IsPage("instrument");
     public string ProductId
     {
         get => _productId;
@@ -148,7 +222,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     public bool CanStop => !_isBusy && _state.State == BenchState.AutomaticRunning;
     public bool CanRecoverFault => !_isBusy && _state.State == BenchState.Faulted;
 
-    public async Task StartAsync()
+    public async Task StartAsync(CancellationToken cancellationToken = default)
     {
         if (_started)
             return;
@@ -156,22 +230,40 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
 
         if (_runtime is null)
         {
+            ApplyCoreResult(_stateMachine.Initialize(configurationAvailable: false, databaseAvailable: false));
+            _feedbackText = _startupError ?? "配置或 Gateway 初始化失败。";
             NotifyState();
             return;
         }
 
-        await RefreshAsync().ConfigureAwait(true);
+        await RefreshCoreAsync(cancellationToken).ConfigureAwait(true);
+        // 刷新层会把取消转换成可见状态；启动层必须再次检查令牌，避免窗口退出时
+        // 仍把 Core 从 Starting 推进到可操作状态。
+        if (cancellationToken.IsCancellationRequested)
+        {
+            _started = false;
+            return;
+        }
         if (_state.State == BenchState.Starting)
             ApplyCoreResult(_stateMachine.Initialize(configurationAvailable: true, databaseAvailable: true));
     }
 
     public void Dispose()
     {
+        if (_disposed)
+            return;
+        _disposed = true;
+        _lifetimeCancellation.Cancel();
         if (_log is not null)
             _log.EntryWritten -= OnLogEntry;
+        TestOperation.Dispose();
+        Diagnostics.Dispose();
+        _lifetimeCancellation.Dispose();
     }
 
-    private async Task RefreshAsync()
+    private Task RefreshAsync() => RefreshCoreAsync(_lifetimeCancellation.Token);
+
+    private async Task RefreshCoreAsync(CancellationToken cancellationToken)
     {
         if (_runtime is null)
         {
@@ -183,10 +275,15 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         SetBusy(true);
         try
         {
-            var snapshot = await _runtime.PollOnceAsync().ConfigureAwait(true);
+            var snapshot = await _runtime.PollOnceAsync(cancellationToken).ConfigureAwait(true);
             ApplyGatewaySnapshot(snapshot);
             if (_state.State is not (BenchState.Stopping or BenchState.Faulted))
                 _feedbackText = snapshot.IsHealthy ? "只读数据已刷新。" : "只读数据已刷新，但存在 Bad 点。";
+            OnPropertyChanged(nameof(FeedbackText));
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            _feedbackText = "只读刷新已取消。";
             OnPropertyChanged(nameof(FeedbackText));
         }
         finally
@@ -230,8 +327,8 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
 
     private Task StopAsync()
     {
-        // This phase only requests the Core stop transition. Physical cleanup belongs to a
-        // later, explicitly authorized write/safety adapter and is never faked here.
+        // 本阶段只请求 Core 的停止状态迁移；物理安全收尾属于后续经审批的写入适配器，
+        // 这里不能用一个“成功”提示伪造设备已经复位或断能。
         ApplyCoreResult(_stateMachine.RequestStop(StopReason.OperatorRequested));
         return Task.CompletedTask;
     }
@@ -324,4 +421,20 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         DataQuality.Bad => CoreQuality.Bad,
         _ => CoreQuality.Unknown
     };
+
+    private NavigationItemViewModel CreateNavigation(string key, string resourcePrefix) => new(
+        key,
+        _texts.Get(resourcePrefix),
+        _texts.Get($"{resourcePrefix}.Description"));
+
+    private bool IsPage(string key) => string.Equals(SelectedNavigationItem.Key, key, StringComparison.Ordinal);
+
+    private void Navigate(object? parameter)
+    {
+        if (parameter is not string key)
+            return;
+        var item = NavigationItems.FirstOrDefault(candidate => string.Equals(candidate.Key, key, StringComparison.Ordinal));
+        if (item is not null)
+            SelectedNavigationItem = item;
+    }
 }

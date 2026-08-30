@@ -12,6 +12,20 @@ if ([string]::IsNullOrWhiteSpace($ArtifactRoot)) {
 
 $coverage = @(Import-Csv (Join-Path $ArtifactRoot 'legacy-coverage.csv'))
 $tags = @(Import-Csv (Join-Path $ArtifactRoot 'tag-and-write-matrix.csv'))
+$uiCoveragePath = Join-Path $ArtifactRoot 'legacy-ui-coverage.csv'
+$uiCoverage = if (Test-Path -LiteralPath $uiCoveragePath -PathType Leaf) {
+    @(Import-Csv $uiCoveragePath)
+}
+else {
+    @()
+}
+$uiEvidencePath = Join-Path $ArtifactRoot 'ui-test-evidence.csv'
+$uiEvidence = if (Test-Path -LiteralPath $uiEvidencePath -PathType Leaf) {
+    @(Import-Csv $uiEvidencePath)
+}
+else {
+    @()
+}
 $failures = @()
 # These exact legacy artifacts remain in the coverage manifest for traceability,
 # but are intentionally absent from a public clone because they are local data,
@@ -52,6 +66,101 @@ foreach ($excludedPath in $publicExcludedCoveragePaths) {
     }
 }
 
+# UI 专项矩阵逐一覆盖所有 Designer 单元；这里验证的是清点完整性，行为本身由
+# Avalonia VM 和独立 Headless 进程验证，避免用源码文本冒充交互测试。
+$legacyDesigners = @($coverage | Where-Object File -match '(?i)^src/master/MainUI/.*\.designer\.cs$')
+if ($uiCoverage.Count -ne 51) { $failures += "expected 51 UI coverage rows, got $($uiCoverage.Count)" }
+$duplicateSurfaceIds = @($uiCoverage | Group-Object SurfaceId | Where-Object Count -gt 1)
+if ($duplicateSurfaceIds.Count -gt 0) { $failures += 'legacy-ui-coverage.csv contains duplicate SurfaceId rows' }
+$duplicateUiDesigners = @($uiCoverage | Group-Object LegacyDesigner | Where-Object Count -gt 1)
+if ($duplicateUiDesigners.Count -gt 0) { $failures += 'legacy-ui-coverage.csv contains duplicate LegacyDesigner rows' }
+foreach ($designer in $legacyDesigners) {
+    if (@($uiCoverage | Where-Object LegacyDesigner -eq $designer.File).Count -ne 1) {
+        $failures += "UI designer must have exactly one coverage row: $($designer.File)"
+    }
+}
+foreach ($row in $uiCoverage) {
+    foreach ($field in @('SurfaceId','LegacyDesigner','SurfaceKind','LegacyCapability','LegacyEntryEvidence','AvaloniaTarget','ImplementationStatus','BehaviorEvidence','HeadlessEvidence','SafetyDisposition','RemainingGap')) {
+        if ([string]::IsNullOrWhiteSpace($row.$field)) {
+            $failures += "UI coverage field is empty: $($row.SurfaceId).$field"
+        }
+    }
+    if (@($coverage | Where-Object File -eq $row.LegacyDesigner).Count -ne 1) {
+        $failures += "UI coverage designer not found in legacy coverage: $($row.LegacyDesigner)"
+    }
+    if (-not [string]::IsNullOrWhiteSpace($row.LegacyResx) -and @($coverage | Where-Object File -eq $row.LegacyResx).Count -ne 1) {
+        $failures += "UI coverage resx not found in legacy coverage: $($row.LegacyResx)"
+    }
+}
+
+# 覆盖矩阵中的证据 ID 必须能回溯到真实可执行测试或本脚本。Marker 采用
+# 已存在且在文件内唯一的源码字符串，防止用无法定位的自由文本冒充测试证据。
+$behaviorEvidenceIds = @($uiCoverage.BehaviorEvidence | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | Sort-Object -Unique)
+$headlessEvidenceIds = @($uiCoverage.HeadlessEvidence | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | Sort-Object -Unique)
+$requiredUiEvidenceIds = @($behaviorEvidenceIds + $headlessEvidenceIds | Sort-Object -Unique)
+$duplicateEvidenceIds = @($uiEvidence | Group-Object EvidenceId | Where-Object Count -gt 1)
+if ($duplicateEvidenceIds.Count -gt 0) { $failures += 'ui-test-evidence.csv contains duplicate EvidenceId rows' }
+$duplicateEvidenceMarkers = @($uiEvidence | Group-Object Marker | Where-Object Count -gt 1)
+if ($duplicateEvidenceMarkers.Count -gt 0) { $failures += 'ui-test-evidence.csv contains duplicate Marker values' }
+
+foreach ($evidenceId in $requiredUiEvidenceIds) {
+    if (@($uiEvidence | Where-Object EvidenceId -eq $evidenceId).Count -ne 1) {
+        $failures += "UI evidence ID must have exactly one registry row: $evidenceId"
+    }
+}
+foreach ($evidenceId in $behaviorEvidenceIds) {
+    $registryRow = @($uiEvidence | Where-Object EvidenceId -eq $evidenceId)
+    if ($registryRow.Count -eq 1 -and $registryRow[0].EvidenceKind -notin @('Behavior','Composite','Matrix')) {
+        $failures += "behavior evidence has incompatible kind: $evidenceId -> $($registryRow[0].EvidenceKind)"
+    }
+}
+foreach ($evidenceId in $headlessEvidenceIds) {
+    $registryRow = @($uiEvidence | Where-Object EvidenceId -eq $evidenceId)
+    if ($registryRow.Count -eq 1 -and $registryRow[0].EvidenceKind -notin @('Headless','Composite','Matrix')) {
+        $failures += "Headless evidence has incompatible kind: $evidenceId -> $($registryRow[0].EvidenceKind)"
+    }
+}
+foreach ($row in $uiEvidence) {
+    foreach ($field in @('EvidenceId','EvidenceKind','SourcePath','Marker','Behavior')) {
+        if ([string]::IsNullOrWhiteSpace($row.$field)) {
+            $failures += "UI evidence field is empty: $($row.EvidenceId).$field"
+        }
+    }
+    if ($row.EvidenceId -notin $requiredUiEvidenceIds) {
+        $failures += "UI evidence registry row is not referenced by coverage: $($row.EvidenceId)"
+    }
+    if ($row.EvidenceKind -notin @('Behavior','Headless','Composite','Matrix')) {
+        $failures += "UI evidence kind is invalid: $($row.EvidenceId).$($row.EvidenceKind)"
+    }
+
+    $sourcePath = Join-Path $targetRoot ($row.SourcePath -replace '/', '\')
+    if (-not (Test-Path -LiteralPath $sourcePath -PathType Leaf)) {
+        $failures += "UI evidence source file missing: $($row.EvidenceId) -> $($row.SourcePath)"
+        continue
+    }
+
+    $sourceText = Get-Content -Raw -LiteralPath $sourcePath
+    $markerCount = [regex]::Matches($sourceText, [regex]::Escape($row.Marker)).Count
+    if ($markerCount -ne 1) {
+        $failures += "UI evidence marker must occur exactly once: $($row.EvidenceId) -> count=$markerCount"
+    }
+}
+
+$requiredProcedureUiRoots = @(
+    'src/master/MainUI/Procedure/ucBaseManagerUI.cs',
+    'src/master/MainUI/Procedure/UCCalibration.cs',
+    'src/master/MainUI/Procedure/ucItemConfiguration.cs',
+    'src/master/MainUI/Procedure/ucItemManagerial.cs',
+    'src/master/MainUI/Procedure/ucKindManage.cs',
+    'src/master/MainUI/Procedure/ucModelManage.cs',
+    'src/master/MainUI/Procedure/ucTestParams.cs'
+)
+foreach ($path in $requiredProcedureUiRoots) {
+    if (@($coverage | Where-Object { $_.File -eq $path -and $_.PrimaryModule -eq 'ui-shell' }).Count -ne 1) {
+        $failures += "Procedure root UI is not classified as ui-shell: $path"
+    }
+}
+
 $duplicateTags = @($tags | Group-Object LogicalPoint | Where-Object Count -gt 1)
 if ($duplicateTags.Count -gt 0) { $failures += 'tag-and-write-matrix.csv contains duplicate logical points' }
 if ($tags.Count -ne 140) { $failures += "expected 140 tag rows, got $($tags.Count)" }
@@ -86,7 +195,7 @@ foreach ($requiredText in @('G0','G1','G2','30 分钟')) {
 foreach ($requiredText in @('S7NetPlus','NModbus','Modbus RTU','Modbus TCP','PressureAdjustmentValveB11','ReadOnly','离线仿真')) {
     if ($communication -notmatch [regex]::Escape($requiredText)) { $failures += "communication decision missing: $requiredText" }
 }
-foreach ($requiredText in @('TestBenchStateMachine','SafetySignalInvalid','SafetyInterlockOpen','NeedsOperatorAdjustment','无真机')) {
+foreach ($requiredText in @('TestBenchStateMachine','SafetySignalInvalid','SafetyInterlockOpen','NeedsOperatorAdjustment','仅读协议探针')) {
     if ($coreContract -notmatch [regex]::Escape($requiredText)) { $failures += "core contract missing: $requiredText" }
 }
 
@@ -132,4 +241,4 @@ if ($failures.Count -gt 0) {
     exit 1
 }
 
-Write-Output "PASS coverage_rows=$($coverage.Count) tag_rows=$($tags.Count) legacy_subscription=102 source_capability=124 opf_only_reserve=16 public_excluded_coverage_paths=$($publicExcludedCoveragePaths.Count)"
+Write-Output "PASS coverage_rows=$($coverage.Count) ui_rows=$($uiCoverage.Count) ui_evidence_rows=$($uiEvidence.Count) tag_rows=$($tags.Count) legacy_subscription=102 source_capability=124 opf_only_reserve=16 public_excluded_coverage_paths=$($publicExcludedCoveragePaths.Count)"

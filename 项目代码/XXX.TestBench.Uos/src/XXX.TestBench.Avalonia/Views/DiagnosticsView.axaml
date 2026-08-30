@@ -1,0 +1,78 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:XXX.TestBench.Avalonia.ViewModels"
+             x:Class="XXX.TestBench.Avalonia.Views.DiagnosticsView"
+             x:DataType="vm:DiagnosticsViewModel"
+             AutomationProperties.Name="日志与维护">
+  <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
+    <StackPanel MinWidth="760" Spacing="11">
+      <TextBlock Text="日志与维护" FontSize="22" FontWeight="SemiBold" />
+      <Grid ColumnDefinitions="165,150,*,120" ColumnSpacing="8">
+        <DatePicker x:Name="LogDatePicker" SelectedDate="{Binding SelectedDate, Mode=TwoWay}"
+                    AutomationProperties.Name="日志记录日期" />
+        <ComboBox Grid.Column="1" x:Name="LogLevelComboBox" ItemsSource="{Binding Levels}"
+                  SelectedItem="{Binding SelectedLevel, Mode=TwoWay}"
+                  AutomationProperties.Name="日志等级">
+          <ComboBox.ItemTemplate>
+            <DataTemplate x:DataType="vm:LogLevelOptionViewModel">
+              <TextBlock Text="{Binding DisplayName}" />
+            </DataTemplate>
+          </ComboBox.ItemTemplate>
+        </ComboBox>
+        <TextBox Grid.Column="2" x:Name="LogKeywordInput" Text="{Binding SearchText, Mode=TwoWay}"
+                  Watermark="组件、消息或日志字段（增强）"
+                  AutomationProperties.Name="日志关键字" />
+        <Button Grid.Column="3" x:Name="LogFilterButton" Content="搜索" Command="{Binding FilterCommand}"
+                 AutomationProperties.Name="搜索日志" />
+      </Grid>
+      <TextBlock Text="{Binding KeywordEnhancementText}" Classes="caption" TextWrapping="Wrap" />
+      <TextBlock Text="{Binding ResultText}" Classes="caption" />
+      <Grid ColumnDefinitions="165,100,120,*,180" Margin="11,0" ColumnSpacing="8">
+        <TextBlock Text="记录时间" Classes="caption" />
+        <TextBlock Grid.Column="1" Text="日志等级" Classes="caption" />
+        <TextBlock Grid.Column="2" Text="用户名" Classes="caption" />
+        <TextBlock Grid.Column="3" Text="操作信息" Classes="caption" />
+        <TextBlock Grid.Column="4" Text="信息来源" Classes="caption" />
+      </Grid>
+      <ListBox x:Name="LogList" ItemsSource="{Binding Entries}" MinHeight="220" MaxHeight="390"
+               AutomationProperties.Name="运行日志列表">
+        <ListBox.ItemTemplate>
+          <DataTemplate x:DataType="vm:DiagnosticLogEntryViewModel">
+            <Border Margin="3" Padding="8" Background="#F8FAFC" CornerRadius="4">
+              <Grid ColumnDefinitions="165,100,120,*,180" RowDefinitions="Auto,Auto,Auto" ColumnSpacing="8">
+                <TextBlock Text="{Binding TimestampText}" Classes="caption" />
+                <TextBlock Grid.Column="1" Text="{Binding LevelDisplayName}" FontWeight="SemiBold" />
+                <TextBlock Grid.Column="2" Text="{Binding UserName}" />
+                <TextBlock Grid.Column="3" Text="{Binding OperationInformation}" TextWrapping="Wrap" />
+                <TextBlock Grid.Column="4" Text="{Binding Source}" TextWrapping="Wrap" />
+                <TextBlock Grid.Row="1" Grid.Column="3" Grid.ColumnSpan="2" Text="{Binding GatewayDetailText}"
+                           Classes="caption" TextWrapping="Wrap" />
+                <TextBlock Grid.Row="2" Grid.Column="3" Grid.ColumnSpan="2" Text="{Binding Exception}"
+                           Classes="caption" TextWrapping="Wrap" />
+              </Grid>
+            </Border>
+          </DataTemplate>
+        </ListBox.ItemTemplate>
+      </ListBox>
+      <TextBlock Text="{Binding FeedbackText}" Classes="secondary" />
+
+      <TextBlock Text="维护功能覆盖" FontSize="17" FontWeight="SemiBold" />
+      <TextBlock Text="{Binding MaintenanceBoundaryText}" Classes="warning" TextWrapping="Wrap" />
+      <ItemsControl ItemsSource="{Binding MaintenanceFeatures}">
+        <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+        <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="vm:MaintenanceFeatureViewModel">
+            <Border Width="260" Margin="0,0,8,8" Padding="10" BorderBrush="#D0D7DE" BorderThickness="1" CornerRadius="5">
+              <StackPanel Spacing="4">
+                <TextBlock Text="{Binding Name}" FontWeight="SemiBold" />
+                <TextBlock Text="{Binding LegacyEvidence}" Classes="caption" TextWrapping="Wrap" />
+                <Button Content="{Binding StatusText}" IsEnabled="{Binding IsEnabled}"
+                        AutomationProperties.Name="{Binding Name}" />
+              </StackPanel>
+            </Border>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>

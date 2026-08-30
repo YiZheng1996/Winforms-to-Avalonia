@@ -1,0 +1,89 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:XXX.TestBench.Avalonia.ViewModels"
+             x:Class="XXX.TestBench.Avalonia.Views.TestOperationView"
+             x:DataType="vm:TestOperationViewModel"
+             AutomationProperties.Name="试验作业">
+  <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
+    <Grid MinWidth="760" ColumnDefinitions="350,16,*" RowDefinitions="Auto,*">
+      <StackPanel Grid.ColumnSpan="3" Spacing="3" Margin="0,0,0,12">
+        <TextBlock Text="试验作业" FontSize="22" FontWeight="SemiBold" />
+        <TextBlock Text="{Binding ControlBoundaryText}" Classes="warning" TextWrapping="Wrap" />
+      </StackPanel>
+
+      <StackPanel Grid.Row="1" Grid.Column="0" Spacing="9">
+        <TextBlock Text="本次产品信息" FontSize="17" FontWeight="SemiBold" />
+        <TextBlock Text="车型" Classes="caption" />
+        <ComboBox ItemsSource="{Binding AvailableVehicleTypes}" SelectedItem="{Binding SelectedVehicleType, Mode=TwoWay}"
+                  AutomationProperties.Name="车型选择" />
+        <TextBlock Text="产品型号" Classes="caption" />
+        <ComboBox ItemsSource="{Binding AvailableModels}" SelectedItem="{Binding SelectedModel, Mode=TwoWay}"
+                  AutomationProperties.Name="产品型号选择" />
+        <TextBlock Text="产品编号" Classes="caption" />
+        <TextBox x:Name="TestProductNumberInput" Text="{Binding ProductNumber, Mode=TwoWay}"
+                 MaxLength="128" Watermark="必填" AutomationProperties.Name="产品编号输入框" />
+        <TextBlock Text="车号" Classes="caption" />
+        <TextBox x:Name="VehicleNumberInput" Text="{Binding VehicleNumber, Mode=TwoWay}"
+                 MaxLength="200" Watermark="必填" AutomationProperties.Name="车号输入框" />
+        <TextBlock Text="备注" Classes="caption" />
+        <TextBox Text="{Binding Remarks, Mode=TwoWay}" MaxLength="500" AcceptsReturn="True" Height="72"
+                 AutomationProperties.Name="备注输入框" />
+        <Button x:Name="SubmitProductButton" Content="提交本次产品信息" Command="{Binding SubmitProductCommand}"
+                IsEnabled="{Binding CanSubmitProduct}" AutomationProperties.Name="提交本次产品信息" />
+        <Border Padding="10" Background="#F4F7FA" CornerRadius="5">
+          <StackPanel Spacing="4">
+            <TextBlock Text="{Binding BenchStatusText}" />
+            <TextBlock Text="{Binding TestModeText}" />
+            <TextBlock Text="{Binding SafetyText}" TextWrapping="Wrap" />
+          </StackPanel>
+        </Border>
+        <TextBlock Text="{Binding FeedbackText}" TextWrapping="Wrap" Classes="secondary" />
+      </StackPanel>
+
+      <Grid Grid.Row="1" Grid.Column="2" RowDefinitions="Auto,*,Auto">
+        <Grid ColumnDefinitions="*,Auto,Auto">
+          <StackPanel>
+            <TextBlock Text="试验项点" FontSize="17" FontWeight="SemiBold" />
+            <TextBlock Text="{Binding SelectionSummary}" Classes="secondary" />
+          </StackPanel>
+          <Button Grid.Column="1" Margin="8,0" Content="全选当前车型" Command="{Binding SelectVisibleCommand}"
+                  AutomationProperties.Name="全选当前车型项点" />
+          <Button Grid.Column="2" Content="清空" Command="{Binding ClearSelectionCommand}"
+                  AutomationProperties.Name="清空项点" />
+        </Grid>
+        <ScrollViewer Grid.Row="1" Margin="0,10" VerticalScrollBarVisibility="Auto">
+          <ItemsControl ItemsSource="{Binding TestItems}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="vm:TestItemViewModel">
+                <Border IsVisible="{Binding IsVisible}" Margin="0,0,0,6" Padding="9" Background="#F8FAFC" CornerRadius="5">
+                  <Grid ColumnDefinitions="Auto,*,150,90">
+                    <CheckBox IsChecked="{Binding IsSelected, Mode=TwoWay}" VerticalAlignment="Center"
+                              AutomationProperties.Name="{Binding Name}" />
+                    <StackPanel Grid.Column="1" Margin="9,0" Spacing="2">
+                      <TextBlock Text="{Binding Name}" FontWeight="SemiBold" />
+                      <TextBlock Text="{Binding LegacyClassName}" Classes="caption" />
+                    </StackPanel>
+                    <TextBlock Grid.Column="2" Text="{Binding StatusText}" VerticalAlignment="Center" Classes="secondary" />
+                    <TextBlock Grid.Column="3" Text="{Binding ResultText}" VerticalAlignment="Center" HorizontalAlignment="Right" />
+                  </Grid>
+                </Border>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </ScrollViewer>
+        <StackPanel Grid.Row="2" Spacing="7">
+          <Border Padding="9" Background="#FFF8E1" CornerRadius="5">
+            <TextBlock Text="调压试验与阀升程调整对话框已折叠为作业提示区；人工确认只记录界面合同，不触发设备动作。"
+                       TextWrapping="Wrap" />
+          </Border>
+          <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
+            <Button Content="开始试验" Command="{Binding StartAutomaticTestCommand}" IsEnabled="{Binding CanStartAutomaticTest}"
+                    AutomationProperties.Name="试验作业开始试验" />
+            <Button Grid.Column="1" Content="结束试验" Command="{Binding StopCommand}" IsEnabled="{Binding CanStop}"
+                    AutomationProperties.Name="试验作业结束试验" />
+          </Grid>
+        </StackPanel>
+      </Grid>
+    </Grid>
+  </ScrollViewer>
+</UserControl>
