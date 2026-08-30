@@ -35,10 +35,10 @@
 
 ## 3. Packaging / operations
 
-- [ ] 针对最终源码重新生成 Avalonia `win-x64` 自包含包到 `D:\Codex相关\phase-d-ui-2026-08-30\publish\avalonia-win-x64`。
-- [ ] 针对最终源码重新生成 Avalonia `linux-x64` 自包含候选包到 `D:\Codex相关\phase-d-ui-2026-08-30\publish\avalonia-linux-x64`。
-- [ ] 针对最终源码重新生成 Gateway Host `win-x64`/`linux-x64` 自包含包，并验证包内 `config\gatewaysettings.json`。
-- [ ] 对四个新发布目录重新执行精确旧依赖名扫描；不得沿用早于管理/日志修订的扫描结论。
+- [x] 已从实现提交 `92cdec56a3a93132fd5258446729fafedd9bc631` 生成 Avalonia `win-x64` 自包含包到 `D:\Codex相关\phase-d-ui-2026-08-30\publish\avalonia-win-x64`，并完成 Windows 进程存活烟测。
+- [x] 已生成 Avalonia `linux-x64` 自包含候选包到 `D:\Codex相关\phase-d-ui-2026-08-30\publish\avalonia-linux-x64`；仅为发布成功，UOS 启动仍未验收。
+- [x] 已生成 Gateway Host `win-x64`/`linux-x64` 自包含包，四包内均存在默认 `OfflineSimulation` 配置；Windows 包内 Host `--once` 通过。
+- [x] 四个新发布目录已精确扫描 7 个禁止 Legacy 依赖名，命中总数为 0，并归档 apphost/config SHA-256。
 - [ ] 目标 UOS 现场安装/启动/卸载或升级替换策略。
 - [ ] systemd unit、专用非 root 用户、权限、自动重启和日志轮转。
 - [ ] 包哈希、SBOM、许可证扫描和现场介质归档。
@@ -67,4 +67,4 @@
 2. E-HIGH-01～E-HIGH-04 的认证、完整 B11、写安全、数据库/报表链路完成并通过回归；
 3. Phase A 全部必需能力逐项有自动化或现场记录，所有有意差异有审批；
 4. 发布、升级、回滚、旧系统观察期和异常处置演练完成；
-5. 形成可追踪的 Git 提交/分支基线。本轮起点为 `acf604f54a998a4e35d0e64476cb6350d7978a44`；本轮实现恢复点及独立 clone 结果在中文提交推送后登记。其余现场和产品条件仍未满足。
+5. 形成可追踪的 Git 提交/分支基线。本轮起点为 `acf604f54a998a4e35d0e64476cb6350d7978a44`；实现恢复点 `92cdec56a3a93132fd5258446729fafedd9bc631` 已推送，独立 clone 已复现证据、Release、Core/Gateway/Avalonia/Headless 与 Host `--once`。其余现场和产品条件仍未满足。

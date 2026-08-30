@@ -2,7 +2,7 @@
 
 日期：2026-08-30
 发布性质：Windows 离线演示/开发维护版本；Linux x64 为 UOS 候选包
-状态：`UI_COVERAGE_VERIFIED + P2_OFFLINE_VERIFIED + PACKAGE_REVALIDATION_PENDING + CUTOVER_NOT_READY`
+状态：`UI_COVERAGE_VERIFIED + P2_OFFLINE_VERIFIED + PACKAGE_REVALIDATED + CUTOVER_NOT_READY`
 
 ## 本轮内容
 
@@ -24,8 +24,8 @@
 
 - 证据：393 行文件矩阵、51 行 UI 矩阵、140 行点表矩阵及 `ui-test-evidence.csv` 的证据 ID/真实文件/唯一 Marker 一致性检查通过。
 - 最终证据脚本、Release、Core/Gateway/Avalonia/Headless、Host `--once` 已针对管理/日志最终源码按顺序复验通过；Release 为 9 个项目、0 警告、0 错误。
-- Avalonia/Gateway Host 的 `win-x64` 和 `linux-x64` 四个自包含包、Windows 烟测、禁止依赖扫描及 SHA-256 必须由当前源码重新生成；不得沿用 2026-08-29 旧包结论。
-- 完成后的实际命令、日志、包目录和 SHA-256 回填到 `phase-e-test-results.md` 与 `phase-e-packaging-and-launch.md`。
+- 已从实现提交 `92cdec56a3a93132fd5258446729fafedd9bc631` 生成 Avalonia/Gateway Host 的 `win-x64` 和 `linux-x64` 四个自包含包；Windows Host 包内 `--once`、HMI 3 秒存活烟测、7 个禁止 Legacy 依赖精确扫描和 SHA-256 均已归档。
+- 独立 clone 在同一实现提交复现证据脚本、Release、Core/Gateway/Avalonia/Headless 与 Host `--once`；Linux 包仍只是 Windows 构建机发布结果，UOS 现场保持未验收。
 
 ## 已知未完成项
 
@@ -37,4 +37,4 @@
 
 ## 回滚
 
-旧 WinForms 源码、OPF、报表/数据库基线和回滚材料全部保留；不得删除或让新旧系统同时拥有写权限。本轮 Git 中文提交哈希须在最终复验、推送和独立 clone 通过后回填，不能预先登记；完整 cutover 条件见 `phase-e-cutover-checklist.md`。
+旧 WinForms 源码、OPF、报表/数据库基线和回滚材料全部保留；不得删除或让新旧系统同时拥有写权限。本轮实现中文提交 `92cdec56a3a93132fd5258446729fafedd9bc631` 是可回滚恢复点；完整 cutover 条件见 `phase-e-cutover-checklist.md`。

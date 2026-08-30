@@ -6,7 +6,7 @@
 本轮日志：`D:\Codex相关\phase-d-ui-2026-08-30\logs`
 信捷现场探针：`D:\Codex相关\phase-e-field\2026-08-29`
 
-当前记录状态：管理/日志专项源码已冻结，证据脚本、Release、Core/Gateway/Avalonia/Headless 和 Host `--once` 已按下表顺序重新执行；四包、包内烟测和哈希仍须从本轮实现提交重新生成。表中剩余的 `PENDING-RETEST` 不得用 2026-08-29 旧日志替代。
+当前记录状态：管理/日志专项源码已冻结；证据脚本、Release、Core/Gateway/Avalonia/Headless、Host `--once`、四包、包内烟测、哈希/禁止依赖扫描和独立 clone 均已从本轮实现提交重新执行。Linux 包仍是发布成功而非 UOS 启动验收，现场结论继续保持 `PENDING-FIELD`。
 
 ## 1. 最终顺序验证结果
 
@@ -20,12 +20,13 @@
 | 6 | Avalonia VM | `dotnet run --project tests\XXX.TestBench.Avalonia.Tests ... --no-build --configuration Release` | `PASS avalonia-vm navigation=8 product=test-items management=state reports=filter+paging calibration=6-outputs-local-only logs=filter instrument=gated startup=cancel+faulted writes=disabled` |
 | 7 | Avalonia Headless | 独立进程运行 `XXX.TestBench.Avalonia.Headless.Tests` | `PASS avalonia-headless navigation=8 shortcuts=ctrl1-ctrl8 binding=two-way command=core-gated pages=test+process+management+reports+calibration+diagnostics+instrument accessibility=names+touch44 layout=narrow+wide writes=disabled` |
 | 8 | Gateway Host 离线采样 | `dotnet run ...Gateway.Host... -- --config .\config\gatewaysettings.json --once` | `PASS`；退出码 0，`OfflineSimulation`、`writesEnabled=False`、5 点 Good/仿真快照 |
-| 9 | 4 个自包含包 | Avalonia/Gateway Host 各执行 `win-x64`、`linux-x64` publish | `PENDING-RETEST`；旧包早于最新 UI 源码，必须覆盖发布 |
-| 10 | 发布版 Windows Host | 包内 `XXX.TestBench.Gateway.Host.exe --config .\config\gatewaysettings.json --once` | `PENDING-RETEST` |
-| 11 | 发布版 Windows Avalonia | 隐藏启动 apphost，3 秒后由烟测进程定向结束 | `PENDING-RETEST`；只证明进程启动，页面行为仍以 Headless 为准 |
-| 12 | 发布目录安全扫描 | 4 个目录精确扫描 7 个 Legacy 依赖名并计算 apphost/config SHA-256 | `PENDING-RETEST`；不得沿用旧包哈希 |
+| 9 | 4 个自包含包 | Avalonia/Gateway Host 各执行 `win-x64`、`linux-x64` publish | `PASS`；由实现提交 `92cdec56...` 生成，Linux 仅为 `PASS-PUBLISH-ONLY` |
+| 10 | 发布版 Windows Host | 包内 `XXX.TestBench.Gateway.Host.exe --config .\config\gatewaysettings.json --once` | `PASS-OFFLINE`；退出码 0，`OfflineSimulation`、`writesEnabled=False`、五点 Good |
+| 11 | 发布版 Windows Avalonia | 隐藏启动 apphost，3 秒后由烟测进程按精确 PID 定向结束 | `PASS-WINDOWS-PROCESS-START`；只证明进程启动，页面行为仍以 Headless 为准 |
+| 12 | 发布目录安全扫描 | 4 个目录精确扫描 7 个 Legacy 依赖名并计算 apphost/config SHA-256 | `PASS`；四包命中均为 0，配置哈希一致 |
 | 13 | 信捷 Modbus TCP 仅读协议探针 | `192.168.0.51:502`；UnitId=1 候选；功能码 01/03/04 | `PASS-FIELD-PROBE`；仅证明合法读取响应，不代表 P2 业务映射通过 |
 | 14 | UOS 真机/业务设备映射 | 无 UOS 目标机、无已闭合 P2 应用设备映射；仅有信捷仅读协议探针 | `PENDING-FIELD` |
+| 15 | 独立 clone 复现 | 从远端 `main` 克隆实现提交，重新 restore、证据、Release、Core/Gateway/Avalonia/Headless、Host `--once` | `PASS`；clone HEAD=`92cdec56a3a93132fd5258446729fafedd9bc631` |
 
 ## 2. 本轮可复查日志
 
@@ -44,19 +45,21 @@
 - `13-published-gateway-host-win-once.log`
 - `14-published-avalonia-win-smoke.log`
 - `15-package-scan-and-hashes.log`
+- `16-independent-clone.log`
+- `17-independent-clone-validation.log`
 
-以上文件名是最终顺序复验的归档约定，均位于 `D:\Codex相关\phase-d-ui-2026-08-30\logs` 且不属于仓库提交。`01`～`08` 已由当前冻结源码重新生成；`09`～`15` 将在实现提交后由该提交重新发布并回填。
+以上文件均位于 `D:\Codex相关\phase-d-ui-2026-08-30\logs` 且不属于仓库提交。`01`～`08` 是当前源码顺序回归，`09`～`15` 是实现提交的发布/烟测/哈希证据，`16`～`17` 是远端独立 clone 与完整复现记录。
 
 ## 3. 发布目录与哈希
 
 | 发布物 | 目录 | apphost SHA-256 |
 |---|---|---|
-| Avalonia Windows | `D:\Codex相关\phase-d-ui-2026-08-30\publish\avalonia-win-x64` | 待当前源码重新发布后回填 |
-| Avalonia Linux/UOS 候选 | `D:\Codex相关\phase-d-ui-2026-08-30\publish\avalonia-linux-x64` | 待当前源码重新发布后回填 |
-| Gateway Host Windows | `D:\Codex相关\phase-d-ui-2026-08-30\publish\gateway-host-win-x64` | 待当前源码重新发布后回填 |
-| Gateway Host Linux/UOS 候选 | `D:\Codex相关\phase-d-ui-2026-08-30\publish\gateway-host-linux-x64` | 待当前源码重新发布后回填 |
+| Avalonia Windows | `D:\Codex相关\phase-d-ui-2026-08-30\publish\avalonia-win-x64` | `4A1EA7685EB545165CD35748C730A290A196A96DD28F1755CE64ED16908A54C2` |
+| Avalonia Linux/UOS 候选 | `D:\Codex相关\phase-d-ui-2026-08-30\publish\avalonia-linux-x64` | `A603336CF5C561A861A48142DD1877AECBA03C887D40066302F1256BA2A1E590` |
+| Gateway Host Windows | `D:\Codex相关\phase-d-ui-2026-08-30\publish\gateway-host-win-x64` | `7522424C4FB5B82BAB993B20E9A17025BB46B247C5186EB0364113287FC4E501` |
+| Gateway Host Linux/UOS 候选 | `D:\Codex相关\phase-d-ui-2026-08-30\publish\gateway-host-linux-x64` | `A4DCB00CBB84ADD3B77C87C0F7F673571FA0D694F5C014FF31546C2E4F11B869` |
 
-当前源码对应的四包配置 SHA-256 与禁止依赖扫描结果待最终复验回填。2026-08-29 旧包曾通过扫描，但因其早于本轮 UI 源码，不能作为最终提交的发布证据。
+四包内 `config\gatewaysettings.json` 的 SHA-256 均为 `D9377DA6B8F6C85229921C951A41DD67190961CB34FBFE08421D1C74D7574C96`，与仓库默认配置一致；四包对 7 个禁止 Legacy 依赖名的精确扫描命中均为 0。
 
 ## 4. 验证中发现并关闭的问题
 
@@ -65,11 +68,13 @@
 3. 旧 `KeyPress` API 在 Avalonia 11.3.9 已过时且按错误处理；已改用 `KeyPressQwerty(PhysicalKey, ...)`。
 4. 项点首轮可见性在页面级启动命令初始化前触发事件，造成 VM 空引用；已调整构造顺序并由 VM 测试复核。
 5. Legacy 硬件页实际有“预留”和“备用”两个独立 AO 槽位；已从 5 项修正为 6 项并增加名称、数量、不可执行断言。
-6. RID 自包含发布必须允许 `dotnet publish` 按目标 RID 完成恢复；本轮将在实现提交后按该命令生成四包并记录实际结果。
+6. RID 自包含发布必须允许 `dotnet publish` 按目标 RID 完成恢复；本轮按该前置条件从实现提交成功生成四包，并分别归档 publish 日志。
+7. 权限分配原先按显示名称关联，会合并 Legacy 允许的同名权限；已改为保存稳定会话 Id、名称仅作显示，删除只级联对应 Id，并新增同名权限负向测试。
+8. Headless 的 Test00、双列表方向和工艺输出证据原先口径偏弱；已改为查找真实按钮、校验左已配置/右候选与箭头，并用固定 17 项 Legacy 输出清单断言。
 
 ## 5. 远端恢复点
 
-本轮起点为远端 `main` 的 `acf604f54a998a4e35d0e64476cb6350d7978a44`。本轮实现提交、推送结果和独立 clone 复现将在完成中文 Git 提交后登记；在此之前不能把旧 `863480b...` 的 clone 结果当作 8 页版本证据。
+本轮起点为远端 `main` 的 `acf604f54a998a4e35d0e64476cb6350d7978a44`。中文实现提交 `92cdec56a3a93132fd5258446729fafedd9bc631` 已推送到 `origin/main`；独立 clone HEAD 与该提交一致，并复现证据、Release、Core/Gateway/Avalonia/Headless 和 Host `--once` 全部通过。
 
 ## 6. 证据边界
 

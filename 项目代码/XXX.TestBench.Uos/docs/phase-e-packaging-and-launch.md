@@ -10,14 +10,21 @@
 
 | 程序 | RID | 目标发布目录 | 当前状态 |
 |---|---|---|---|
-| Avalonia HMI | win-x64 | `D:\Codex相关\phase-d-ui-2026-08-30\publish\avalonia-win-x64` | `PENDING-RETEST`；管理/日志源码更新后必须重新发布并重做 apphost 烟测 |
-| Avalonia HMI | linux-x64 | `D:\Codex相关\phase-d-ui-2026-08-30\publish\avalonia-linux-x64` | `PENDING-RETEST`；必须由当前源码重新发布 |
-| Gateway Host | win-x64 | `D:\Codex相关\phase-d-ui-2026-08-30\publish\gateway-host-win-x64` | `PENDING-RETEST`；重新发布后使用包内 config 执行 `--once` |
-| Gateway Host | linux-x64 | `D:\Codex相关\phase-d-ui-2026-08-30\publish\gateway-host-linux-x64` | `PENDING-RETEST`；必须由当前源码重新发布 |
+| Avalonia HMI | win-x64 | `D:\Codex相关\phase-d-ui-2026-08-30\publish\avalonia-win-x64` | `PASS-WINDOWS-PROCESS-START`；由实现提交生成，隐藏启动后存活 3 秒并定向结束 |
+| Avalonia HMI | linux-x64 | `D:\Codex相关\phase-d-ui-2026-08-30\publish\avalonia-linux-x64` | `PASS-PUBLISH-ONLY`；包已生成，UOS 启动仍为 `PENDING-FIELD` |
+| Gateway Host | win-x64 | `D:\Codex相关\phase-d-ui-2026-08-30\publish\gateway-host-win-x64` | `PASS-OFFLINE`；包内 config 执行 `--once` 退出码 0 |
+| Gateway Host | linux-x64 | `D:\Codex相关\phase-d-ui-2026-08-30\publish\gateway-host-linux-x64` | `PASS-PUBLISH-ONLY`；包已生成，UOS 启动仍为 `PENDING-FIELD` |
 
-Avalonia 和 Host 项目均显式设置 `CopyToPublishDirectory="PreserveNewest"`。2026-08-29 的四包、Windows 烟测和禁止依赖扫描是上一源码快照的历史记录；本轮又修改了 Avalonia 管理/日志源码，因此这些包不能作为当前提交证据。最终复验必须覆盖四个目标目录，确认均含 `config\gatewaysettings.json`，并重新扫描 `Interop.OPCAutomation.dll`、`SunnyUI.dll`、`AntdUI.dll`、`rw3.dll`、`rwdsl2.dll`、`office.dll` 与 `Report.dll`。
+Avalonia 和 Host 项目均显式设置 `CopyToPublishDirectory="PreserveNewest"`。本轮四包均由已推送实现提交 `92cdec56a3a93132fd5258446729fafedd9bc631` 生成；四个目录均含 `config\gatewaysettings.json`。精确扫描 `Interop.OPCAutomation.dll`、`SunnyUI.dll`、`AntdUI.dll`、`rw3.dll`、`rwdsl2.dll`、`office.dll` 与 `Report.dll`，四包命中数均为 0。
 
-当前源码对应的 apphost/config SHA-256、旧依赖扫描和烟测日志：**待本轮最终重新发布后回填**。不得沿用 2026-08-29 旧包哈希；即使新哈希产生，也只能用于介质比对，不能替代现场签名、许可证或 SBOM 记录。
+当前 apphost/config SHA-256 与扫描结果如下；这些哈希只能用于介质比对，不能替代现场签名、许可证或 SBOM 记录。
+
+| 发布物 | apphost SHA-256 | config SHA-256 | 禁止依赖命中 |
+|---|---|---|---:|
+| Avalonia Windows | `4A1EA7685EB545165CD35748C730A290A196A96DD28F1755CE64ED16908A54C2` | `D9377DA6B8F6C85229921C951A41DD67190961CB34FBFE08421D1C74D7574C96` | 0 |
+| Avalonia Linux | `A603336CF5C561A861A48142DD1877AECBA03C887D40066302F1256BA2A1E590` | `D9377DA6B8F6C85229921C951A41DD67190961CB34FBFE08421D1C74D7574C96` | 0 |
+| Gateway Host Windows | `7522424C4FB5B82BAB993B20E9A17025BB46B247C5186EB0364113287FC4E501` | `D9377DA6B8F6C85229921C951A41DD67190961CB34FBFE08421D1C74D7574C96` | 0 |
+| Gateway Host Linux | `A4DCB00CBB84ADD3B77C87C0F7F673571FA0D694F5C014FF31546C2E4F11B869` | `D9377DA6B8F6C85229921C951A41DD67190961CB34FBFE08421D1C74D7574C96` | 0 |
 
 ## 2. 可重复的 Windows 发布命令
 
@@ -81,7 +88,7 @@ chmod +x ./XXX.TestBench.Gateway.Host
 
 ## 4. 当前不能作为生产部署的部分
 
-- 当前目标目录中的包早于最后的管理/日志源码修订；在四包重新发布、Windows 烟测、禁止依赖扫描和哈希重新归档前，它们连当前离线提交的发布证据也不能充当。
+- 本轮四包、Windows 进程烟测、包内 Host 离线采样、禁止依赖扫描和哈希已经完成；这只关闭当前提交的离线发布复验，不关闭 UOS/设备/生产部署验收。
 - Avalonia 当前在同一进程直接创建只读 Runtime；本轮没有实现“DeviceGateway → 本机 OPC UA → HMI”的生产 UA Server、证书和权限链。
 - 没有 `systemd` unit、安装脚本、升级替换脚本或回滚脚本；不应把 Gateway Host 候选包直接登记为已验收生产服务。
 - `gatewaysettings.json` 默认只能保持 `OfflineSimulation`。切换 `ConfiguredDevices` 是现场动作，必须先完成 S7/Modbus 地址、类型、字节序、权限和 P0/G0 记录；不能用本机 Windows 结果替代。
