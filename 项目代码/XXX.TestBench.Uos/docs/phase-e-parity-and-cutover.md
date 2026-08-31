@@ -1,6 +1,6 @@
 # Phase E：Legacy vs Avalonia 差异与 Cutover 准备
 
-日期：2026-08-30
+日期：2026-08-31
 状态：`P2_OFFLINE_VERIFIED + UI_COVERAGE_VERIFIED + PACKAGE_REVALIDATED + CUTOVER_NOT_READY`；完整产品切换未通过
 仓库身份：<https://github.com/YiZheng1996/Winforms-to-Avalonia.git>
 本地工作区：`D:\易峥\2026\2026-09\Avalonia_上位机通用模板`
@@ -9,7 +9,7 @@
 
 ## 1. 证据边界
 
-当前工作区已初始化为 Git checkout，远端为 `origin`：<https://github.com/YiZheng1996/Winforms-to-Avalonia.git>。本轮开始时 `main` 与 `origin/main` 同步在 `acf604f54a998a4e35d0e64476cb6350d7978a44`；实现提交 `92cdec56a3a93132fd5258446729fafedd9bc631` 已推送，并由独立 clone 复现证据、Release、Core/Gateway/Avalonia/Headless 与 Host `--once`。本报告的产品结论以实际源码、51 行 UI 专项矩阵、旧 WinForms 源码、迁移文档、自动化输出、现场仅读 Modbus 探针和用户提供的 Windows VS 启动截图为证据；公开仓库按安全策略排除本地运行数据和部分生成/用户工件。
+当前工作区已初始化为 Git checkout，远端为 `origin`：<https://github.com/YiZheng1996/Winforms-to-Avalonia.git>。功能实现提交 `92cdec56a3a93132fd5258446729fafedd9bc631` 已推送；本轮回归从远端 `main` 的验证基线 `92df619e62b3ee76e59630ba7b734ddd36592cf1` 重新执行，并由独立 clone 复现证据、Release、Core/Gateway/Avalonia/Headless 与 Host `--once`。本报告的产品结论以实际源码、51 行 UI 专项矩阵、旧 WinForms 源码、迁移文档、自动化输出、现场仅读 Modbus 探针和用户提供的 Windows VS 启动截图为证据；公开仓库按安全策略排除本地运行数据和部分生成/用户工件。
 
 当前开发机证据：Windows 10.0.22621 x64，.NET SDK 9.0.300；迁移解实际目标为 `net8.0`，Avalonia 包为 11.3.9。当前已具备信捷 PLC `192.168.0.51:502`，但只完成 UnitId=1 候选下的仅读 Modbus TCP 协议探针；没有真实 UOS 工控机、USB-RS485 或现场 OPC UA 环境。PLC 系列、UnitId、点表业务语义和字节字序尚未完成确认；以下 `PASS-OFFLINE` 只表示代码/测试/仿真证据，现场探针单独标为 `PASS-FIELD-PROBE`。
 
@@ -71,7 +71,7 @@
 | 保存/查询/报表/上传 | `PARTIAL` | 新侧实现组合筛选、选择和页码行为；默认不伪造记录，查看/打印/删除/重传外部命令阻断 | 界面可验证但数据和报表不可替代 | `BLOCKED` | `ReportsViewModel` VM/Headless；旧 BLL/Report/Upload |
 | 退出/生命周期释放 | `PARTIAL` | 新 App 在桌面退出时释放 Runtime；Gateway 尚未独立为本机 OPC UA/systemd 服务 | UOS 运维生命周期未验证 | `DEFERRED` | `App.axaml.cs`、Host |
 | 可访问性/布局 | `PASS-UI-COVERAGE` | 8 页关键入口有 AutomationProperties；按钮/输入最小高度、滚动布局、960×560/1600×900 和导航绑定已验证 | Windows Headless 可验证；触控/字体/焦点顺序/本地化切换未验收 | 保留并等 UOS | Headless、`ui-contracts.md` |
-| Windows/UOS 发布 | Windows `PASS-OFFLINE`；Linux `PASS-PUBLISH-ONLY` / UOS `PENDING-FIELD` | 实现提交已生成 Avalonia/Host 四个自包含包；Windows Host 包内离线采样和 HMI 3 秒存活通过，7 个禁止依赖命中 0；Linux 仅在 Windows 构建机发布 | 当前提交的离线发布可复现，但 UOS 图形栈、启动/退出、systemd、触控和设备仍未验收 | Windows 离线证据保留；UOS 继续 `BLOCKED` | `phase-e-packaging-and-launch.md`、日志 09～17 |
+| Windows/UOS 发布 | Windows `PASS-OFFLINE`；Linux `PASS-PUBLISH-ONLY` / UOS `PENDING-FIELD` | 验证基线已生成 Avalonia/Host 四个自包含包；Windows Host 包内离线采样和 HMI 3 秒存活通过，7 个禁止依赖命中 0；Linux 仅在 Windows 构建机发布 | 当前提交的离线发布可复现，但 UOS 图形栈、启动/退出、systemd、触控和设备仍未验收 | Windows 离线证据保留；UOS 继续 `BLOCKED` | `phase-e-packaging-and-launch.md`、日志 09～23 |
 
 ## 5. 本轮最小修复
 
@@ -93,7 +93,7 @@
 - 没有 UOS、S7、RS-485 和现场 OPC UA 证据；信捷 Modbus TCP 目前只有候选 UnitId 下的原始仅读协议证据，尚无 P2 业务映射闭环；
 - 没有真实认证、数据库产品选择、完整 B11、报表/上传和服务化边界；
 - P3 写入安全矩阵、质量/代次/联锁/回读/审计尚未实施，故所有写入继续关闭；
-- 本轮起点为远端 `main` 的 `acf604f54a998a4e35d0e64476cb6350d7978a44`；实现提交 `92cdec56a3a93132fd5258446729fafedd9bc631` 已推送，独立 clone 在同一提交复现通过。即使 Git 恢复点成立，现场设备、UOS 和完整产品功能仍未验收，不能据此关闭 cutover。
+- 本轮回归开始基线为远端 `main` 的 `92df619e62b3ee76e59630ba7b734ddd36592cf1`；功能实现提交 `92cdec56a3a93132fd5258446729fafedd9bc631` 已推送，独立 clone 在当前远端 `main` 复现通过。即使 Git 恢复点成立，现场设备、UOS 和完整产品功能仍未验收，不能据此关闭 cutover。
 
 Legacy 处理：当前工作区保留旧源码、OPF、原始数据库/报表和原生依赖作为只读对照/回滚材料；公开 Git 提交按安全策略排除旧数据库、历史报表和部分本地/生成工件，覆盖率清单保留其大小与 SHA-256 记录。不从解决方案删除，不物理删除目录，不允许新旧系统同时拥有写权限。
 

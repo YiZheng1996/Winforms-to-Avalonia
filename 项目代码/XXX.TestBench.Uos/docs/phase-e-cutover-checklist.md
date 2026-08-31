@@ -1,6 +1,6 @@
 # Phase E：Cutover Checklist
 
-日期：2026-08-30
+日期：2026-08-31
 当前判定：`CUTOVER_NOT_READY`  
 允许范围：Avalonia P2 只读离线仿真作为 Windows 开发/演示维护线  
 不允许范围：现场生产唯一实现、启用写入、删除旧 WinForms、宣称 UOS/PLC/Modbus 业务兼容已验收。信捷 `192.168.0.51:502` 已完成仅读协议探针，但尚未完成 P2 映射验收。
@@ -22,9 +22,9 @@
 - [x] B11 纯范围判定、人工调整、通过和最大次数失败有合同测试。
 - [x] 读异常后的 Bad→断开→下一轮重连/新代次有 Runtime 测试。
 - [x] 51 个 Legacy Designer 均有唯一 Avalonia 目标、实现状态、行为/Headless 证据、安全处置和剩余缺口；证据脚本验证无孤儿/重复。
-- [ ] 8 个任务页、21 个试验类、9 个管理专项模块、Legacy 日志日期/七级语义和 6 个 AO 槽位已有源码与测试；管理/日志最后修订后的 VM/Headless 顺序复验与日志归档待完成。
+- [x] 8 个任务页、21 个试验类、9 个管理专项模块、Legacy 日志日期/七级语义和 6 个 AO 槽位已有源码与测试；管理/日志最后修订后的 VM/Headless 顺序复验已完成，日志归档在 `D:\Codex相关\phase-e-final-2026-08-31\logs`。
 - [x] Zero/Gain、VX/AO/DO、复位、Test00/自动试验、仪器通信、报表删除/重传的命令自身保持不可执行。
-- [ ] Windows Release 构建、Windows Host 包内 config 启动和 Windows Avalonia apphost 启动需针对本轮最终源码重新验证；旧结果早于最后的管理/日志修订。
+- [x] Windows Release 构建、Windows Host 包内 config 启动和 Windows Avalonia apphost 启动已针对本轮验证基线重新验证；Release 为 9 个项目、0 警告、0 错误。
 - [ ] 真实登录、权限、型号/参数数据库和旧数据迁移验证。
 - [ ] 完整 B11 设备动作、时序、人工确认、取消、收尾、记录与报表验证。
 - [ ] OPC UA Server/证书/只读地址空间/权限和 HMI 链路验证。
@@ -35,13 +35,13 @@
 
 ## 3. Packaging / operations
 
-- [x] 已从实现提交 `92cdec56a3a93132fd5258446729fafedd9bc631` 生成 Avalonia `win-x64` 自包含包到 `D:\Codex相关\phase-d-ui-2026-08-30\publish\avalonia-win-x64`，并完成 Windows 进程存活烟测。
-- [x] 已生成 Avalonia `linux-x64` 自包含候选包到 `D:\Codex相关\phase-d-ui-2026-08-30\publish\avalonia-linux-x64`；仅为发布成功，UOS 启动仍未验收。
-- [x] 已生成 Gateway Host `win-x64`/`linux-x64` 自包含包，四包内均存在默认 `OfflineSimulation` 配置；Windows 包内 Host `--once` 通过。
+- [x] 已从本轮验证基线 `92df619e62b3ee76e59630ba7b734ddd36592cf1` 重新生成 Avalonia `win-x64` 自包含包到 `D:\Codex相关\phase-e-final-2026-08-31\publish\avalonia-win-x64`，并完成 Windows 进程存活烟测。
+- [x] 已生成 Avalonia `linux-x64` 自包含候选包到 `D:\Codex相关\phase-e-final-2026-08-31\publish\avalonia-linux-x64`；仅为发布成功，UOS 启动仍未验收。
+- [x] 已生成 Gateway Host `win-x64`/`linux-x64` 自包含包到 `D:\Codex相关\phase-e-final-2026-08-31\publish`，四包内均存在默认 `OfflineSimulation` 配置；Windows 包内 Host `--once` 通过。
 - [x] 四个新发布目录已精确扫描 7 个禁止 Legacy 依赖名，命中总数为 0，并归档 apphost/config SHA-256。
 - [ ] 目标 UOS 现场安装/启动/卸载或升级替换策略。
 - [ ] systemd unit、专用非 root 用户、权限、自动重启和日志轮转。
-- [ ] 包哈希、SBOM、许可证扫描和现场介质归档。
+- [ ] SBOM、许可证扫描和现场介质归档（本机发布包哈希已归档）。
 - [ ] 旧系统 30 天观察、RTO≤30 分钟回滚演练和异常隔离手册。
 
 ## 4. Delete legacy gate
@@ -67,4 +67,4 @@
 2. E-HIGH-01～E-HIGH-04 的认证、完整 B11、写安全、数据库/报表链路完成并通过回归；
 3. Phase A 全部必需能力逐项有自动化或现场记录，所有有意差异有审批；
 4. 发布、升级、回滚、旧系统观察期和异常处置演练完成；
-5. 形成可追踪的 Git 提交/分支基线。本轮起点为 `acf604f54a998a4e35d0e64476cb6350d7978a44`；实现恢复点 `92cdec56a3a93132fd5258446729fafedd9bc631` 已推送，独立 clone 已复现证据、Release、Core/Gateway/Avalonia/Headless 与 Host `--once`。其余现场和产品条件仍未满足。
+5. 形成可追踪的 Git 提交/分支基线。本轮回归开始基线为 `92df619e62b3ee76e59630ba7b734ddd36592cf1`；功能实现恢复点 `92cdec56a3a93132fd5258446729fafedd9bc631` 已推送，独立 clone 已在当前远端 `main` 复现证据、Release、Core/Gateway/Avalonia/Headless 与 Host `--once`。其余现场和产品条件仍未满足。

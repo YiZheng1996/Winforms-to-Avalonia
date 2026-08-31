@@ -1,6 +1,6 @@
 # Phase E：Phase A 契约验收记录
 
-日期：2026-08-30
+日期：2026-08-31
 验收范围：当前已实现的 Core、Gateway 只读 Runtime、Avalonia 8 个任务页面/51 行 UI 覆盖、行为/Headless 测试和离线发布物
 验收环境：Windows 10.0.22621 x64；.NET SDK 9.0.300；代码实际目标 `net8.0`；Avalonia 11.3.9
 现场限制：已具备一台信捷 PLC，现场终点为 `192.168.0.51:502`；本轮仅完成 UnitId=1 候选下的 Modbus TCP 仅读协议探针。PLC 具体系列、UnitId、点表语义/字节字序以及当前 Avalonia P2 的 `CH00` 映射尚未签字确认。仍无真实 UOS、USB-RS485 和现场 OPC UA。所有 `PASS-OFFLINE` 与 `PASS-FIELD-PROBE` 均不能替代完整现场验收。
@@ -42,7 +42,7 @@
 | RT-01 | Gateway 异常/部分成功 | 一条链路连接失败时相关点 Bad，另一条链路的 Good 结果保留，记录结构化错误 | Runtime 测试与 `RecordingLogSink` | `PASS-OFFLINE` |
 | RT-02 | 取消/释放 | 取消连接/轮询后两条传输均释放；清理一条失败仍清理另一条并记警告 | Runtime 测试 | `PASS-OFFLINE` |
 | RT-03 | 重叠轮询/旧快照 | PollOnce 不重叠；同一 Runtime 不允许旧轮询覆盖后续快照 | `_pollGate` 已实现；尚无迟到样本注入测试 | `PARTIAL` |
-| PKG-01 | Windows 发布启动 | `win-x64` 自包含包启动，Host 用包内 config `--once` 返回 0 | 实现提交 `92cdec56...` 的 Windows 四包子集；Host 返回离线五点快照，HMI 存活 3 秒 | `PASS-OFFLINE`；仅 Windows 离线进程证据 |
+| PKG-01 | Windows 发布启动 | `win-x64` 自包含包启动，Host 用包内 config `--once` 返回 0 | 本轮验证基线 `92df619e62b3ee76e59630ba7b734ddd36592cf1` 重新生成的 Windows 包；Host 返回离线五点快照，HMI 存活 3 秒 | `PASS-OFFLINE`；仅 Windows 离线进程证据 |
 | PKG-02 | UOS 发布启动 | `linux-x64` 包在目标 UOS 启动，触控/字体/桌面依赖正常 | 当前无 UOS | `PENDING-FIELD` |
 
 ## 2. 手工/现场验收记录
@@ -50,7 +50,7 @@
 | ID | 场景 | 现有证据 | 结果 | 必须补的证据 |
 |---|---|---|---|---|
 | M-01 | VS 中 Avalonia 主界面启动 | 用户在当前任务提供的 Windows VS 启动截图；画面显示 OfflineSimulation、Gateway 仿真、B11/P2 五点、DI00 true、只读/Zero/Gain 禁止 | `PASS-USER-EVIDENCE` | 将原图归档到正式验收目录并记录时间/版本 |
-| M-02 | 发布版 Windows 启动 | 实现提交 `92cdec56...` 的 `XXX.TestBench.Avalonia.exe` 隐藏启动后存活 3 秒，随后按精确 PID 定向结束 | `PASS-WINDOWS-PROCESS-START` | 正常关闭和长时间运行记录；此烟测不替代 Headless 页面行为或 UOS 验收 |
+| M-02 | 发布版 Windows 启动 | 本轮验证基线生成的 `XXX.TestBench.Avalonia.exe` 隐藏启动后存活 3 秒，随后按精确 PID 定向结束 | `PASS-WINDOWS-PROCESS-START` | 正常关闭和长时间运行记录；此烟测不替代 Headless 页面行为或 UOS 验收 |
 | M-03 | UOS 冷启动/退出 | 未执行 | `PENDING-FIELD` | UOS 版本、架构、桌面会话、启动/退出码、包哈希 |
 | M-04 | S7-200/S7-1200 读取 | 未执行 | `BLOCKED` | CPU 型号、IP、Rack/Slot、地址、类型、字节序、2 小时日志 |
 | M-05 | Modbus RTU/TCP 读取 | 信捷 `192.168.0.51:502` TCP 握手成功；UnitId=1 候选下，功能码 01/M400、03/HD1074 候选、03/D0、04/0 均返回合法响应；原始帧见 `D:\Codex相关\phase-e-field\2026-08-29\modbus-readonly-probe.txt` | `PASS-FIELD-PROBE`（仅协议读通） | PLC 系列/UnitId 确认；CH00 的功能区/地址；HD1074 浮点字序；应用包实际 P2 快照、断线恢复和连续运行 |

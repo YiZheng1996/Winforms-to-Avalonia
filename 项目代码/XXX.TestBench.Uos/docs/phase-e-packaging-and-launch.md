@@ -1,30 +1,30 @@
 # Phase E：Windows/UOS 离线发布与启动说明
 
-日期：2026-08-30
+日期：2026-08-31
 解目录：`D:\易峥\2026\2026-09\Avalonia_上位机通用模板\项目代码\XXX.TestBench.Uos`  
 当前实际目标：`net8.0`；Avalonia 11.3.9；自包含发布 RID 为 `win-x64`、`linux-x64`  
 配置：`config\gatewaysettings.json`；默认 `ReadOnly + OfflineSimulation`。信捷 `192.168.0.51:502` 仅完成独立仅读协议探针，未写入此配置。
-发布/临时目录：`D:\Codex相关\phase-d-ui-2026-08-30\publish`（不属于项目源目录）
+发布/临时目录：`D:\Codex相关\phase-e-final-2026-08-31\publish`（不属于项目源目录）
 
 ## 1. 本轮发布复验状态
 
 | 程序 | RID | 目标发布目录 | 当前状态 |
 |---|---|---|---|
-| Avalonia HMI | win-x64 | `D:\Codex相关\phase-d-ui-2026-08-30\publish\avalonia-win-x64` | `PASS-WINDOWS-PROCESS-START`；由实现提交生成，隐藏启动后存活 3 秒并定向结束 |
-| Avalonia HMI | linux-x64 | `D:\Codex相关\phase-d-ui-2026-08-30\publish\avalonia-linux-x64` | `PASS-PUBLISH-ONLY`；包已生成，UOS 启动仍为 `PENDING-FIELD` |
-| Gateway Host | win-x64 | `D:\Codex相关\phase-d-ui-2026-08-30\publish\gateway-host-win-x64` | `PASS-OFFLINE`；包内 config 执行 `--once` 退出码 0 |
-| Gateway Host | linux-x64 | `D:\Codex相关\phase-d-ui-2026-08-30\publish\gateway-host-linux-x64` | `PASS-PUBLISH-ONLY`；包已生成，UOS 启动仍为 `PENDING-FIELD` |
+| Avalonia HMI | win-x64 | `D:\Codex相关\phase-e-final-2026-08-31\publish\avalonia-win-x64` | `PASS-WINDOWS-PROCESS-START`；由本轮验证基线生成，隐藏启动后存活 3 秒并定向结束 |
+| Avalonia HMI | linux-x64 | `D:\Codex相关\phase-e-final-2026-08-31\publish\avalonia-linux-x64` | `PASS-PUBLISH-ONLY`；包已生成，UOS 启动仍为 `PENDING-FIELD` |
+| Gateway Host | win-x64 | `D:\Codex相关\phase-e-final-2026-08-31\publish\gateway-host-win-x64` | `PASS-OFFLINE`；包内 config 执行 `--once` 退出码 0 |
+| Gateway Host | linux-x64 | `D:\Codex相关\phase-e-final-2026-08-31\publish\gateway-host-linux-x64` | `PASS-PUBLISH-ONLY`；包已生成，UOS 启动仍为 `PENDING-FIELD` |
 
-Avalonia 和 Host 项目均显式设置 `CopyToPublishDirectory="PreserveNewest"`。本轮四包均由已推送实现提交 `92cdec56a3a93132fd5258446729fafedd9bc631` 生成；四个目录均含 `config\gatewaysettings.json`。精确扫描 `Interop.OPCAutomation.dll`、`SunnyUI.dll`、`AntdUI.dll`、`rw3.dll`、`rwdsl2.dll`、`office.dll` 与 `Report.dll`，四包命中数均为 0。
+Avalonia 和 Host 项目均显式设置 `CopyToPublishDirectory="PreserveNewest"`。本轮四包均由验证基线 `92df619e62b3ee76e59630ba7b734ddd36592cf1` 重新生成；四个目录均含 `config\gatewaysettings.json`。精确扫描 `Interop.OPCAutomation.dll`、`SunnyUI.dll`、`AntdUI.dll`、`rw3.dll`、`rwdsl2.dll`、`office.dll` 与 `Report.dll`，四包命中数均为 0。
 
 当前 apphost/config SHA-256 与扫描结果如下；这些哈希只能用于介质比对，不能替代现场签名、许可证或 SBOM 记录。
 
 | 发布物 | apphost SHA-256 | config SHA-256 | 禁止依赖命中 |
 |---|---|---|---:|
-| Avalonia Windows | `4A1EA7685EB545165CD35748C730A290A196A96DD28F1755CE64ED16908A54C2` | `D9377DA6B8F6C85229921C951A41DD67190961CB34FBFE08421D1C74D7574C96` | 0 |
-| Avalonia Linux | `A603336CF5C561A861A48142DD1877AECBA03C887D40066302F1256BA2A1E590` | `D9377DA6B8F6C85229921C951A41DD67190961CB34FBFE08421D1C74D7574C96` | 0 |
-| Gateway Host Windows | `7522424C4FB5B82BAB993B20E9A17025BB46B247C5186EB0364113287FC4E501` | `D9377DA6B8F6C85229921C951A41DD67190961CB34FBFE08421D1C74D7574C96` | 0 |
-| Gateway Host Linux | `A4DCB00CBB84ADD3B77C87C0F7F673571FA0D694F5C014FF31546C2E4F11B869` | `D9377DA6B8F6C85229921C951A41DD67190961CB34FBFE08421D1C74D7574C96` | 0 |
+| Avalonia Windows | `D81303C90F743F244DEA4B5F97EC3B9E30098A718E57719196DFD60C5FE485EB` | `B4344D50C8B8E25F714DAD5477539A027FEB508C3D005DC54F82F6E14BBBEA26` | 0 |
+| Avalonia Linux | `A603336CF5C561A861A48142DD1877AECBA03C887D40066302F1256BA2A1E590` | `B4344D50C8B8E25F714DAD5477539A027FEB508C3D005DC54F82F6E14BBBEA26` | 0 |
+| Gateway Host Windows | `172189EB897016B4C68A6EC6CD2B6BD2D9008BF811A7200A92850D29F26C5891` | `B4344D50C8B8E25F714DAD5477539A027FEB508C3D005DC54F82F6E14BBBEA26` | 0 |
+| Gateway Host Linux | `A4DCB00CBB84ADD3B77C87C0F7F673571FA0D694F5C014FF31546C2E4F11B869` | `B4344D50C8B8E25F714DAD5477539A027FEB508C3D005DC54F82F6E14BBBEA26` | 0 |
 
 ## 2. 可重复的 Windows 发布命令
 
@@ -32,24 +32,24 @@ Avalonia 和 Host 项目均显式设置 `CopyToPublishDirectory="PreserveNewest"
 
 ```powershell
 $repo = 'D:\易峥\2026\2026-09\Avalonia_上位机通用模板\项目代码\XXX.TestBench.Uos'
-$out = 'D:\Codex相关\phase-d-ui-2026-08-30\publish\avalonia-win-x64'
+$out = 'D:\Codex相关\phase-e-final-2026-08-31\publish\avalonia-win-x64'
 dotnet publish "$repo\src\XXX.TestBench.Avalonia\XXX.TestBench.Avalonia.csproj" -c Release -r win-x64 --self-contained true -o $out
 
-$out = 'D:\Codex相关\phase-d-ui-2026-08-30\publish\gateway-host-win-x64'
+$out = 'D:\Codex相关\phase-e-final-2026-08-31\publish\gateway-host-win-x64'
 dotnet publish "$repo\src\XXX.TestBench.Gateway.Host\XXX.TestBench.Gateway.Host.csproj" -c Release -r win-x64 --self-contained true -o $out
 ```
 
 启动 Avalonia HMI：
 
 ```powershell
-Set-Location 'D:\Codex相关\phase-d-ui-2026-08-30\publish\avalonia-win-x64'
+Set-Location 'D:\Codex相关\phase-e-final-2026-08-31\publish\avalonia-win-x64'
 .\XXX.TestBench.Avalonia.exe
 ```
 
 启动 Gateway Host 的一次离线采样：
 
 ```powershell
-Set-Location 'D:\Codex相关\phase-d-ui-2026-08-30\publish\gateway-host-win-x64'
+Set-Location 'D:\Codex相关\phase-e-final-2026-08-31\publish\gateway-host-win-x64'
 .\XXX.TestBench.Gateway.Host.exe --config .\config\gatewaysettings.json --once
 ```
 
@@ -61,10 +61,10 @@ Set-Location 'D:\Codex相关\phase-d-ui-2026-08-30\publish\gateway-host-win-x64'
 
 ```powershell
 $repo = 'D:\易峥\2026\2026-09\Avalonia_上位机通用模板\项目代码\XXX.TestBench.Uos'
-$out = 'D:\Codex相关\phase-d-ui-2026-08-30\publish\avalonia-linux-x64'
+$out = 'D:\Codex相关\phase-e-final-2026-08-31\publish\avalonia-linux-x64'
 dotnet publish "$repo\src\XXX.TestBench.Avalonia\XXX.TestBench.Avalonia.csproj" -c Release -r linux-x64 --self-contained true -o $out
 
-$out = 'D:\Codex相关\phase-d-ui-2026-08-30\publish\gateway-host-linux-x64'
+$out = 'D:\Codex相关\phase-e-final-2026-08-31\publish\gateway-host-linux-x64'
 dotnet publish "$repo\src\XXX.TestBench.Gateway.Host\XXX.TestBench.Gateway.Host.csproj" -c Release -r linux-x64 --self-contained true -o $out
 ```
 
