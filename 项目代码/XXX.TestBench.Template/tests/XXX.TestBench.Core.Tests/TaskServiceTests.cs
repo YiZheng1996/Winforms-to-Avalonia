@@ -102,4 +102,22 @@ public class TaskServiceTests
         await Assert.ThrowsAsync<AuthorizationException>(() =>
             service.CreateAsync(viewer, 1, 10, new ProductIdentity("SN", null, null, null)));
     }
+
+    [Fact]
+    public async Task UpdateIdentity_OnlyOnDraft_AndRequiresValue()
+    {
+        var (service, _, _, _, _) = Create();
+        var actor = TestContexts.With(PermissionCode.ManageTasks, PermissionCode.ExecuteTests);
+        var task = await service.CreateAsync(actor, 1, 10, new ProductIdentity("SN001", null, null, null));
+
+        await service.UpdateIdentityAsync(actor, task.Id, new ProductIdentity("SN002", "B2", null, null));
+        Assert.Equal("SN002", task.ProductIdentity.ProductNumber);
+
+        await Assert.ThrowsAsync<DomainException>(() =>
+            service.UpdateIdentityAsync(actor, task.Id, new ProductIdentity(null, null, null, null)));
+
+        await service.ToReadyAsync(actor, task.Id);
+        await Assert.ThrowsAsync<DomainException>(() =>
+            service.UpdateIdentityAsync(actor, task.Id, new ProductIdentity("SN003", null, null, null)));
+    }
 }

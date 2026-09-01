@@ -71,6 +71,8 @@ public sealed class DeviceWritePipeline
             var readback = await command.Runtime.ReadAsync(command.Point, ct);
             if (readback.Quality != PointQuality.Good)
                 throw new DomainException($"写入回读质量异常（{readback.Quality}）");
+            if (!ValuesEqual(command.Value, readback.Value))
+                throw new DomainException($"写入回读不一致：写入 {command.Value}，回读 {readback.Value}");
             await _audit.WriteAsync(command.Actor.LoginName, "DeviceWrite", command.Point.Code, $"value={command.Value} readback={readback.Value}", ct);
         }
         else
@@ -79,5 +81,15 @@ public sealed class DeviceWritePipeline
         }
 
         return written;
+    }
+
+    private static bool ValuesEqual(object? expected, object? actual)
+    {
+        if (expected is null || actual is null) return Equals(expected, actual);
+        if (expected is bool eb && actual is bool ab) return eb == ab;
+        if (expected is string es && actual is string as2) return string.Equals(es, as2, StringComparison.Ordinal);
+        if (decimal.TryParse(Convert.ToString(expected), out var ed) && decimal.TryParse(Convert.ToString(actual), out var ad))
+            return Math.Abs(ed - ad) < 0.0001m;
+        return Equals(expected, actual);
     }
 }

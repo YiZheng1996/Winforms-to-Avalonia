@@ -142,7 +142,8 @@ public sealed class TestExecutionViewModel : PageViewModel
         {
             if (_recordId == 0) throw new Core.Common.DomainException("请先启动试验");
             Conclusion = await _services.Execution.CompleteAsync(_actor, _recordId);
-            RecordStateText = "Completed";
+            var record = await _services.TaskRepository.GetRecordAsync(_recordId);
+            RecordStateText = record?.State.ToString() ?? "Completed";
             StatusMessage = $"试验结束：{Conclusion}";
             await LoadAsync();
         }

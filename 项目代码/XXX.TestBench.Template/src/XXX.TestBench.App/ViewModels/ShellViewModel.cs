@@ -180,6 +180,7 @@ public sealed class ShellViewModel : ObservableObject
     {
         if (item is null) return;
         CurrentPage = item.Page;
-        await item.Page.LoadAsync();
+        try { await item.Page.LoadAsync(); }
+        catch (Exception ex) { item.Page.ReportError(ex); }
     }
 }

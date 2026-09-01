@@ -228,7 +228,12 @@ public sealed class FakeRecipeRepository : IRecipeRepository
         Values.Add(value);
         return Task.CompletedTask;
     }
-    public Task UpdateItemAsync(RecipeItem item, CancellationToken ct = default) => Task.CompletedTask;
+    public Task UpdateItemAsync(RecipeItem item, CancellationToken ct = default)
+    {
+        var existing = Items.FirstOrDefault(i => i.Id == item.Id);
+        if (existing is not null) { existing.SortOrder = item.SortOrder; existing.IsEnabled = item.IsEnabled; }
+        return Task.CompletedTask;
+    }
 
     public Task DeleteItemAsync(int itemId, CancellationToken ct = default)
     {
@@ -303,11 +308,14 @@ public sealed class FakeTaskRepository : ITaskRepository
 public sealed class FakeRuntime : IDeviceRuntime
 {
     private readonly DeviceRuntimeInfo _status;
+    private readonly Dictionary<string, object?> _values = new();
+    private readonly Func<string, object?>? _readOverride;
     public List<string> Writes { get; } = new();
 
-    public FakeRuntime(bool isSimulation, DeviceHealth health = DeviceHealth.Healthy, bool connected = true)
+    public FakeRuntime(bool isSimulation, DeviceHealth health = DeviceHealth.Healthy, bool connected = true, Func<string, object?>? readOverride = null)
     {
         IsSimulation = isSimulation;
+        _readOverride = readOverride;
         _status = new DeviceRuntimeInfo(Name, "Fake", "fake://1", isSimulation, health, connected, null);
     }
 
@@ -321,14 +329,14 @@ public sealed class FakeRuntime : IDeviceRuntime
     public Task<IReadOnlyList<DevicePoint>> ListPointsAsync(CancellationToken ct = default)
         => Task.FromResult<IReadOnlyList<DevicePoint>>(Array.Empty<DevicePoint>());
     public Task<PointValue> ReadAsync(DevicePoint point, CancellationToken ct = default)
-        => Task.FromResult(new PointValue(point.Code, point.Address, PointQuality.Good, null, DateTime.UtcNow));
+        => Task.FromResult(new PointValue(point.Code, point.Address, PointQuality.Good, _readOverride is not null ? _readOverride(point.Address) : (_values.TryGetValue(point.Address, out var v) ? v : null), DateTime.UtcNow));
     public Task<PointValue> WriteAsync(DevicePoint point, object? value, CancellationToken ct = default)
     {
         Writes.Add($"{point.Code}={value}");
+        _values[point.Address] = value;
         return Task.FromResult(new PointValue(point.Code, point.Address, PointQuality.Good, value, DateTime.UtcNow));
     }
 }
-
 public sealed class FakeRuntimeFactory : IDeviceRuntimeFactory
 {
     public Task<IDeviceRuntime> CreateAsync(DeviceMode mode, CancellationToken ct = default)

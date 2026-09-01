@@ -120,4 +120,13 @@ public class DeviceWritePipelineTests
         Assert.Equal(PointQuality.Good, result.Quality);
         Assert.Contains(audit.Entries, e => e.Contains("DeviceWrite"));
     }
+
+    [Fact]
+    public async Task HardwareWrite_ReadbackMismatch_IsRejected()
+    {
+        var (pipeline, _) = Create();
+        var runtime = new FakeRuntime(isSimulation: false, readOverride: _ => "999");
+        await Assert.ThrowsAsync<DomainException>(() =>
+            pipeline.ExecuteAsync(Cmd(TestContexts.With(PermissionCode.ManualControl), WritablePoint, true, DeviceMode.Hardware, runtime)));
+    }
 }

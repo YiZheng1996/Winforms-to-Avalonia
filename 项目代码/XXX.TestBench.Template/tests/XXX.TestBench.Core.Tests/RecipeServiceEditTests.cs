@@ -98,4 +98,20 @@ public class RecipeServiceEditTests
         var copy = await service.NewVersionFromAsync(actor, draft.Id);
         Assert.Equal(RecipeStatus.Draft, copy.Status);
     }
+
+    [Fact]
+    public async Task SetItemOrder_UpdatesOrder_AndRejectsDuplicate()
+    {
+        var (service, recipes, _, _) = Create();
+        var actor = TestContexts.With(PermissionCode.ManageRecipes);
+        var draft = await service.CreateDraftAsync(actor, 1, "配方");
+        await service.AddItemAsync(actor, draft.Id, 1, 1);
+        await service.AddItemAsync(actor, draft.Id, 2, 2);
+        var items = await recipes.ListItemsAsync(draft.Id);
+
+        await service.SetItemOrderAsync(actor, draft.Id, items[1].Id, 1);
+        var updated = await recipes.ListItemsAsync(draft.Id);
+        Assert.Equal(1, updated.First(i => i.Id == items[1].Id).SortOrder);
+        Assert.Equal(2, updated.First(i => i.Id == items[0].Id).SortOrder);
+    }
 }

@@ -12,4 +12,6 @@ public abstract class PageViewModel : ObservableObject
     public string StatusMessage { get => _statusMessage; protected set => SetField(ref _statusMessage, value); }
 
     public virtual Task LoadAsync(CancellationToken ct = default) => Task.CompletedTask;
+
+    public void ReportError(Exception ex) => StatusMessage = ex.Message;
 }

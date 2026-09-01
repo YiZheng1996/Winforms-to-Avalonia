@@ -55,6 +55,16 @@ public sealed class TaskService
         return task;
     }
 
+    public async Task UpdateIdentityAsync(UserContext actor, int taskId, ProductIdentity identity, CancellationToken ct = default)
+    {
+        actor.EnsurePermission(PermissionCode.ManageTasks);
+        var task = await GetTaskAsync(taskId, ct);
+        if (task.State != TaskState.Draft) throw new DomainException("只有草稿任务可以编辑产品标识");
+        if (!identity.HasAnyValue) throw new DomainException("至少填写一项产品标识（产品编号/批次号/工位号/备注）");
+        task.ProductIdentity = identity;
+        await _tasks.UpdateAsync(task, ct);
+        await _audit.WriteAsync(actor.LoginName, "TaskIdentityUpdated", $"task:{taskId}", identity.ProductNumber, ct);
+    }
     public async Task ToReadyAsync(UserContext actor, int taskId, CancellationToken ct = default)
     {
         actor.EnsurePermission(PermissionCode.ExecuteTests);

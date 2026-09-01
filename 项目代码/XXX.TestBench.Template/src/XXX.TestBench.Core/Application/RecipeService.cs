@@ -97,6 +97,22 @@ public sealed class RecipeService
         await _audit.WriteAsync(actor.LoginName, "RecipeItemRemoved", $"recipe:{recipeId}", $"item:{itemId}", ct);
     }
 
+    public async Task SetItemOrderAsync(UserContext actor, int recipeId, int itemId, int sortOrder, CancellationToken ct = default)
+    {
+        actor.EnsurePermission(Core.Domain.Identity.PermissionCode.ManageRecipes);
+        await RequireDraftAsync(recipeId, ct);
+        var items = await _recipes.ListItemsAsync(recipeId, ct);
+        var item = items.FirstOrDefault(i => i.Id == itemId) ?? throw new DomainException("配方中不存在该项点");
+        var conflicting = items.FirstOrDefault(i => i.Id != itemId && i.SortOrder == sortOrder);
+        if (conflicting is not null)
+        {
+            conflicting.SortOrder = item.SortOrder;
+            await _recipes.UpdateItemAsync(conflicting, ct);
+        }
+        item.SortOrder = sortOrder;
+        await _recipes.UpdateItemAsync(item, ct);
+        await _audit.WriteAsync(actor.LoginName, "RecipeItemReordered", $"recipe:{recipeId}", $"item:{itemId}->{sortOrder}", ct);
+    }
     public async Task SetParameterValueAsync(UserContext actor, int recipeId, int itemId, int parameterDefinitionId, string rawValue, CancellationToken ct = default)
     {
         actor.EnsurePermission(Core.Domain.Identity.PermissionCode.ManageRecipes);
