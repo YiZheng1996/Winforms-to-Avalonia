@@ -1,7 +1,20 @@
 <Application xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:XXX.TestBench.App.ViewModels"
+             xmlns:views="using:XXX.TestBench.App.Views"
              x:Class="XXX.TestBench.App.App">
   <Application.Styles>
     <FluentTheme />
   </Application.Styles>
+  <Application.DataTemplates>
+    <DataTemplate DataType="{x:Type vm:OverviewViewModel}"><views:OverviewView /></DataTemplate>
+    <DataTemplate DataType="{x:Type vm:TaskManagementViewModel}"><views:TaskManagementView /></DataTemplate>
+    <DataTemplate DataType="{x:Type vm:TestExecutionViewModel}"><views:TestExecutionView /></DataTemplate>
+    <DataTemplate DataType="{x:Type vm:RecipeCenterViewModel}"><views:RecipeCenterView /></DataTemplate>
+    <DataTemplate DataType="{x:Type vm:DataReportsViewModel}"><views:DataReportsView /></DataTemplate>
+    <DataTemplate DataType="{x:Type vm:ProcessMonitorViewModel}"><views:ProcessMonitorView /></DataTemplate>
+    <DataTemplate DataType="{x:Type vm:DeviceCalibrationViewModel}"><views:DeviceCalibrationView /></DataTemplate>
+    <DataTemplate DataType="{x:Type vm:SystemManagementViewModel}"><views:SystemManagementView /></DataTemplate>
+    <DataTemplate DataType="{x:Type vm:LogDiagnosticsViewModel}"><views:LogDiagnosticsView /></DataTemplate>
+  </Application.DataTemplates>
 </Application>

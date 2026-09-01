@@ -1,0 +1,20 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:XXX.TestBench.App.ViewModels"
+             x:Class="XXX.TestBench.App.Views.OverviewView"
+             x:DataType="vm:OverviewViewModel">
+  <StackPanel Margin="20" Spacing="12">
+    <TextBlock Text="{Binding Title}" FontSize="20" FontWeight="Bold" />
+    <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto" ColumnSpacing="12" RowSpacing="8">
+      <TextBlock Grid.Row="0" Grid.Column="0" Text="设备模式：" />
+      <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding DeviceModeText}" />
+      <TextBlock Grid.Row="1" Grid.Column="0" Text="设备健康：" />
+      <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding HealthText}" />
+      <TextBlock Grid.Row="2" Grid.Column="0" Text="活动任务：" />
+      <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding ActiveTaskText}" />
+      <TextBlock Grid.Row="3" Grid.Column="0" Text="状态：" />
+      <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding StatusMessage}" />
+    </Grid>
+    <Button Content="刷新" Command="{Binding LoadCommand}" HorizontalAlignment="Left" />
+  </StackPanel>
+</UserControl>

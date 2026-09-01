@@ -1,0 +1,21 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:XXX.TestBench.App.ViewModels"
+             x:Class="XXX.TestBench.App.Views.SystemManagementView"
+             x:DataType="vm:SystemManagementViewModel">
+  <DockPanel Margin="16">
+    <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Spacing="8" Margin="0,0,0,8">
+      <Button Content="刷新" Command="{Binding LoadCommand}" />
+    </StackPanel>
+    <Grid ColumnDefinitions="*,*" ColumnSpacing="12">
+      <DockPanel Grid.Column="0">
+        <TextBlock DockPanel.Dock="Top" Text="用户" FontWeight="Bold" />
+        <DataGrid ItemsSource="{Binding Users}" AutoGenerateColumns="True" IsReadOnly="True" />
+      </DockPanel>
+      <DockPanel Grid.Column="1">
+        <TextBlock DockPanel.Dock="Top" Text="角色与权限" FontWeight="Bold" />
+        <DataGrid ItemsSource="{Binding Roles}" AutoGenerateColumns="True" IsReadOnly="True" />
+      </DockPanel>
+    </Grid>
+  </DockPanel>
+</UserControl>

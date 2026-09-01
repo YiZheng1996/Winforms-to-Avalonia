@@ -1,0 +1,17 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:XXX.TestBench.App.ViewModels"
+             x:Class="XXX.TestBench.App.Views.ProcessMonitorView"
+             x:DataType="vm:ProcessMonitorViewModel">
+  <DockPanel Margin="16">
+    <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Spacing="8" Margin="0,0,0,8">
+      <Button Content="刷新" Command="{Binding RefreshCommand}" />
+      <ComboBox ItemsSource="{Binding Points}" SelectedItem="{Binding SelectedPoint}" Width="200" DisplayMemberBinding="{Binding Code}" />
+      <TextBox Text="{Binding WriteValue}" Watermark="写入值" Width="120" />
+      <CheckBox Content="高风险已确认" IsChecked="{Binding RiskConfirmed}" VerticalAlignment="Center" />
+      <Button Content="写入（走安全链）" Command="{Binding WriteCommand}" />
+      <TextBlock Text="{Binding StatusMessage}" Foreground="#1F618D" VerticalAlignment="Center" />
+    </StackPanel>
+    <DataGrid ItemsSource="{Binding Points}" SelectedItem="{Binding SelectedPoint}" AutoGenerateColumns="True" IsReadOnly="True" />
+  </DockPanel>
+</UserControl>

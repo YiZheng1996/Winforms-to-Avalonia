@@ -1,0 +1,31 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:XXX.TestBench.App.ViewModels"
+             x:Class="XXX.TestBench.App.Views.LoginView"
+             x:DataType="vm:ShellViewModel">
+  <Panel Background="#F4F6F9">
+    <Border Width="420" HorizontalAlignment="Center" VerticalAlignment="Center"
+            Background="White" CornerRadius="8" Padding="28" BorderBrush="#DDDDDD" BorderThickness="1">
+      <StackPanel Spacing="12">
+        <TextBlock Text="登录" FontSize="22" FontWeight="Bold" HorizontalAlignment="Center" />
+        <StackPanel Spacing="4">
+          <TextBlock Text="用户名" />
+          <TextBox Text="{Binding LoginName}" Watermark="用户名" />
+        </StackPanel>
+        <StackPanel Spacing="4">
+          <TextBlock Text="密码" />
+          <TextBox Text="{Binding Password}" PasswordChar="●" Watermark="密码" />
+        </StackPanel>
+        <StackPanel IsVisible="{Binding MustChangePassword}" Spacing="4">
+          <TextBlock Text="新密码（至少 8 位）" />
+          <TextBox Text="{Binding NewPassword}" PasswordChar="●" />
+          <TextBlock Text="确认新密码" />
+          <TextBox Text="{Binding ConfirmPassword}" PasswordChar="●" />
+          <Button Content="修改密码并进入" Command="{Binding ChangePasswordCommand}" HorizontalAlignment="Stretch" />
+        </StackPanel>
+        <Button Content="登录" Command="{Binding LoginCommand}" HorizontalAlignment="Stretch" IsVisible="{Binding !MustChangePassword}" />
+        <TextBlock Text="{Binding LoginError}" Foreground="#C0392B" TextWrapping="Wrap" IsVisible="{Binding HasLoginError}" />
+      </StackPanel>
+    </Border>
+  </Panel>
+</UserControl>

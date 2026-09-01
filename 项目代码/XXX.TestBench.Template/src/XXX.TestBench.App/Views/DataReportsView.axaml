@@ -1,0 +1,23 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:XXX.TestBench.App.ViewModels"
+             x:Class="XXX.TestBench.App.Views.DataReportsView"
+             x:DataType="vm:DataReportsViewModel">
+  <DockPanel Margin="16">
+    <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Spacing="8" Margin="0,0,0,8">
+      <Button Content="刷新" Command="{Binding LoadCommand}" />
+      <Button Content="生成选中记录报表" Command="{Binding GenerateReportCommand}" />
+      <TextBlock Text="{Binding StatusMessage}" Foreground="#1F618D" VerticalAlignment="Center" />
+    </StackPanel>
+    <Grid ColumnDefinitions="*,*" ColumnSpacing="12">
+      <DockPanel Grid.Column="0">
+        <TextBlock DockPanel.Dock="Top" Text="试验记录" FontWeight="Bold" />
+        <DataGrid ItemsSource="{Binding Records}" SelectedItem="{Binding SelectedRecord}" AutoGenerateColumns="True" IsReadOnly="True" />
+      </DockPanel>
+      <DockPanel Grid.Column="1">
+        <TextBlock DockPanel.Dock="Top" Text="报表记录" FontWeight="Bold" />
+        <DataGrid ItemsSource="{Binding Reports}" AutoGenerateColumns="True" IsReadOnly="True" />
+      </DockPanel>
+    </Grid>
+  </DockPanel>
+</UserControl>

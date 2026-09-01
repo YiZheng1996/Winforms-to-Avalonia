@@ -1,6 +1,5 @@
 using XXX.TestBench.App.ViewModels;
 using XXX.TestBench.Core.Application;
-using XXX.TestBench.Core.Execution;
 using XXX.TestBench.Core.Common;
 using XXX.TestBench.Core.Configuration;
 using XXX.TestBench.Core.Domain.Devices;
@@ -36,7 +35,7 @@ public sealed class AppComposition
     public static AppComposition Create(string configRoot, string dataRoot)
     {
         var composition = new AppComposition();
-        composition.Initialize(configRoot, dataRoot);
+        Task.Run(() => composition.Initialize(configRoot, dataRoot)).GetAwaiter().GetResult();
         return composition;
     }
 
@@ -86,22 +85,35 @@ public sealed class AppComposition
             TestExecution = new TestExecutionService(taskRepo, recipeRepo, definitionRepo, executorFactory, tasks, clock, audit);
             Reports = new ReportService(taskRepo, recipeRepo, productRepo, definitionRepo, userRepo, reportRepository, reportGenerator, clock, audit);
 
-            var version = typeof(AppComposition).Assembly.GetName().Version?.ToString(3) ?? "0.1.0";
-            Shell = new ShellViewModel(
-                appConfig.SystemName,
-                version,
-                deviceConfig.DeviceMode,
+            var services = new ShellServices(
+                Authentication,
+                tasks,
+                TestExecution,
+                recipes,
+                new ProductService(productRepo, clock, audit),
+                new TestDefinitionService(definitionRepo, clock, audit),
+                Reports,
+                DeviceModes,
+                writePipeline,
+                taskRepo,
+                recipeRepo,
+                productRepo,
+                definitionRepo,
+                userRepo,
+                reportRepository,
+                audit,
+                appConfig,
+                deviceConfig,
                 dbPath,
-                isFaulted: false,
-                faultMessage: null,
-                deviceError: DeviceModes.Health == DeviceHealth.Healthy ? null : DeviceModes.LastError);
+                typeof(AppComposition).Assembly.GetName().Version?.ToString(3) ?? "0.1.0");
+
+            Shell = new ShellViewModel(services);
         }
         catch (Exception ex)
         {
             StartupError = ex is ConfigValidationException or DomainException ? ex.Message : ex.ToString();
             Logger.Error("启动失败", ex);
-            var version = typeof(AppComposition).Assembly.GetName().Version?.ToString(3) ?? "0.1.0";
-            Shell = new ShellViewModel("XXX 试验台通用上位机", version, DeviceMode.Simulation, dataRoot, isFaulted: true, faultMessage: StartupError);
+            Shell = new ShellViewModel(null, isFaulted: true, faultMessage: StartupError);
         }
     }
 }

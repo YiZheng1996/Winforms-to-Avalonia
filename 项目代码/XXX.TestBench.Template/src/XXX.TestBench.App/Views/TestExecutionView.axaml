@@ -1,0 +1,34 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:XXX.TestBench.App.ViewModels"
+             x:Class="XXX.TestBench.App.Views.TestExecutionView"
+             x:DataType="vm:TestExecutionViewModel">
+  <DockPanel Margin="16" LastChildFill="True">
+    <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Spacing="8" Margin="0,0,0,8">
+      <TextBlock Text="任务：" VerticalAlignment="Center" />
+      <ComboBox ItemsSource="{Binding Tasks}" SelectedItem="{Binding SelectedTask}" Width="260" DisplayMemberBinding="{Binding TaskNumber}" />
+      <Button Content="刷新" Command="{Binding LoadCommand}" />
+      <Button Content="预检并启动" Command="{Binding StartCommand}" />
+      <Button Content="结束试验" Command="{Binding FinishCommand}" />
+      <TextBlock Text="记录状态：" VerticalAlignment="Center" />
+      <TextBlock Text="{Binding RecordStateText}" VerticalAlignment="Center" FontWeight="Bold" />
+      <TextBlock Text="{Binding StatusMessage}" Foreground="#1F618D" VerticalAlignment="Center" />
+    </StackPanel>
+    <TextBlock DockPanel.Dock="Top" Text="{Binding Conclusion}" Foreground="#C0392B" TextWrapping="Wrap" />
+    <DataGrid ItemsSource="{Binding Items}" IsReadOnly="True" AutoGenerateColumns="False">
+      <DataGrid.Columns>
+        <DataGridTextColumn Header="项点" Binding="{Binding Name}" Width="*" />
+        <DataGridTextColumn Header="状态" Binding="{Binding StateText}" Width="120" />
+        <DataGridTextColumn Header="摘要值" Binding="{Binding Summary}" Width="120" />
+        <DataGridTextColumn Header="结果说明" Binding="{Binding ResultText}" Width="*" />
+        <DataGridTemplateColumn Header="操作" Width="100">
+          <DataGridTemplateColumn.CellTemplate>
+            <DataTemplate>
+              <Button Content="执行" Tag="{Binding}" Click="OnExecuteClick" />
+            </DataTemplate>
+          </DataGridTemplateColumn.CellTemplate>
+        </DataGridTemplateColumn>
+      </DataGrid.Columns>
+    </DataGrid>
+  </DockPanel>
+</UserControl>

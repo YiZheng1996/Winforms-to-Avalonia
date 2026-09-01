@@ -1,5 +1,4 @@
 using XXX.TestBench.App.ViewModels;
-using XXX.TestBench.Core.Domain.Devices;
 using Xunit;
 
 namespace XXX.TestBench.App.Tests;
@@ -7,41 +6,80 @@ namespace XXX.TestBench.App.Tests;
 public class ShellViewModelTests
 {
     [Fact]
-    public void Simulation_ShowsSimulationBadge_AndNormalStatus()
+    public async Task AdminLogin_ForcesPasswordChange_ThenEntersWithAllPages()
     {
-        var vm = new ShellViewModel("测试系统", "0.1.0", DeviceMode.Simulation, "C:\\data\\testbench.db");
+        using var harness = AppTestHarness.Create();
+        var shell = new ShellViewModel(harness.Services);
 
-        Assert.Equal("Simulation（仿真）", vm.DeviceModeText);
-        Assert.True(vm.IsSimulationMode);
-        Assert.Equal("运行正常", vm.ConnectionStatusText);
-        Assert.False(vm.IsFaulted);
+        Assert.False(shell.IsAuthenticated);
+        Assert.Equal("未登录", shell.CurrentUserText);
+
+        shell.LoginName = "admin";
+        shell.Password = "admin123";
+        await shell.LoginAsync();
+
+        Assert.True(shell.MustChangePassword);
+        Assert.False(shell.IsAuthenticated);
+
+        shell.NewPassword = "newpass123";
+        shell.ConfirmPassword = "newpass123";
+        await shell.ChangePasswordAsync();
+
+        Assert.True(shell.IsAuthenticated);
+        Assert.False(shell.MustChangePassword);
+        Assert.NotEmpty(shell.NavItems);
+        Assert.Equal(9, shell.NavItems.Count); // Administrator 全权限
+        Assert.NotNull(shell.CurrentPage);
+        Assert.Equal("运行总览", shell.CurrentPage!.Title);
+        Assert.NotEqual("未登录", shell.CurrentUserText);
     }
 
     [Fact]
-    public void Hardware_ShowsHardwareBadge()
+    public async Task OperatorLogin_FiltersNavigationByPermission()
     {
-        var vm = new ShellViewModel("测试系统", "0.1.0", DeviceMode.Hardware, "C:\\data\\testbench.db");
+        using var harness = AppTestHarness.Create();
+        await harness.AddOperatorUserAsync("op1", "op123456");
+        var shell = new ShellViewModel(harness.Services);
 
-        Assert.Equal("Hardware（硬件）", vm.DeviceModeText);
-        Assert.False(vm.IsSimulationMode);
+        shell.LoginName = "op1";
+        shell.Password = "op123456";
+        await shell.LoginAsync();
+
+        Assert.True(shell.IsAuthenticated);
+        Assert.DoesNotContain(shell.NavItems, n => n.Title == "配方中心");
+        Assert.DoesNotContain(shell.NavItems, n => n.Title == "系统管理");
+        Assert.Contains(shell.NavItems, n => n.Title == "任务管理");
+        Assert.Contains(shell.NavItems, n => n.Title == "试验执行");
     }
 
     [Fact]
-    public void Faulted_ShowsDiagnostic_AndFaultStatus()
+    public async Task Logout_ResetsState()
     {
-        var vm = new ShellViewModel("测试系统", "0.1.0", DeviceMode.Simulation, "data", isFaulted: true, faultMessage: "device.json schemaVersion=99 不受支持");
+        using var harness = AppTestHarness.Create();
+        var shell = new ShellViewModel(harness.Services);
+        shell.LoginName = "admin";
+        shell.Password = "admin123";
+        await shell.LoginAsync();
+        shell.NewPassword = "newpass123";
+        shell.ConfirmPassword = "newpass123";
+        await shell.ChangePasswordAsync();
+        Assert.True(shell.IsAuthenticated);
 
-        Assert.True(vm.IsFaulted);
-        Assert.Equal("故障", vm.ConnectionStatusText);
-        Assert.Contains("schemaVersion", vm.FaultMessage);
-        Assert.Equal("未登录", vm.CurrentUserText);
+        await shell.LogoutAsync();
+
+        Assert.False(shell.IsAuthenticated);
+        Assert.Empty(shell.NavItems);
+        Assert.Null(shell.CurrentPage);
+        Assert.Equal("未登录", shell.CurrentUserText);
     }
 
     [Fact]
-    public void DeviceError_ShowsInStatus()
+    public void FaultedShell_ShowsDiagnostic()
     {
-        var vm = new ShellViewModel("测试系统", "0.1.0", DeviceMode.Hardware, "data", deviceError: "Hardware 无适配器");
+        var shell = new ShellViewModel(null, isFaulted: true, faultMessage: "app.json schemaVersion=99 不受支持");
 
-        Assert.Equal("Hardware 无适配器", vm.ConnectionStatusText);
+        Assert.True(shell.IsFaulted);
+        Assert.Equal("故障", shell.ConnectionStatusText);
+        Assert.Contains("schemaVersion", shell.FaultMessage);
     }
 }

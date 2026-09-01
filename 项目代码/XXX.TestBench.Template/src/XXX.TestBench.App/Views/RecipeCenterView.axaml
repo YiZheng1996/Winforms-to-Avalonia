@@ -1,0 +1,98 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:XXX.TestBench.App.ViewModels"
+             x:Class="XXX.TestBench.App.Views.RecipeCenterView"
+             x:DataType="vm:RecipeCenterViewModel">
+  <DockPanel Margin="16">
+    <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Spacing="8" Margin="0,0,0,8">
+      <Button Content="刷新" Command="{Binding LoadCommand}" />
+      <TextBlock Text="{Binding Status}" Foreground="#1F618D" VerticalAlignment="Center" />
+    </StackPanel>
+    <TabControl SelectedIndex="{Binding SelectedTabIndex}">
+      <TabItem Header="产品类型">
+        <DockPanel Margin="8">
+          <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Spacing="6">
+            <TextBox Text="{Binding NewCode}" Watermark="代码" Width="120" />
+            <TextBox Text="{Binding NewName}" Watermark="名称" Width="160" />
+            <Button Content="新增类型" Command="{Binding AddTypeCommand}" />
+            <Button Content="停用/启用选中" Command="{Binding DisableSelectedTypeCommand}" />
+          </StackPanel>
+          <DataGrid ItemsSource="{Binding Types}" SelectedItem="{Binding SelectedType}" AutoGenerateColumns="True" IsReadOnly="True" />
+        </DockPanel>
+      </TabItem>
+      <TabItem Header="产品型号">
+        <DockPanel Margin="8">
+          <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Spacing="6">
+            <ComboBox ItemsSource="{Binding ModelTypeOptions}" SelectedItem="{Binding SelectedModelType}" Width="160" DisplayMemberBinding="{Binding Name}" />
+            <TextBox Text="{Binding NewCode}" Watermark="代码" Width="120" />
+            <TextBox Text="{Binding NewName}" Watermark="名称" Width="160" />
+            <Button Content="新增型号" Command="{Binding AddModelCommand}" />
+            <Button Content="停用/启用选中" Command="{Binding DisableSelectedModelCommand}" />
+          </StackPanel>
+          <DataGrid ItemsSource="{Binding Models}" SelectedItem="{Binding SelectedModel}" AutoGenerateColumns="True" IsReadOnly="True" />
+        </DockPanel>
+      </TabItem>
+      <TabItem Header="试验项定义">
+        <DockPanel Margin="8">
+          <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Spacing="6">
+            <TextBox Text="{Binding NewCode}" Watermark="代码" Width="120" />
+            <TextBox Text="{Binding NewName}" Watermark="名称" Width="160" />
+            <TextBox Text="{Binding NewExecutor}" Watermark="执行器代码" Width="160" />
+            <Button Content="新增试验项" Command="{Binding AddItemCommand}" />
+            <Button Content="停用/启用选中" Command="{Binding DisableSelectedItemCommand}" />
+          </StackPanel>
+          <DataGrid ItemsSource="{Binding Items}" SelectedItem="{Binding SelectedItem}" AutoGenerateColumns="True" IsReadOnly="True" />
+        </DockPanel>
+      </TabItem>
+      <TabItem Header="参数定义">
+        <DockPanel Margin="8">
+          <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Spacing="6">
+            <ComboBox ItemsSource="{Binding ParamItemOptions}" SelectedItem="{Binding SelectedParamItem}" Width="200" DisplayMemberBinding="{Binding Name}" />
+            <TextBox Text="{Binding NewParamCode}" Watermark="参数代码" Width="120" />
+            <TextBox Text="{Binding NewParamName}" Watermark="参数名称" Width="120" />
+            <TextBox Text="{Binding NewParamMin}" Watermark="下限" Width="80" />
+            <TextBox Text="{Binding NewParamMax}" Watermark="上限" Width="80" />
+            <Button Content="新增参数" Command="{Binding AddParamCommand}" />
+          </StackPanel>
+          <DataGrid ItemsSource="{Binding Parameters}" AutoGenerateColumns="True" IsReadOnly="True" />
+        </DockPanel>
+      </TabItem>
+      <TabItem Header="配方版本">
+        <DockPanel Margin="8">
+          <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Spacing="6">
+            <ComboBox ItemsSource="{Binding VersionTypeOptions}" SelectedItem="{Binding SelectedVersionType}" Width="150" DisplayMemberBinding="{Binding Name}" />
+            <ComboBox ItemsSource="{Binding VersionModelOptions}" SelectedItem="{Binding SelectedModel}" Width="150" DisplayMemberBinding="{Binding Name}" />
+            <TextBox Text="{Binding NewName}" Watermark="配方名称" Width="160" />
+            <Button Content="创建草稿" Command="{Binding CreateDraftCommand}" />
+          </StackPanel>
+          <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Spacing="6" Margin="0,6,0,0">
+            <Button Content="发布选中" Command="{Binding PublishSelectedVersionCommand}" />
+            <Button Content="停用选中" Command="{Binding RetireSelectedVersionCommand}" />
+            <Button Content="复制为新版本" Command="{Binding CopySelectedVersionCommand}" />
+          </StackPanel>
+          <DataGrid ItemsSource="{Binding Versions}" SelectedItem="{Binding SelectedVersion}" AutoGenerateColumns="True" IsReadOnly="True" />
+        </DockPanel>
+      </TabItem>
+      <TabItem Header="配方编辑器">
+        <DockPanel Margin="8">
+          <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Spacing="6">
+            <ComboBox ItemsSource="{Binding Versions}" SelectedItem="{Binding SelectedVersion}" Width="220" DisplayMemberBinding="{Binding Name}" />
+            <ComboBox ItemsSource="{Binding EditorItemOptions}" SelectedItem="{Binding SelectedEditorItemOption}" Width="160" DisplayMemberBinding="{Binding Name}" />
+            <TextBox Text="{Binding EditorSortOrder}" Watermark="顺序" Width="70" />
+            <Button Content="加入项点" Command="{Binding AddRecipeItemCommand}" />
+            <Button Content="校验" Command="{Binding ValidateEditorCommand}" />
+            <Button Content="发布" Command="{Binding PublishEditorCommand}" />
+          </StackPanel>
+          <DockPanel DockPanel.Dock="Bottom" Margin="0,8,0,0" LastChildFill="True">
+            <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Spacing="6">
+              <ComboBox ItemsSource="{Binding EditorParameters}" SelectedItem="{Binding SelectedEditorParameter}" Width="200" DisplayMemberBinding="{Binding Name}" />
+              <TextBox Text="{Binding EditorParamValue}" Watermark="参数值" Width="160" />
+              <Button Content="保存参数值" Command="{Binding SetParamValueCommand}" />
+            </StackPanel>
+            <DataGrid ItemsSource="{Binding RecipeItems}" SelectedItem="{Binding SelectedRecipeItem}" AutoGenerateColumns="True" IsReadOnly="True" />
+          </DockPanel>
+        </DockPanel>
+      </TabItem>
+    </TabControl>
+  </DockPanel>
+</UserControl>

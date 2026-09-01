@@ -1,0 +1,12 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:XXX.TestBench.App.ViewModels"
+             x:Class="XXX.TestBench.App.Views.LogDiagnosticsView"
+             x:DataType="vm:LogDiagnosticsViewModel">
+  <DockPanel Margin="16">
+    <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Spacing="8" Margin="0,0,0,8">
+      <Button Content="刷新" Command="{Binding LoadCommand}" />
+    </StackPanel>
+    <DataGrid ItemsSource="{Binding Logs}" AutoGenerateColumns="True" IsReadOnly="True" />
+  </DockPanel>
+</UserControl>
