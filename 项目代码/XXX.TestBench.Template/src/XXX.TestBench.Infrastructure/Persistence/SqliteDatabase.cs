@@ -316,6 +316,21 @@ public sealed class SqliteDatabase
         )
         """,
         """
+        CREATE TABLE IF NOT EXISTS report_records (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            test_record_id INTEGER NOT NULL,
+            template_path TEXT NOT NULL,
+            output_path TEXT NULL,
+            status INTEGER NOT NULL DEFAULT 0,
+            error TEXT NULL,
+            created_by_user_id INTEGER NOT NULL,
+            created_at_utc TEXT NOT NULL,
+            completed_at_utc TEXT NULL,
+            FOREIGN KEY (test_record_id) REFERENCES test_records(id),
+            FOREIGN KEY (created_by_user_id) REFERENCES users(id)
+        )
+        """,
+        """
         CREATE TABLE IF NOT EXISTS audit_logs (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             actor TEXT NOT NULL,

@@ -152,6 +152,99 @@ public sealed class TaskRepository : SqliteRepositoryBase, ITaskRepository
         finally { if (owns) await conn.DisposeAsync(); }
     }
 
+    public async Task<TestRecord?> GetRecordAsync(int recordId, CancellationToken ct = default)
+    {
+        var conn = OpenConnection();
+        var owns = OwnsConnection;
+        try
+        {
+            await using var cmd = conn.CreateCommand();
+            cmd.CommandText = "SELECT id, task_id, recipe_version_id, recipe_version_number, device_mode, operator_user_id, state, conclusion, started_at_utc, finished_at_utc FROM test_records WHERE id=$id";
+            cmd.Parameters.AddWithValue("$id", recordId);
+            await using var reader = await cmd.ExecuteReaderAsync(ct);
+            return await reader.ReadAsync(ct) ? MapRecord(reader) : null;
+        }
+        finally { if (owns) await conn.DisposeAsync(); }
+    }
+
+    public async Task UpdateRecordAsync(TestRecord record, CancellationToken ct = default)
+    {
+        var conn = OpenConnection();
+        var owns = OwnsConnection;
+        try
+        {
+            await using var cmd = conn.CreateCommand();
+            cmd.CommandText = "UPDATE test_records SET state=$state, conclusion=$conclusion, finished_at_utc=$finished WHERE id=$id";
+            cmd.Parameters.AddWithValue("$state", (int)record.State);
+            cmd.Parameters.AddWithValue("$conclusion", (object?)record.Conclusion ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$finished", (object?)record.FinishedAtUtc?.ToString("O") ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$id", record.Id);
+            await cmd.ExecuteNonQueryAsync(ct);
+        }
+        finally { if (owns) await conn.DisposeAsync(); }
+    }
+
+    public async Task<IReadOnlyList<TestItemResult>> ListItemResultsAsync(int recordId, CancellationToken ct = default)
+    {
+        var result = new List<TestItemResult>();
+        var conn = OpenConnection();
+        var owns = OwnsConnection;
+        try
+        {
+            await using var cmd = conn.CreateCommand();
+            cmd.CommandText = "SELECT id, record_id, recipe_item_id, test_item_definition_id, state, summary_value, result_text, started_at_utc, finished_at_utc FROM test_item_results WHERE record_id=$id ORDER BY id";
+            cmd.Parameters.AddWithValue("$id", recordId);
+            await using var reader = await cmd.ExecuteReaderAsync(ct);
+            while (await reader.ReadAsync(ct))
+                result.Add(new TestItemResult
+                {
+                    Id = reader.GetInt32(0),
+                    RecordId = reader.GetInt32(1),
+                    RecipeItemId = reader.GetInt32(2),
+                    TestItemDefinitionId = reader.GetInt32(3),
+                    State = (ItemResultState)reader.GetInt32(4),
+                    SummaryValue = ParseNullableString(reader.GetValue(5)),
+                    ResultText = ParseNullableString(reader.GetValue(6)),
+                    StartedAtUtc = ParseNullableUtc(reader.GetValue(7)),
+                    FinishedAtUtc = ParseNullableUtc(reader.GetValue(8))
+                });
+            return result;
+        }
+        finally { if (owns) await conn.DisposeAsync(); }
+    }
+
+    public async Task UpdateItemResultAsync(TestItemResult result, CancellationToken ct = default)
+    {
+        var conn = OpenConnection();
+        var owns = OwnsConnection;
+        try
+        {
+            await using var cmd = conn.CreateCommand();
+            cmd.CommandText = "UPDATE test_item_results SET state=$state, summary_value=$summary, result_text=$text, started_at_utc=$started, finished_at_utc=$finished WHERE id=$id";
+            cmd.Parameters.AddWithValue("$state", (int)result.State);
+            cmd.Parameters.AddWithValue("$summary", (object?)result.SummaryValue ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$text", (object?)result.ResultText ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$started", (object?)result.StartedAtUtc?.ToString("O") ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$finished", (object?)result.FinishedAtUtc?.ToString("O") ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$id", result.Id);
+            await cmd.ExecuteNonQueryAsync(ct);
+        }
+        finally { if (owns) await conn.DisposeAsync(); }
+    }
+
+    private static TestRecord MapRecord(Microsoft.Data.Sqlite.SqliteDataReader r) => new()
+    {
+        Id = r.GetInt32(0),
+        TaskId = r.GetInt32(1),
+        RecipeVersionId = r.GetInt32(2),
+        RecipeVersionNumber = r.GetInt32(3),
+        DeviceMode = (DeviceMode)r.GetInt32(4),
+        OperatorUserId = r.GetInt32(5),
+        State = (RecordState)r.GetInt32(6),
+        Conclusion = ParseNullableString(r.GetValue(7)),
+        StartedAtUtc = ParseUtc(r.GetString(8)),
+        FinishedAtUtc = ParseNullableUtc(r.GetValue(9))
+    };
     private static TestTask Map(Microsoft.Data.Sqlite.SqliteDataReader r) => new()
     {
         Id = r.GetInt32(0),

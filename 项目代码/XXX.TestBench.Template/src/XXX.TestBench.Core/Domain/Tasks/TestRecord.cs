@@ -12,10 +12,10 @@ public sealed class TestRecord
     public int RecipeVersionNumber { get; init; }
     public DeviceMode DeviceMode { get; init; }
     public int OperatorUserId { get; init; }
-    public RecordState State { get; private set; } = RecordState.Running;
+    public RecordState State { get; internal set; } = RecordState.Running;
     public string? Conclusion { get; set; }
     public DateTime StartedAtUtc { get; init; }
-    public DateTime? FinishedAtUtc { get; private set; }
+    public DateTime? FinishedAtUtc { get; internal set; }
 
     public void Complete(DateTime utcNow, string conclusion)
     {

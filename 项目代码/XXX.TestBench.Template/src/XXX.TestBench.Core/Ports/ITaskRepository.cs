@@ -10,5 +10,9 @@ public interface ITaskRepository
     Task AddAsync(TestTask task, CancellationToken ct = default);
     Task UpdateAsync(TestTask task, CancellationToken ct = default);
     Task AddRecordAsync(TestRecord record, CancellationToken ct = default);
+    Task<TestRecord?> GetRecordAsync(int recordId, CancellationToken ct = default);
+    Task UpdateRecordAsync(TestRecord record, CancellationToken ct = default);
+    Task<IReadOnlyList<TestItemResult>> ListItemResultsAsync(int recordId, CancellationToken ct = default);
     Task AddItemResultAsync(TestItemResult result, CancellationToken ct = default);
+    Task UpdateItemResultAsync(TestItemResult result, CancellationToken ct = default);
 }

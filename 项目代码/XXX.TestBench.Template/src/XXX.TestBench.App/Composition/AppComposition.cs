@@ -1,15 +1,18 @@
 using XXX.TestBench.App.ViewModels;
 using XXX.TestBench.Core.Application;
+using XXX.TestBench.Core.Execution;
 using XXX.TestBench.Core.Common;
 using XXX.TestBench.Core.Configuration;
 using XXX.TestBench.Core.Domain.Devices;
 using XXX.TestBench.Core.Ports;
 using XXX.TestBench.Devices;
+using XXX.TestBench.Devices.Executors;
 using XXX.TestBench.Infrastructure.Configuration;
 using XXX.TestBench.Infrastructure.Identity;
 using XXX.TestBench.Infrastructure.Logging;
 using XXX.TestBench.Infrastructure.Persistence;
 using XXX.TestBench.Infrastructure.Persistence.Repositories;
+using XXX.TestBench.Infrastructure.Reports;
 using XXX.TestBench.Infrastructure.Services;
 using XXX.TestBench.Infrastructure.Time;
 
@@ -27,6 +30,8 @@ public sealed class AppComposition
     public DeviceModeController? DeviceModes { get; private set; }
     public SqliteDatabase? Database { get; private set; }
     public ISqliteConnectionFactory? ConnectionFactory { get; private set; }
+    public TestExecutionService? TestExecution { get; private set; }
+    public ReportService? Reports { get; private set; }
 
     public static AppComposition Create(string configRoot, string dataRoot)
     {
@@ -75,6 +80,11 @@ public sealed class AppComposition
             var runtimeFactory = new DeviceRuntimeFactory(deviceConfig, pointsConfig, simulationConfig, clock);
             DeviceModes = new DeviceModeController(runtimeFactory, Logger, audit);
             DeviceModes.InitializeAsync(deviceConfig.DeviceMode).GetAwaiter().GetResult();
+            var executorFactory = new ExecutorFactory();
+            var reportRepository = new ReportRepository(factory);
+            var reportGenerator = new ClosedXmlReportGenerator();
+            TestExecution = new TestExecutionService(taskRepo, recipeRepo, definitionRepo, executorFactory, tasks, clock, audit);
+            Reports = new ReportService(taskRepo, recipeRepo, productRepo, definitionRepo, userRepo, reportRepository, reportGenerator, clock, audit);
 
             var version = typeof(AppComposition).Assembly.GetName().Version?.ToString(3) ?? "0.1.0";
             Shell = new ShellViewModel(

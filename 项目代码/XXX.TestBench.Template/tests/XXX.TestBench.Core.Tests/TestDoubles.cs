@@ -4,6 +4,7 @@ using XXX.TestBench.Core.Domain.Devices;
 using XXX.TestBench.Core.Domain.Identity;
 using XXX.TestBench.Core.Domain.Products;
 using XXX.TestBench.Core.Domain.Recipes;
+using XXX.TestBench.Core.Domain.Reports;
 using XXX.TestBench.Core.Domain.Tasks;
 using XXX.TestBench.Core.Domain.TestDefinitions;
 using XXX.TestBench.Core.Ports;
@@ -274,8 +275,16 @@ public sealed class FakeTaskRepository : ITaskRepository
         Results.Add(result);
         return Task.CompletedTask;
     }
-}
+    public Task<TestRecord?> GetRecordAsync(int recordId, CancellationToken ct = default)
+        => Task.FromResult(Records.FirstOrDefault(r => r.Id == recordId));
 
+    public Task UpdateRecordAsync(TestRecord record, CancellationToken ct = default) => Task.CompletedTask;
+
+    public Task<IReadOnlyList<TestItemResult>> ListItemResultsAsync(int recordId, CancellationToken ct = default)
+        => Task.FromResult<IReadOnlyList<TestItemResult>>(Results.Where(r => r.RecordId == recordId).ToList());
+
+    public Task UpdateItemResultAsync(TestItemResult result, CancellationToken ct = default) => Task.CompletedTask;
+}
 public sealed class FakeRuntime : IDeviceRuntime
 {
     private readonly DeviceRuntimeInfo _status;
@@ -324,4 +333,36 @@ public static class TestContexts
     }
 
     public static UserContext Admin() => With(Enum.GetValues<PermissionCode>());
+}
+
+public sealed class FakeReportRepository : IReportRepository
+{
+    public List<ReportRecord> Records { get; } = new();
+    private int _nextId = 1;
+
+    public Task AddAsync(ReportRecord record, CancellationToken ct = default)
+    {
+        if (record.Id == 0) record.Id = _nextId++;
+        Records.Add(record);
+        return Task.CompletedTask;
+    }
+
+    public Task UpdateAsync(ReportRecord record, CancellationToken ct = default) => Task.CompletedTask;
+    public Task<ReportRecord?> GetAsync(int id, CancellationToken ct = default)
+        => Task.FromResult(Records.FirstOrDefault(r => r.Id == id));
+    public Task<IReadOnlyList<ReportRecord>> ListByRecordAsync(int testRecordId, CancellationToken ct = default)
+        => Task.FromResult<IReadOnlyList<ReportRecord>>(Records.Where(r => r.TestRecordId == testRecordId).ToList());
+}
+
+public sealed class FakeReportGenerator : IReportGenerator
+{
+    public List<ReportData> Calls { get; } = new();
+    public bool Fail { get; set; }
+
+    public Task<string> GenerateAsync(ReportData data, string templatePath, string outputDirectory, CancellationToken ct = default)
+    {
+        Calls.Add(data);
+        if (Fail) throw new InvalidOperationException("生成器失败");
+        return Task.FromResult(Path.Combine(outputDirectory, "out.xlsx"));
+    }
 }
