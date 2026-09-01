@@ -120,4 +120,20 @@ public class TaskServiceTests
         await Assert.ThrowsAsync<DomainException>(() =>
             service.UpdateIdentityAsync(actor, task.Id, new ProductIdentity("SN003", null, null, null)));
     }
+
+    [Fact]
+    public async Task AccessDenied_IsAudited()
+    {
+        var clock = new FixedClock();
+        var tasks = new FakeTaskRepository();
+        var products = new FakeProductRepository();
+        var recipes = new FakeRecipeRepository();
+        var audit = new FakeAuditLog();
+        var service = new TaskService(tasks, products, recipes, clock, audit);
+        var viewer = TestContexts.With(PermissionCode.ViewRecords);
+
+        await Assert.ThrowsAsync<AuthorizationException>(() =>
+            service.CreateAsync(viewer, 1, 10, new ProductIdentity("SN", null, null, null)));
+        Assert.Contains(audit.Entries, e => e.Contains("AccessDenied|ManageTasks"));
+    }
 }

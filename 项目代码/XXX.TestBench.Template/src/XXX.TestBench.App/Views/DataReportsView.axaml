@@ -7,6 +7,7 @@
     <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Spacing="8" Margin="0,0,0,8">
       <Button Content="刷新" Command="{Binding LoadCommand}" />
       <Button Content="生成选中记录报表" Command="{Binding GenerateReportCommand}" />
+      <Button Content="重试/重新生成" Command="{Binding GenerateReportCommand}" />
       <TextBlock Text="{Binding StatusMessage}" Foreground="#1F618D" VerticalAlignment="Center" />
     </StackPanel>
     <Grid ColumnDefinitions="*,*" ColumnSpacing="12">

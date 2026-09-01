@@ -1,4 +1,5 @@
 using XXX.TestBench.Core.Application;
+using XXX.TestBench.Core.Common;
 using XXX.TestBench.Core.Domain.Identity;
 using XXX.TestBench.Core.Ports;
 using Xunit;
@@ -87,5 +88,15 @@ public class AuthenticationServiceTests
 
         await service.RevokeAsync(login.Session.Token);
         await Assert.ThrowsAsync<Common.AuthorizationException>(() => service.BuildUserContextAsync(login.Session.Token));
+    }
+
+    [Fact]
+    public async Task ChangePassword_WeakPassword_IsRejected()
+    {
+        var (service, users, _, _, _) = Create();
+        await users.AddAsync(new User { Id = 1, LoginName = "admin", DisplayName = "管理员", PasswordHash = "H:admin123", MustChangePassword = true, RoleId = 1, CreatedAtUtc = DateTime.UtcNow });
+
+        await Assert.ThrowsAsync<DomainException>(() => service.ChangePasswordAsync(1, "admin123", "abcdefgh")); // 无数字
+        await Assert.ThrowsAsync<DomainException>(() => service.ChangePasswordAsync(1, "admin123", "12345678")); // 无字母
     }
 }

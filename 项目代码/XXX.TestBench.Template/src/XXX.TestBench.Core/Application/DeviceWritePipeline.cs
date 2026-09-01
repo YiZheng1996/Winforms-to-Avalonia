@@ -36,7 +36,15 @@ public sealed class DeviceWritePipeline
         var requiredPermission = command.Point.RiskLevel == WriteRiskLevel.HighRisk
             ? PermissionCode.CalibrateDevices
             : PermissionCode.ManualControl;
-        command.Actor.EnsurePermission(requiredPermission);
+        try
+        {
+            command.Actor.EnsurePermission(requiredPermission);
+        }
+        catch (AuthorizationException)
+        {
+            await _audit.WriteAsync(command.Actor.LoginName, "AccessDenied", requiredPermission.ToString(), command.Point.Code);
+            throw;
+        }
 
         if (command.Mode == DeviceMode.Hardware)
         {

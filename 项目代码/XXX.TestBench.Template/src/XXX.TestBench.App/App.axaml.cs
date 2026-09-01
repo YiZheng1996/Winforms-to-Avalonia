@@ -8,6 +8,7 @@ namespace XXX.TestBench.App;
 public partial class App : Application
 {
     private AppComposition? _composition;
+    private static bool _compositionStarted;
 
     public override void Initialize()
     {
@@ -16,8 +17,10 @@ public partial class App : Application
 
     public override void OnFrameworkInitializationCompleted()
     {
-        if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
+        // 启动守卫：同一进程只初始化一次组合根，避免 Headless 每测试会话重复创建窗口/组合根导致挂起
+        if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop && !_compositionStarted)
         {
+            _compositionStarted = true;
             var baseDir = AppContext.BaseDirectory;
             var configRoot = Path.Combine(baseDir, "config");
             var dataRoot = Path.Combine(baseDir, "data");

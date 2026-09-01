@@ -53,18 +53,17 @@ public class ShellHeadlessTests
         return (configRoot, dataRoot);
     }
 
-    /// <summary>单个会话内完成外壳端到端 Headless 验证：故障横幅、模式徽标、登录与导航（避免多测试会话隔离问题）。</summary>
+    /// <summary>单个会话内完成外壳端到端 Headless 验证：故障横幅、模式徽标、登录与导航。
+    /// Avalonia.Headless 11.3.9 多 AvaloniaFact 会话在此环境存在挂起问题（启动守卫已缓解但仍偶发），故合并为单事实。</summary>
     [AvaloniaFact]
     public async Task Shell_EndToEnd_FaultBanner_ModeBadge_LoginAndNavigate()
     {
-        // 1) 故障外壳显示诊断横幅
         var faulted = new ShellViewModel(null, isFaulted: true, faultMessage: "配置无效");
         var faultWindow = new MainWindow { DataContext = faulted };
         faultWindow.Show();
         Assert.True(faultWindow.FindControl<Border>("FaultBanner")?.IsVisible);
         faultWindow.Close();
 
-        // 2) 组合根（Simulation）模式徽标与登录导航
         var (configRoot, dataRoot) = CreateTempConfig();
         var composition = AppComposition.Create(configRoot, dataRoot);
         Assert.Null(composition.StartupError);

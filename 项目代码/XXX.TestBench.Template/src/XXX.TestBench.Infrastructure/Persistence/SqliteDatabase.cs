@@ -29,28 +29,30 @@ public sealed class SqliteDatabase
                 throw new InvalidOperationException($"SQLite 完整性检查失败：{result}");
         }
 
+        // 版本化迁移：按 PRAGMA user_version 依次应用未执行的迁移（当前 v1；后续新增版本追加到 Migrations）
         await using (var cmd = conn.CreateCommand())
         {
-            cmd.CommandText = "SELECT COUNT(1) FROM sqlite_master WHERE type='table' AND name='app_metadata'";
-            var hasMetadata = (long)(await cmd.ExecuteScalarAsync(ct))! > 0;
-            if (hasMetadata)
+            cmd.CommandText = "PRAGMA user_version";
+            var currentVersion = Convert.ToInt32(await cmd.ExecuteScalarAsync(ct));
+            foreach (var (version, statements) in Migrations.Where(m => m.Version > currentVersion).OrderBy(m => m.Version))
             {
-                cmd.CommandText = "SELECT value FROM app_metadata WHERE key='schema_version'";
-                var current = await cmd.ExecuteScalarAsync(ct);
-                if (current is not null && Convert.ToInt32(current) >= CurrentSchemaVersion) return;
+                await using var txn = conn.BeginTransaction();
+                foreach (var statement in statements)
+                {
+                    await using var scmd = conn.CreateCommand();
+                    scmd.Transaction = txn;
+                    scmd.CommandText = statement;
+                    await scmd.ExecuteNonQueryAsync(ct);
+                }
+                await using (var ucmd = conn.CreateCommand())
+                {
+                    ucmd.Transaction = txn;
+                    ucmd.CommandText = $"PRAGMA user_version = {version}";
+                    await ucmd.ExecuteNonQueryAsync(ct);
+                }
+                await txn.CommitAsync(ct);
             }
         }
-
-        await using var migration = conn.BeginTransaction();
-
-        foreach (var statement in SchemaStatements)
-        {
-            await using var cmd = conn.CreateCommand();
-            cmd.Transaction = migration;
-            cmd.CommandText = statement;
-            await cmd.ExecuteNonQueryAsync(ct);
-        }
-        await migration.CommitAsync(ct);
 
         await SeedAsync(ct);
     }
@@ -131,6 +133,10 @@ public sealed class SqliteDatabase
         cmd.CommandText = "SELECT last_insert_rowid()";
         return (long)(await cmd.ExecuteScalarAsync(ct))!;
     }
+
+    // 属性延迟求值，避免静态字段初始化顺序问题（SchemaStatements 在后面声明）
+    private static (int Version, string[] Statements)[] Migrations =>
+        new[] { (1, SchemaStatements) };
 
     private static readonly string[] SchemaStatements =
     {

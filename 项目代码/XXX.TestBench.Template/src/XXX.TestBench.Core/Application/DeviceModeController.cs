@@ -55,7 +55,7 @@ public sealed class DeviceModeController
 
     public async Task<DeviceModeResult> SwitchModeAsync(UserContext actor, DeviceMode mode, bool hasActiveTask, CancellationToken ct = default)
     {
-        actor.EnsurePermission(PermissionCode.ManageDevices);
+        Ensure(actor, PermissionCode.ManageDevices);
         if (hasActiveTask) return new DeviceModeResult(false, "存在活动试验，禁止切换设备模式");
         if (mode == CurrentMode) return new DeviceModeResult(false, $"当前已是 {mode} 模式");
         return await InitializeAsync(mode, ct);
@@ -88,6 +88,16 @@ public sealed class DeviceModeController
             await Runtime.StopAsync();
             await Runtime.DisposeAsync();
             Runtime = null;
+        }
+    }
+
+    private void Ensure(UserContext actor, Core.Domain.Identity.PermissionCode permission)
+    {
+        try { actor.EnsurePermission(permission); }
+        catch (AuthorizationException)
+        {
+            _ = _audit.WriteAsync(actor.LoginName, "AccessDenied", permission.ToString(), null);
+            throw;
         }
     }
 }

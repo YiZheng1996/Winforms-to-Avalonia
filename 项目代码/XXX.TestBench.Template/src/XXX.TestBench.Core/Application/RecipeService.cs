@@ -14,19 +14,30 @@ public sealed class RecipeService
     private readonly ITestDefinitionRepository _definitions;
     private readonly IClock _clock;
     private readonly IAuditLog _audit;
+    private readonly IUnitOfWorkFactory? _unitOfWorkFactory;
 
-    public RecipeService(IRecipeRepository recipes, IProductRepository products, ITestDefinitionRepository definitions, IClock clock, IAuditLog audit)
+    public RecipeService(IRecipeRepository recipes, IProductRepository products, ITestDefinitionRepository definitions, IClock clock, IAuditLog audit, IUnitOfWorkFactory? unitOfWorkFactory = null)
     {
         _recipes = recipes;
         _products = products;
         _definitions = definitions;
         _clock = clock;
         _audit = audit;
+        _unitOfWorkFactory = unitOfWorkFactory;
+    }
+    private void Ensure(UserContext actor, Core.Domain.Identity.PermissionCode permission)
+    {
+        try { actor.EnsurePermission(permission); }
+        catch (AuthorizationException)
+        {
+            _ = _audit.WriteAsync(actor.LoginName, "AccessDenied", permission.ToString(), null);
+            throw;
+        }
     }
 
     public async Task<RecipeVersion> CreateDraftAsync(UserContext actor, int productModelId, string name, CancellationToken ct = default)
     {
-        actor.EnsurePermission(Core.Domain.Identity.PermissionCode.ManageRecipes);
+        Ensure(actor, Core.Domain.Identity.PermissionCode.ManageRecipes);
         var model = await _products.GetModelAsync(productModelId, ct) ?? throw new DomainException("产品型号不存在");
         if (!model.IsEnabled) throw new DomainException("产品型号已停用，不能创建配方");
         var latest = await _recipes.GetLatestAsync(productModelId, ct);
@@ -52,7 +63,7 @@ public sealed class RecipeService
 
     public async Task RenameDraftAsync(UserContext actor, int recipeId, string name, CancellationToken ct = default)
     {
-        actor.EnsurePermission(Core.Domain.Identity.PermissionCode.ManageRecipes);
+        Ensure(actor, Core.Domain.Identity.PermissionCode.ManageRecipes);
         if (string.IsNullOrWhiteSpace(name)) throw new DomainException("配方名称不能为空");
         var recipe = await RequireDraftAsync(recipeId, ct);
         recipe.Name = name.Trim();
@@ -62,7 +73,7 @@ public sealed class RecipeService
 
     public async Task SetReportTemplateAsync(UserContext actor, int recipeId, string templatePath, CancellationToken ct = default)
     {
-        actor.EnsurePermission(Core.Domain.Identity.PermissionCode.ManageRecipes);
+        Ensure(actor, Core.Domain.Identity.PermissionCode.ManageRecipes);
         if (string.IsNullOrWhiteSpace(templatePath)) throw new DomainException("报表模板路径不能为空");
         var recipe = await RequireDraftAsync(recipeId, ct);
         recipe.ReportTemplatePath = templatePath.Trim();
@@ -72,7 +83,7 @@ public sealed class RecipeService
 
     public async Task AddItemAsync(UserContext actor, int recipeId, int itemDefinitionId, int sortOrder, CancellationToken ct = default)
     {
-        actor.EnsurePermission(Core.Domain.Identity.PermissionCode.ManageRecipes);
+        Ensure(actor, Core.Domain.Identity.PermissionCode.ManageRecipes);
         var recipe = await RequireDraftAsync(recipeId, ct);
         var itemDef = await _definitions.GetItemAsync(itemDefinitionId, ct) ?? throw new DomainException("试验项定义不存在");
         if (!itemDef.IsEnabled) throw new DomainException("试验项已停用，不能加入配方");
@@ -89,7 +100,7 @@ public sealed class RecipeService
 
     public async Task RemoveItemAsync(UserContext actor, int recipeId, int itemId, CancellationToken ct = default)
     {
-        actor.EnsurePermission(Core.Domain.Identity.PermissionCode.ManageRecipes);
+        Ensure(actor, Core.Domain.Identity.PermissionCode.ManageRecipes);
         await RequireDraftAsync(recipeId, ct);
         var items = await _recipes.ListItemsAsync(recipeId, ct);
         if (items.All(i => i.Id != itemId)) throw new DomainException("配方中不存在该项点");
@@ -99,7 +110,7 @@ public sealed class RecipeService
 
     public async Task SetItemOrderAsync(UserContext actor, int recipeId, int itemId, int sortOrder, CancellationToken ct = default)
     {
-        actor.EnsurePermission(Core.Domain.Identity.PermissionCode.ManageRecipes);
+        Ensure(actor, Core.Domain.Identity.PermissionCode.ManageRecipes);
         await RequireDraftAsync(recipeId, ct);
         var items = await _recipes.ListItemsAsync(recipeId, ct);
         var item = items.FirstOrDefault(i => i.Id == itemId) ?? throw new DomainException("配方中不存在该项点");
@@ -115,7 +126,7 @@ public sealed class RecipeService
     }
     public async Task SetParameterValueAsync(UserContext actor, int recipeId, int itemId, int parameterDefinitionId, string rawValue, CancellationToken ct = default)
     {
-        actor.EnsurePermission(Core.Domain.Identity.PermissionCode.ManageRecipes);
+        Ensure(actor, Core.Domain.Identity.PermissionCode.ManageRecipes);
         await RequireDraftAsync(recipeId, ct);
         var param = await _definitions.GetParameterAsync(parameterDefinitionId, ct) ?? throw new DomainException("参数定义不存在");
         var error = param.Validate(rawValue);
@@ -148,7 +159,7 @@ public sealed class RecipeService
 
     public async Task PublishAsync(UserContext actor, int recipeId, CancellationToken ct = default)
     {
-        actor.EnsurePermission(Core.Domain.Identity.PermissionCode.ManageRecipes);
+        Ensure(actor, Core.Domain.Identity.PermissionCode.ManageRecipes);
         var recipe = await _recipes.GetAsync(recipeId, ct) ?? throw new DomainException("配方不存在");
         if (recipe.Status != RecipeStatus.Draft) throw new DomainException("只有草稿配方可以发布");
         var errors = await ValidateDraftAsync(recipeId, ct);
@@ -161,7 +172,28 @@ public sealed class RecipeService
 
     public async Task<RecipeVersion> NewVersionFromAsync(UserContext actor, int recipeId, CancellationToken ct = default)
     {
-        actor.EnsurePermission(Core.Domain.Identity.PermissionCode.ManageRecipes);
+        Ensure(actor, Core.Domain.Identity.PermissionCode.ManageRecipes);
+        if (_unitOfWorkFactory is not null)
+        {
+            await using var uow = _unitOfWorkFactory.Create();
+            await uow.BeginTransactionAsync(ct);
+            try
+            {
+                var copy = await CopyCoreAsync(actor, recipeId, ct);
+                await uow.CommitAsync(ct);
+                return copy;
+            }
+            catch
+            {
+                await uow.RollbackAsync(ct);
+                throw;
+            }
+        }
+        return await CopyCoreAsync(actor, recipeId, ct);
+    }
+
+    private async Task<RecipeVersion> CopyCoreAsync(UserContext actor, int recipeId, CancellationToken ct)
+    {
         var source = await _recipes.GetAsync(recipeId, ct) ?? throw new DomainException("配方不存在");
         if (source.Status == RecipeStatus.Draft) throw new DomainException("草稿不能复制为新版本");
         var latest = await _recipes.GetLatestAsync(source.ProductModelId, ct);
@@ -183,7 +215,7 @@ public sealed class RecipeService
 
     public async Task RetireAsync(UserContext actor, int recipeId, CancellationToken ct = default)
     {
-        actor.EnsurePermission(Core.Domain.Identity.PermissionCode.ManageRecipes);
+        Ensure(actor, Core.Domain.Identity.PermissionCode.ManageRecipes);
         var recipe = await _recipes.GetAsync(recipeId, ct) ?? throw new DomainException("配方不存在");
         recipe.Retire(actor.UserId, _clock.UtcNow);
         await _recipes.UpdateAsync(recipe, ct);

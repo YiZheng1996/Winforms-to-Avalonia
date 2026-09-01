@@ -38,7 +38,7 @@ public sealed class ReportService
 
     public async Task<ReportRecord> GenerateAsync(UserContext actor, int recordId, string templatePath, string outputDirectory, CancellationToken ct = default)
     {
-        actor.EnsurePermission(PermissionCode.GenerateReports);
+        Ensure(actor, PermissionCode.GenerateReports);
         var record = await _tasks.GetRecordAsync(recordId, ct) ?? throw new DomainException("试验记录不存在");
         if (record.State != Domain.Tasks.RecordState.Completed)
             throw new DomainException("只有已完成的试验记录可以生成报表");
@@ -95,5 +95,15 @@ public sealed class ReportService
             throw new DomainException($"报表生成失败（试验记录已保留，可重试）：{ex.Message}");
         }
         return report;
+    }
+
+    private void Ensure(UserContext actor, Core.Domain.Identity.PermissionCode permission)
+    {
+        try { actor.EnsurePermission(permission); }
+        catch (AuthorizationException)
+        {
+            _ = _audit.WriteAsync(actor.LoginName, "AccessDenied", permission.ToString(), null);
+            throw;
+        }
     }
 }

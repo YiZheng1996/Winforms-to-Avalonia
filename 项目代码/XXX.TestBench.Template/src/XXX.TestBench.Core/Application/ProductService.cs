@@ -21,7 +21,7 @@ public sealed class ProductService
 
     public async Task<ProductType> CreateTypeAsync(UserContext actor, string code, string name, CancellationToken ct = default)
     {
-        actor.EnsurePermission(PermissionCode.ManageProducts);
+        Ensure(actor, PermissionCode.ManageProducts);
         if (string.IsNullOrWhiteSpace(code)) throw new DomainException("产品类型代码不能为空");
         if (await _products.GetTypeByCodeAsync(code, ct) is not null)
             throw new DomainException($"产品类型代码 {code} 已存在");
@@ -33,7 +33,7 @@ public sealed class ProductService
 
     public async Task SetTypeEnabledAsync(UserContext actor, int typeId, bool enabled, CancellationToken ct = default)
     {
-        actor.EnsurePermission(PermissionCode.ManageProducts);
+        Ensure(actor, PermissionCode.ManageProducts);
         var type = await _products.GetTypeAsync(typeId, ct) ?? throw new DomainException("产品类型不存在");
         type.IsEnabled = enabled;
         await _products.UpdateTypeAsync(type, ct);
@@ -42,7 +42,7 @@ public sealed class ProductService
 
     public async Task<ProductModel> CreateModelAsync(UserContext actor, int productTypeId, string code, string name, CancellationToken ct = default)
     {
-        actor.EnsurePermission(PermissionCode.ManageProducts);
+        Ensure(actor, PermissionCode.ManageProducts);
         if (string.IsNullOrWhiteSpace(code)) throw new DomainException("产品型号代码不能为空");
         var type = await _products.GetTypeAsync(productTypeId, ct) ?? throw new DomainException("产品类型不存在");
         if (!type.IsEnabled) throw new DomainException("产品类型已停用，不能新增型号");
@@ -56,10 +56,20 @@ public sealed class ProductService
 
     public async Task SetModelEnabledAsync(UserContext actor, int modelId, bool enabled, CancellationToken ct = default)
     {
-        actor.EnsurePermission(PermissionCode.ManageProducts);
+        Ensure(actor, PermissionCode.ManageProducts);
         var model = await _products.GetModelAsync(modelId, ct) ?? throw new DomainException("产品型号不存在");
         model.IsEnabled = enabled;
         await _products.UpdateModelAsync(model, ct);
         await _audit.WriteAsync(actor.LoginName, enabled ? "ProductModelEnabled" : "ProductModelDisabled", $"model:{modelId}", null, ct);
+    }
+
+    private void Ensure(UserContext actor, Core.Domain.Identity.PermissionCode permission)
+    {
+        try { actor.EnsurePermission(permission); }
+        catch (AuthorizationException)
+        {
+            _ = _audit.WriteAsync(actor.LoginName, "AccessDenied", permission.ToString(), null);
+            throw;
+        }
     }
 }

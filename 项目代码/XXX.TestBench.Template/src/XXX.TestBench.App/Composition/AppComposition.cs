@@ -51,10 +51,7 @@ public sealed class AppComposition
             var deviceConfig = store.LoadAsync<DeviceConfig>("device.json").GetAwaiter().GetResult();
             var pointsConfig = store.LoadAsync<PointsConfig>("points.json").GetAwaiter().GetResult();
             var simulationConfig = store.LoadAsync<SimulationConfig>("simulation.json").GetAwaiter().GetResult();
-            appConfig.Validate();
-            deviceConfig.Validate();
-            pointsConfig.Validate();
-            simulationConfig.Validate();
+            ConfigurationValidator.ValidateAll(appConfig, deviceConfig, pointsConfig, simulationConfig);
 
             var clock = new SystemClock();
             var hasher = new Pbkdf2PasswordHasher();
@@ -73,8 +70,9 @@ public sealed class AppComposition
             var unitOfWork = new SqliteUnitOfWork(factory);
 
             Authentication = new AuthenticationService(userRepo, hasher, sessions, clock, audit);
-            var recipes = new RecipeService(recipeRepo, productRepo, definitionRepo, clock, audit);
-            var tasks = new TaskService(taskRepo, productRepo, recipeRepo, clock, audit);
+            var uowFactory = new SqliteUnitOfWorkFactory(factory);
+            var recipes = new RecipeService(recipeRepo, productRepo, definitionRepo, clock, audit, uowFactory);
+            var tasks = new TaskService(taskRepo, productRepo, recipeRepo, clock, audit, uowFactory);
             var writePipeline = new DeviceWritePipeline(audit, Logger);
             var runtimeFactory = new DeviceRuntimeFactory(deviceConfig, pointsConfig, simulationConfig, clock);
             DeviceModes = new DeviceModeController(runtimeFactory, Logger, audit);
@@ -82,7 +80,7 @@ public sealed class AppComposition
             var executorFactory = new ExecutorFactory();
             var reportRepository = new ReportRepository(factory);
             var reportGenerator = new ClosedXmlReportGenerator();
-            TestExecution = new TestExecutionService(taskRepo, recipeRepo, definitionRepo, executorFactory, tasks, clock, audit);
+            TestExecution = new TestExecutionService(taskRepo, recipeRepo, definitionRepo, executorFactory, tasks, clock, audit, uowFactory);
             Reports = new ReportService(taskRepo, recipeRepo, productRepo, definitionRepo, userRepo, reportRepository, reportGenerator, clock, audit);
 
             var services = new ShellServices(

@@ -15,6 +15,8 @@
     tests\*.Tests                  Core / App / Headless / Integration
 
 ## 构建与测试
+    pwsh -File tools\build-and-test.ps1   # 或 powershell（脚本已带 BOM）   # Release 构建+分项目测试（Headless 自动重试）
+    pwsh -File tools\publish-windows.ps1  # Windows 发布冒烟
 
     dotnet build XXX.TestBench.Template.sln -c Release
     dotnet test  XXX.TestBench.Template.sln -c Release

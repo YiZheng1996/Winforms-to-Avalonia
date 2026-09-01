@@ -21,7 +21,7 @@ public sealed class TestDefinitionService
 
     public async Task<TestItemDefinition> CreateItemAsync(UserContext actor, string code, string name, string executorCode, string resultKind, int sortOrder, CancellationToken ct = default)
     {
-        actor.EnsurePermission(PermissionCode.ManageTestDefinitions);
+        Ensure(actor, PermissionCode.ManageTestDefinitions);
         if (string.IsNullOrWhiteSpace(code)) throw new DomainException("试验项代码不能为空");
         if (string.IsNullOrWhiteSpace(executorCode)) throw new DomainException("试验项必须指定执行器代码");
         var existing = await _definitions.ListItemsAsync(includeDisabled: true, ct);
@@ -43,7 +43,7 @@ public sealed class TestDefinitionService
 
     public async Task SetItemEnabledAsync(UserContext actor, int itemId, bool enabled, CancellationToken ct = default)
     {
-        actor.EnsurePermission(PermissionCode.ManageTestDefinitions);
+        Ensure(actor, PermissionCode.ManageTestDefinitions);
         var item = await _definitions.GetItemAsync(itemId, ct) ?? throw new DomainException("试验项定义不存在");
         item.IsEnabled = enabled;
         await _definitions.UpdateItemAsync(item, ct);
@@ -53,7 +53,7 @@ public sealed class TestDefinitionService
     public async Task<ParameterDefinition> CreateParameterAsync(UserContext actor, int itemId, string code, string name, ParameterDataType dataType, bool isRequired,
         string? unit, decimal? minValue, decimal? maxValue, int? precision, IReadOnlyList<string>? allowedValues, int sortOrder, CancellationToken ct = default)
     {
-        actor.EnsurePermission(PermissionCode.ManageTestDefinitions);
+        Ensure(actor, PermissionCode.ManageTestDefinitions);
         if (string.IsNullOrWhiteSpace(code)) throw new DomainException("参数代码不能为空");
         var item = await _definitions.GetItemAsync(itemId, ct) ?? throw new DomainException("试验项定义不存在");
         var existing = await _definitions.ListParametersAsync(itemId, ct);
@@ -85,7 +85,7 @@ public sealed class TestDefinitionService
 
     public async Task UpdateParameterAsync(UserContext actor, int parameterId, string name, bool isRequired, decimal? minValue, decimal? maxValue, string? unit, CancellationToken ct = default)
     {
-        actor.EnsurePermission(PermissionCode.ManageTestDefinitions);
+        Ensure(actor, PermissionCode.ManageTestDefinitions);
         var parameter = await _definitions.GetParameterAsync(parameterId, ct) ?? throw new DomainException("参数定义不存在");
         if (minValue.HasValue && maxValue.HasValue && minValue > maxValue)
             throw new DomainException("参数下限不能大于上限");
@@ -96,5 +96,15 @@ public sealed class TestDefinitionService
         parameter.Unit = unit;
         await _definitions.UpdateParameterAsync(parameter, ct);
         await _audit.WriteAsync(actor.LoginName, "ParameterUpdated", $"param:{parameterId}", null, ct);
+    }
+
+    private void Ensure(UserContext actor, Core.Domain.Identity.PermissionCode permission)
+    {
+        try { actor.EnsurePermission(permission); }
+        catch (AuthorizationException)
+        {
+            _ = _audit.WriteAsync(actor.LoginName, "AccessDenied", permission.ToString(), null);
+            throw;
+        }
     }
 }

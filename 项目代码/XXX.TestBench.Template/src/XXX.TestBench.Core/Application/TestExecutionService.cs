@@ -20,9 +20,10 @@ public sealed class TestExecutionService
     private readonly TaskService _taskService;
     private readonly IClock _clock;
     private readonly IAuditLog _audit;
+    private readonly IUnitOfWorkFactory? _unitOfWorkFactory;
 
     public TestExecutionService(ITaskRepository tasks, IRecipeRepository recipes, ITestDefinitionRepository definitions,
-        ITestItemExecutorFactory executors, TaskService taskService, IClock clock, IAuditLog audit)
+        ITestItemExecutorFactory executors, TaskService taskService, IClock clock, IAuditLog audit, IUnitOfWorkFactory? unitOfWorkFactory = null)
     {
         _tasks = tasks;
         _recipes = recipes;
@@ -31,11 +32,22 @@ public sealed class TestExecutionService
         _taskService = taskService;
         _clock = clock;
         _audit = audit;
+        _unitOfWorkFactory = unitOfWorkFactory;
+    }
+
+    private void Ensure(UserContext actor, PermissionCode permission)
+    {
+        try { actor.EnsurePermission(permission); }
+        catch (AuthorizationException)
+        {
+            _ = _audit.WriteAsync(actor.LoginName, "AccessDenied", permission.ToString(), null);
+            throw;
+        }
     }
 
     public async Task<TestRecord> StartAsync(UserContext actor, int taskId, DeviceMode mode, IDeviceRuntime runtime, CancellationToken ct = default)
     {
-        actor.EnsurePermission(PermissionCode.ExecuteTests);
+        Ensure(actor, PermissionCode.ExecuteTests);
         // 预检：设备模式与连接状态
         if (runtime.Status.Health is not (DeviceHealth.Healthy or DeviceHealth.Degraded) || !runtime.Status.IsConnected)
             throw new DomainException($"设备预检未通过：{runtime.Name} 状态 {runtime.Status.Health}");
@@ -46,7 +58,7 @@ public sealed class TestExecutionService
 
     public async Task<TestItemResult> ExecuteItemAsync(UserContext actor, int recordId, int recipeItemId, IDeviceRuntime runtime, CancellationToken ct = default)
     {
-        actor.EnsurePermission(PermissionCode.ExecuteTests);
+        Ensure(actor, PermissionCode.ExecuteTests);
         var record = await _tasks.GetRecordAsync(recordId, ct) ?? throw new DomainException("试验记录不存在");
         if (record.State != RecordState.Running) throw new DomainException($"记录状态 {record.State}，不能执行项点");
 
@@ -78,7 +90,28 @@ public sealed class TestExecutionService
 
     public async Task<string> CompleteAsync(UserContext actor, int recordId, CancellationToken ct = default)
     {
-        actor.EnsurePermission(PermissionCode.ExecuteTests);
+        Ensure(actor, PermissionCode.ExecuteTests);
+        if (_unitOfWorkFactory is not null)
+        {
+            await using var uow = _unitOfWorkFactory.Create();
+            await uow.BeginTransactionAsync(ct);
+            try
+            {
+                var conclusion = await CompleteCoreAsync(actor, recordId, ct);
+                await uow.CommitAsync(ct);
+                return conclusion;
+            }
+            catch
+            {
+                await uow.RollbackAsync(ct);
+                throw;
+            }
+        }
+        return await CompleteCoreAsync(actor, recordId, ct);
+    }
+
+    private async Task<string> CompleteCoreAsync(UserContext actor, int recordId, CancellationToken ct)
+    {
         var record = await _tasks.GetRecordAsync(recordId, ct) ?? throw new DomainException("试验记录不存在");
         var results = await _tasks.ListItemResultsAsync(recordId, ct);
         if (results.Count == 0 || results.Any(r => r.State is ItemResultState.Pending or ItemResultState.Running))
