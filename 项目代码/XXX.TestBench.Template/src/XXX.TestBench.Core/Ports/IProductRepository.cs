@@ -12,4 +12,6 @@ public interface IProductRepository
     Task<IReadOnlyList<ProductModel>> ListModelsAsync(int? productTypeId, bool includeDisabled, CancellationToken ct = default);
     Task AddTypeAsync(ProductType type, CancellationToken ct = default);
     Task AddModelAsync(ProductModel model, CancellationToken ct = default);
+    Task UpdateTypeAsync(ProductType type, CancellationToken ct = default);
+    Task UpdateModelAsync(ProductModel model, CancellationToken ct = default);
 }

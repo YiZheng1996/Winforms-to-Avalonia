@@ -199,6 +199,63 @@ public sealed class RecipeRepository : SqliteRepositoryBase, IRecipeRepository
         finally { if (owns) await conn.DisposeAsync(); }
     }
 
+    public async Task UpdateItemAsync(RecipeItem item, CancellationToken ct = default)
+    {
+        var conn = OpenConnection();
+        var owns = OwnsConnection;
+        try
+        {
+            await using var cmd = conn.CreateCommand();
+            cmd.CommandText = "UPDATE recipe_items SET sort_order=$sort, is_enabled=$enabled WHERE id=$id";
+            cmd.Parameters.AddWithValue("$sort", item.SortOrder);
+            cmd.Parameters.AddWithValue("$enabled", item.IsEnabled ? 1 : 0);
+            cmd.Parameters.AddWithValue("$id", item.Id);
+            await cmd.ExecuteNonQueryAsync(ct);
+        }
+        finally { if (owns) await conn.DisposeAsync(); }
+    }
+
+    public async Task DeleteItemAsync(int itemId, CancellationToken ct = default)
+    {
+        var conn = OpenConnection();
+        var owns = OwnsConnection;
+        try
+        {
+            await using (var cmd = conn.CreateCommand())
+            {
+                cmd.CommandText = "DELETE FROM recipe_parameter_values WHERE recipe_item_id=$id";
+                cmd.Parameters.AddWithValue("$id", itemId);
+                await cmd.ExecuteNonQueryAsync(ct);
+            }
+            await using (var cmd = conn.CreateCommand())
+            {
+                cmd.CommandText = "DELETE FROM recipe_items WHERE id=$id";
+                cmd.Parameters.AddWithValue("$id", itemId);
+                await cmd.ExecuteNonQueryAsync(ct);
+            }
+        }
+        finally { if (owns) await conn.DisposeAsync(); }
+    }
+
+    public async Task ReplaceParameterValueAsync(int recipeItemId, int parameterDefinitionId, string rawValue, CancellationToken ct = default)
+    {
+        var conn = OpenConnection();
+        var owns = OwnsConnection;
+        try
+        {
+            await using var cmd = conn.CreateCommand();
+            cmd.CommandText = """
+                INSERT INTO recipe_parameter_values (recipe_item_id, parameter_definition_id, raw_value)
+                VALUES ($ri, $pd, $raw)
+                ON CONFLICT(recipe_item_id, parameter_definition_id) DO UPDATE SET raw_value=$raw
+                """;
+            cmd.Parameters.AddWithValue("$ri", recipeItemId);
+            cmd.Parameters.AddWithValue("$pd", parameterDefinitionId);
+            cmd.Parameters.AddWithValue("$raw", rawValue);
+            await cmd.ExecuteNonQueryAsync(ct);
+        }
+        finally { if (owns) await conn.DisposeAsync(); }
+    }
     private static RecipeVersion Map(Microsoft.Data.Sqlite.SqliteDataReader r) => new()
     {
         Id = r.GetInt32(0),

@@ -144,6 +144,37 @@ public sealed class ProductRepository : SqliteRepositoryBase, IProductRepository
         finally { if (owns) await conn.DisposeAsync(); }
     }
 
+    public async Task UpdateTypeAsync(ProductType type, CancellationToken ct = default)
+    {
+        var conn = OpenConnection();
+        var owns = OwnsConnection;
+        try
+        {
+            await using var cmd = conn.CreateCommand();
+            cmd.CommandText = "UPDATE product_types SET name=$name, is_enabled=$enabled WHERE id=$id";
+            cmd.Parameters.AddWithValue("$name", type.Name);
+            cmd.Parameters.AddWithValue("$enabled", type.IsEnabled ? 1 : 0);
+            cmd.Parameters.AddWithValue("$id", type.Id);
+            await cmd.ExecuteNonQueryAsync(ct);
+        }
+        finally { if (owns) await conn.DisposeAsync(); }
+    }
+
+    public async Task UpdateModelAsync(ProductModel model, CancellationToken ct = default)
+    {
+        var conn = OpenConnection();
+        var owns = OwnsConnection;
+        try
+        {
+            await using var cmd = conn.CreateCommand();
+            cmd.CommandText = "UPDATE product_models SET name=$name, is_enabled=$enabled WHERE id=$id";
+            cmd.Parameters.AddWithValue("$name", model.Name);
+            cmd.Parameters.AddWithValue("$enabled", model.IsEnabled ? 1 : 0);
+            cmd.Parameters.AddWithValue("$id", model.Id);
+            await cmd.ExecuteNonQueryAsync(ct);
+        }
+        finally { if (owns) await conn.DisposeAsync(); }
+    }
     private static ProductType MapType(Microsoft.Data.Sqlite.SqliteDataReader r) => new()
     {
         Id = r.GetInt32(0),

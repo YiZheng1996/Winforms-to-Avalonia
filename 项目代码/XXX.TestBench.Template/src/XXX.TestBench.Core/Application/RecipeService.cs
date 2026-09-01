@@ -50,6 +50,26 @@ public sealed class RecipeService
         return recipe;
     }
 
+    public async Task RenameDraftAsync(UserContext actor, int recipeId, string name, CancellationToken ct = default)
+    {
+        actor.EnsurePermission(Core.Domain.Identity.PermissionCode.ManageRecipes);
+        if (string.IsNullOrWhiteSpace(name)) throw new DomainException("配方名称不能为空");
+        var recipe = await RequireDraftAsync(recipeId, ct);
+        recipe.Name = name.Trim();
+        await _recipes.UpdateAsync(recipe, ct);
+        await _audit.WriteAsync(actor.LoginName, "RecipeDraftRenamed", $"recipe:{recipeId}", name, ct);
+    }
+
+    public async Task SetReportTemplateAsync(UserContext actor, int recipeId, string templatePath, CancellationToken ct = default)
+    {
+        actor.EnsurePermission(Core.Domain.Identity.PermissionCode.ManageRecipes);
+        if (string.IsNullOrWhiteSpace(templatePath)) throw new DomainException("报表模板路径不能为空");
+        var recipe = await RequireDraftAsync(recipeId, ct);
+        recipe.ReportTemplatePath = templatePath.Trim();
+        await _recipes.UpdateAsync(recipe, ct);
+        await _audit.WriteAsync(actor.LoginName, "RecipeTemplateSet", $"recipe:{recipeId}", templatePath, ct);
+    }
+
     public async Task AddItemAsync(UserContext actor, int recipeId, int itemDefinitionId, int sortOrder, CancellationToken ct = default)
     {
         actor.EnsurePermission(Core.Domain.Identity.PermissionCode.ManageRecipes);
@@ -67,6 +87,16 @@ public sealed class RecipeService
         await _audit.WriteAsync(actor.LoginName, "RecipeItemAdded", $"recipe:{recipeId}", $"item:{itemDefinitionId}", ct);
     }
 
+    public async Task RemoveItemAsync(UserContext actor, int recipeId, int itemId, CancellationToken ct = default)
+    {
+        actor.EnsurePermission(Core.Domain.Identity.PermissionCode.ManageRecipes);
+        await RequireDraftAsync(recipeId, ct);
+        var items = await _recipes.ListItemsAsync(recipeId, ct);
+        if (items.All(i => i.Id != itemId)) throw new DomainException("配方中不存在该项点");
+        await _recipes.DeleteItemAsync(itemId, ct);
+        await _audit.WriteAsync(actor.LoginName, "RecipeItemRemoved", $"recipe:{recipeId}", $"item:{itemId}", ct);
+    }
+
     public async Task SetParameterValueAsync(UserContext actor, int recipeId, int itemId, int parameterDefinitionId, string rawValue, CancellationToken ct = default)
     {
         actor.EnsurePermission(Core.Domain.Identity.PermissionCode.ManageRecipes);
@@ -74,7 +104,7 @@ public sealed class RecipeService
         var param = await _definitions.GetParameterAsync(parameterDefinitionId, ct) ?? throw new DomainException("参数定义不存在");
         var error = param.Validate(rawValue);
         if (error is not null) throw new DomainException(error);
-        await _recipes.AddParameterValueAsync(new RecipeParameterValue { RecipeItemId = itemId, ParameterDefinitionId = parameterDefinitionId, RawValue = rawValue }, ct);
+        await _recipes.ReplaceParameterValueAsync(itemId, parameterDefinitionId, rawValue, ct);
     }
 
     public async Task<IReadOnlyList<string>> ValidateDraftAsync(int recipeId, CancellationToken ct = default)

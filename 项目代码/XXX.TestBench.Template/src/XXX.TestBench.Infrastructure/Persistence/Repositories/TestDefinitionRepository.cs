@@ -118,6 +118,46 @@ public sealed class TestDefinitionRepository : SqliteRepositoryBase, ITestDefini
         }
         finally { if (owns) await conn.DisposeAsync(); }
     }
+    public async Task UpdateItemAsync(TestItemDefinition item, CancellationToken ct = default)
+    {
+        var conn = OpenConnection();
+        var owns = OwnsConnection;
+        try
+        {
+            await using var cmd = conn.CreateCommand();
+            cmd.CommandText = "UPDATE test_item_definitions SET name=$name, executor_code=$executor, result_kind=$kind, is_enabled=$enabled, sort_order=$sort WHERE id=$id";
+            cmd.Parameters.AddWithValue("$name", item.Name);
+            cmd.Parameters.AddWithValue("$executor", item.ExecutorCode);
+            cmd.Parameters.AddWithValue("$kind", item.ResultKind);
+            cmd.Parameters.AddWithValue("$enabled", item.IsEnabled ? 1 : 0);
+            cmd.Parameters.AddWithValue("$sort", item.SortOrder);
+            cmd.Parameters.AddWithValue("$id", item.Id);
+            await cmd.ExecuteNonQueryAsync(ct);
+        }
+        finally { if (owns) await conn.DisposeAsync(); }
+    }
+
+    public async Task UpdateParameterAsync(ParameterDefinition parameter, CancellationToken ct = default)
+    {
+        var conn = OpenConnection();
+        var owns = OwnsConnection;
+        try
+        {
+            await using var cmd = conn.CreateCommand();
+            cmd.CommandText = "UPDATE parameter_definitions SET name=$name, unit=$unit, is_required=$required, min_value=$min, max_value=$max, precision=$precision, allowed_values=$allowed, sort_order=$sort WHERE id=$id";
+            cmd.Parameters.AddWithValue("$name", parameter.Name);
+            cmd.Parameters.AddWithValue("$unit", (object?)parameter.Unit ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$required", parameter.IsRequired ? 1 : 0);
+            cmd.Parameters.AddWithValue("$min", (object?)parameter.MinValue?.ToString() ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$max", (object?)parameter.MaxValue?.ToString() ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$precision", (object?)parameter.Precision ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$allowed", parameter.AllowedValues.Count == 0 ? DBNull.Value : System.Text.Json.JsonSerializer.Serialize(parameter.AllowedValues));
+            cmd.Parameters.AddWithValue("$sort", parameter.SortOrder);
+            cmd.Parameters.AddWithValue("$id", parameter.Id);
+            await cmd.ExecuteNonQueryAsync(ct);
+        }
+        finally { if (owns) await conn.DisposeAsync(); }
+    }
     private static TestItemDefinition MapItem(Microsoft.Data.Sqlite.SqliteDataReader r) => new()
     {
         Id = r.GetInt32(0),

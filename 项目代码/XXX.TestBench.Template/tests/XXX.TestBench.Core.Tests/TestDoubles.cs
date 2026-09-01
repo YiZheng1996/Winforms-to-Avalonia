@@ -125,6 +125,8 @@ public sealed class FakeProductRepository : IProductRepository
         Models.Add(model);
         return Task.CompletedTask;
     }
+    public Task UpdateTypeAsync(ProductType type, CancellationToken ct = default) => Task.CompletedTask;
+    public Task UpdateModelAsync(ProductModel model, CancellationToken ct = default) => Task.CompletedTask;
 }
 
 public sealed class FakeTestDefinitionRepository : ITestDefinitionRepository
@@ -160,6 +162,9 @@ public sealed class FakeTestDefinitionRepository : ITestDefinitionRepository
     }
 
     public int NextId() => _nextId++;
+
+    public Task UpdateItemAsync(TestItemDefinition item, CancellationToken ct = default) => Task.CompletedTask;
+    public Task UpdateParameterAsync(ParameterDefinition parameter, CancellationToken ct = default) => Task.CompletedTask;
 }
 
 public sealed class FakeRecipeRepository : IRecipeRepository
@@ -211,6 +216,22 @@ public sealed class FakeRecipeRepository : IRecipeRepository
     {
         if (value.Id == 0) value.Id = _nextValueId++;
         Values.Add(value);
+        return Task.CompletedTask;
+    }
+    public Task UpdateItemAsync(RecipeItem item, CancellationToken ct = default) => Task.CompletedTask;
+
+    public Task DeleteItemAsync(int itemId, CancellationToken ct = default)
+    {
+        Values.RemoveAll(v => v.RecipeItemId == itemId);
+        Items.RemoveAll(i => i.Id == itemId);
+        return Task.CompletedTask;
+    }
+
+    public Task ReplaceParameterValueAsync(int recipeItemId, int parameterDefinitionId, string rawValue, CancellationToken ct = default)
+    {
+        var existing = Values.FirstOrDefault(v => v.RecipeItemId == recipeItemId && v.ParameterDefinitionId == parameterDefinitionId);
+        if (existing is not null) existing.RawValue = rawValue;
+        else Values.Add(new RecipeParameterValue { Id = _nextValueId++, RecipeItemId = recipeItemId, ParameterDefinitionId = parameterDefinitionId, RawValue = rawValue });
         return Task.CompletedTask;
     }
 }
