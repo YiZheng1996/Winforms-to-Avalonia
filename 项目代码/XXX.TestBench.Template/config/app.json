@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "systemName": "XXX 试验台通用上位机",
+  "brand": "XXX.TestBench.Template",
+  "language": "zh-CN",
+  "modules": {
+    "processMonitor": true,
+    "deviceCalibration": true
+  },
+  "defaultPaths": {
+    "database": "data/testbench.db",
+    "reportOutput": "reports",
+    "reportTemplates": "assets/report-templates"
+  }
+}

@@ -1,0 +1,97 @@
+using XXX.TestBench.App.ViewModels;
+using XXX.TestBench.Core.Application;
+using XXX.TestBench.Core.Common;
+using XXX.TestBench.Core.Configuration;
+using XXX.TestBench.Core.Domain.Devices;
+using XXX.TestBench.Core.Ports;
+using XXX.TestBench.Devices;
+using XXX.TestBench.Infrastructure.Configuration;
+using XXX.TestBench.Infrastructure.Identity;
+using XXX.TestBench.Infrastructure.Logging;
+using XXX.TestBench.Infrastructure.Persistence;
+using XXX.TestBench.Infrastructure.Persistence.Repositories;
+using XXX.TestBench.Infrastructure.Services;
+using XXX.TestBench.Infrastructure.Time;
+
+namespace XXX.TestBench.App.Composition;
+
+/// <summary>组合根：创建具体实现；View/ViewModel 不通过全局服务定位器获取依赖。</summary>
+public sealed class AppComposition
+{
+    private AppComposition() { }
+
+    public IAppLogger Logger { get; private set; } = null!;
+    public ShellViewModel? Shell { get; private set; }
+    public string? StartupError { get; private set; }
+    public AuthenticationService? Authentication { get; private set; }
+    public DeviceModeController? DeviceModes { get; private set; }
+    public SqliteDatabase? Database { get; private set; }
+    public ISqliteConnectionFactory? ConnectionFactory { get; private set; }
+
+    public static AppComposition Create(string configRoot, string dataRoot)
+    {
+        var composition = new AppComposition();
+        composition.Initialize(configRoot, dataRoot);
+        return composition;
+    }
+
+    private void Initialize(string configRoot, string dataRoot)
+    {
+        var logDir = Path.Combine(dataRoot, "logs");
+        Logger = new FileLogger(logDir);
+
+        try
+        {
+            var store = new JsonConfigStore(configRoot);
+            var appConfig = store.LoadAsync<AppConfig>("app.json").GetAwaiter().GetResult();
+            var deviceConfig = store.LoadAsync<DeviceConfig>("device.json").GetAwaiter().GetResult();
+            var pointsConfig = store.LoadAsync<PointsConfig>("points.json").GetAwaiter().GetResult();
+            var simulationConfig = store.LoadAsync<SimulationConfig>("simulation.json").GetAwaiter().GetResult();
+            appConfig.Validate();
+            deviceConfig.Validate();
+            pointsConfig.Validate();
+            simulationConfig.Validate();
+
+            var clock = new SystemClock();
+            var hasher = new Pbkdf2PasswordHasher();
+            var dbPath = Path.GetFullPath(Path.Combine(dataRoot, appConfig.DefaultPaths.Database));
+            var factory = new SqliteConnectionFactory(dbPath);
+            var database = new SqliteDatabase(factory, hasher);
+            database.InitializeAsync().GetAwaiter().GetResult();
+
+            var userRepo = new UserRepository(factory);
+            var productRepo = new ProductRepository(factory);
+            var definitionRepo = new TestDefinitionRepository(factory);
+            var recipeRepo = new RecipeRepository(factory);
+            var taskRepo = new TaskRepository(factory);
+            var audit = new SqliteAuditLog(factory);
+            var sessions = new InMemorySessionManager();
+            var unitOfWork = new SqliteUnitOfWork(factory);
+
+            Authentication = new AuthenticationService(userRepo, hasher, sessions, clock, audit);
+            var recipes = new RecipeService(recipeRepo, productRepo, definitionRepo, clock, audit);
+            var tasks = new TaskService(taskRepo, productRepo, recipeRepo, clock, audit);
+            var writePipeline = new DeviceWritePipeline(audit, Logger);
+            var runtimeFactory = new DeviceRuntimeFactory(deviceConfig, pointsConfig, simulationConfig, clock);
+            DeviceModes = new DeviceModeController(runtimeFactory, Logger, audit);
+            DeviceModes.InitializeAsync(deviceConfig.DeviceMode).GetAwaiter().GetResult();
+
+            var version = typeof(AppComposition).Assembly.GetName().Version?.ToString(3) ?? "0.1.0";
+            Shell = new ShellViewModel(
+                appConfig.SystemName,
+                version,
+                deviceConfig.DeviceMode,
+                dbPath,
+                isFaulted: false,
+                faultMessage: null,
+                deviceError: DeviceModes.Health == DeviceHealth.Healthy ? null : DeviceModes.LastError);
+        }
+        catch (Exception ex)
+        {
+            StartupError = ex is ConfigValidationException or DomainException ? ex.Message : ex.ToString();
+            Logger.Error("启动失败", ex);
+            var version = typeof(AppComposition).Assembly.GetName().Version?.ToString(3) ?? "0.1.0";
+            Shell = new ShellViewModel("XXX 试验台通用上位机", version, DeviceMode.Simulation, dataRoot, isFaulted: true, faultMessage: StartupError);
+        }
+    }
+}

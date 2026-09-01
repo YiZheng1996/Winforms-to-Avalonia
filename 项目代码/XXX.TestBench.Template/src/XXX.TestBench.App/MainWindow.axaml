@@ -1,0 +1,63 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:XXX.TestBench.App.ViewModels"
+        x:Class="XXX.TestBench.App.MainWindow"
+        x:DataType="vm:ShellViewModel"
+        Title="{Binding SystemName}"
+        Width="1280" Height="800"
+        MinWidth="960" MinHeight="600"
+        WindowStartupLocation="CenterScreen">
+
+  <DockPanel>
+    <!-- 顶栏：系统名称、设备模式、连接状态、登录用户 -->
+    <Border DockPanel.Dock="Top" Background="#2B579A" Padding="12,8">
+      <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto" VerticalAlignment="Center">
+        <TextBlock Grid.Column="0" Text="{Binding SystemName}" FontSize="18" FontWeight="Bold"
+                   Foreground="White" VerticalAlignment="Center" />
+        <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+          <Border Background="#1E8449" CornerRadius="4" Padding="8,3">
+            <TextBlock x:Name="ModeTextBlock" Text="{Binding DeviceModeText}" Foreground="White" FontSize="12" />
+          </Border>
+          <TextBlock Text="{Binding ConnectionStatusText}" Foreground="White" FontSize="12"
+                     VerticalAlignment="Center" />
+        </StackPanel>
+        <TextBlock Grid.Column="3" Text="{Binding CurrentUserText}" Foreground="White" FontSize="12"
+                   Margin="16,0,0,0" VerticalAlignment="Center" />
+      </Grid>
+    </Border>
+
+    <!-- 底部状态区 -->
+    <Border DockPanel.Dock="Bottom" Background="#F0F0F0" Padding="12,5">
+      <TextBlock Text="{Binding BottomStatusText}" FontSize="11" Foreground="#404040" />
+    </Border>
+
+    <!-- 左侧主导航（业务页阶段 1 规格后启用） -->
+    <Border DockPanel.Dock="Left" Width="180" Background="#F7F7F7" BorderBrush="#DDDDDD" BorderThickness="0,0,1,0">
+      <StackPanel Margin="12">
+        <TextBlock Text="主导航" FontWeight="Bold" FontSize="13" Foreground="#606060" />
+        <TextBlock Text="业务页面待阶段 1 详细规格" FontSize="11" Foreground="#909090" Margin="0,8,0,0"
+                   TextWrapping="Wrap" />
+      </StackPanel>
+    </Border>
+
+    <!-- 主内容区 -->
+    <Panel>
+      <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="8">
+        <TextBlock Text="应用外壳就绪（阶段 2 基础骨架）" FontSize="16" Foreground="#404040"
+                   HorizontalAlignment="Center" />
+        <TextBlock Text="登录、配方、任务与试验执行页面将在阶段 1 UI 规格锁定后实现。"
+                   FontSize="12" Foreground="#909090" HorizontalAlignment="Center" />
+      </StackPanel>
+
+      <!-- 故障横幅：配置无效时启动进入 Faulted 状态并显示诊断 -->
+      <Border Background="#E74C3C" Padding="16,10" CornerRadius="4"
+              HorizontalAlignment="Stretch" VerticalAlignment="Top" Margin="16"
+              x:Name="FaultBanner" IsVisible="{Binding IsFaulted}">
+        <StackPanel Spacing="4">
+          <TextBlock Text="启动故障（Faulted）" FontWeight="Bold" Foreground="White" />
+          <TextBlock Text="{Binding FaultMessage}" Foreground="White" TextWrapping="Wrap" />
+        </StackPanel>
+      </Border>
+    </Panel>
+  </DockPanel>
+</Window>

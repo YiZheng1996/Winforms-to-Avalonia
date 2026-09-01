@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "deviceMode": "Simulation",
+  "pollIntervalMs": 500,
+  "timeoutMs": 1000,
+  "devices": [
+    {
+      "name": "SampleDevice",
+      "protocol": "Simulation",
+      "address": "sim://sample",
+      "enabled": true
+    }
+  ]
+}

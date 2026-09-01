@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "points": [
+    {
+      "code": "AI_Pressure",
+      "protocol": "Simulation",
+      "address": "sim.pressure",
+      "dataType": "Decimal",
+      "unit": "MPa",
+      "scale": { "rawMin": 0, "rawMax": 10000, "engMin": 0, "engMax": 10 },
+      "isWritable": false,
+      "riskLevel": "Normal"
+    },
+    {
+      "code": "DO_Start",
+      "protocol": "Simulation",
+      "address": "sim.start",
+      "dataType": "Boolean",
+      "isWritable": true,
+      "riskLevel": "HighRisk"
+    }
+  ]
+}

@@ -1,0 +1,5 @@
+source_capability,source_path,target_owner,target_path,retained_behavior,removed_coupling,test
+PBKDF2-SHA256 password hasher,项目代码/XXX.TestBench.Uos/src/XXX.TestBench.Infrastructure/Persistence/PasswordHasher.cs,XXX.TestBench.Infrastructure,src/XXX.TestBench.Infrastructure/Identity/Pbkdf2PasswordHasher.cs,登录密码哈希与校验（100k 迭代 SHA256）,移除 Uos 仓储耦合,Core.Tests/Integration.Tests 登录用例
+SQLite 原子初始化与完整性检查,项目代码/XXX.TestBench.Uos/src/XXX.TestBench.Infrastructure/Persistence/SqliteApplicationStore.cs,XXX.TestBench.Infrastructure,src/XXX.TestBench.Infrastructure/Persistence/SqliteDatabase.cs,PRAGMA foreign_keys/WAL/integrity_check 与 user_version 迁移,移除管理记录 JSON 表,Integration.Tests 数据库重启回读
+配置原子保存（临时文件+校验+替换+备份）,项目代码/XXX.TestBench.Uos/src/XXX.TestBench.Infrastructure/Persistence/PersistenceSettings.cs,XXX.TestBench.Infrastructure,src/XXX.TestBench.Infrastructure/Configuration/JsonConfigStore.cs,schemaVersion 校验与原子替换,重命名为通用配置服务,Integration.Tests 配置用例
+Avalonia 主题与外壳样式,项目代码/XXX.TestBench.Uos/src/XXX.TestBench.Avalonia/App.axaml,XXX.TestBench.App,src/XXX.TestBench.App/App.axaml,颜色/控件基础样式,移除业务页面样式,Headless 外壳测试

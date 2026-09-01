@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "initialValues": {
+    "sim.pressure": 0.0,
+    "sim.start": false
+  },
+  "changeRules": [
+    { "address": "sim.pressure", "pattern": "ramp", "ratePerSecond": 0.1, "max": 10.0, "min": 0.0 }
+  ],
+  "faultInjectionScenarios": [
+    { "name": "PressureSensorFault", "address": "sim.pressure", "behavior": "stale" }
+  ]
+}
