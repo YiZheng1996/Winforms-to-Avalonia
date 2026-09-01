@@ -25,6 +25,9 @@ public sealed class FakeAuditLog : IAuditLog
         Entries.Add($"{actor}|{action}|{target}|{detail}");
         return Task.CompletedTask;
     }
+
+    public Task<IReadOnlyList<AuditEntry>> ListRecentAsync(int limit, CancellationToken ct = default)
+        => Task.FromResult<IReadOnlyList<AuditEntry>>(Entries.Select((e, i) => new AuditEntry(i + 1, string.Empty, string.Empty, null, e, DateTime.UtcNow)).Reverse().Take(limit).ToList());
 }
 
 public sealed class FakeSessionManager : ISessionManager
@@ -82,6 +85,12 @@ public sealed class FakeUserRepository : IUserRepository
     }
 
     public Task UpdateAsync(User user, CancellationToken ct = default) => Task.CompletedTask;
+
+    public Task<IReadOnlyList<User>> ListUsersAsync(CancellationToken ct = default)
+        => Task.FromResult<IReadOnlyList<User>>(Users.ToList());
+
+    public Task<IReadOnlyList<Role>> ListRolesAsync(CancellationToken ct = default)
+        => Task.FromResult<IReadOnlyList<Role>>(Roles.ToList());
 }
 
 public sealed class FakeProductRepository : IProductRepository
@@ -284,6 +293,12 @@ public sealed class FakeTaskRepository : ITaskRepository
         => Task.FromResult<IReadOnlyList<TestItemResult>>(Results.Where(r => r.RecordId == recordId).ToList());
 
     public Task UpdateItemResultAsync(TestItemResult result, CancellationToken ct = default) => Task.CompletedTask;
+
+    public Task<IReadOnlyList<TestTask>> ListTasksAsync(int? state, CancellationToken ct = default)
+        => Task.FromResult<IReadOnlyList<TestTask>>(state is null ? Tasks.ToList() : Tasks.Where(t => (int)t.State == state).ToList());
+
+    public Task<IReadOnlyList<TestRecord>> ListRecordsAsync(int? state, CancellationToken ct = default)
+        => Task.FromResult<IReadOnlyList<TestRecord>>(state is null ? Records.ToList() : Records.Where(r => (int)r.State == state).ToList());
 }
 public sealed class FakeRuntime : IDeviceRuntime
 {

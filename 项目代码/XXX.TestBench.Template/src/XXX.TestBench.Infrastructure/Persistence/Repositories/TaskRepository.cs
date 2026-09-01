@@ -245,6 +245,43 @@ public sealed class TaskRepository : SqliteRepositoryBase, ITaskRepository
         StartedAtUtc = ParseUtc(r.GetString(8)),
         FinishedAtUtc = ParseNullableUtc(r.GetValue(9))
     };
+    public async Task<IReadOnlyList<TestTask>> ListTasksAsync(int? state, CancellationToken ct = default)
+    {
+        var result = new List<TestTask>();
+        var conn = OpenConnection();
+        var owns = OwnsConnection;
+        try
+        {
+            await using var cmd = conn.CreateCommand();
+            cmd.CommandText = state is null
+                ? "SELECT id, task_number, product_model_id, recipe_version_id, product_number, batch_number, station_number, remark, state, created_by_user_id, created_at_utc, started_at_utc, finished_at_utc FROM test_tasks ORDER BY id DESC"
+                : "SELECT id, task_number, product_model_id, recipe_version_id, product_number, batch_number, station_number, remark, state, created_by_user_id, created_at_utc, started_at_utc, finished_at_utc FROM test_tasks WHERE state=$state ORDER BY id DESC";
+            if (state is not null) cmd.Parameters.AddWithValue("$state", state.Value);
+            await using var reader = await cmd.ExecuteReaderAsync(ct);
+            while (await reader.ReadAsync(ct)) result.Add(Map(reader));
+            return result;
+        }
+        finally { if (owns) await conn.DisposeAsync(); }
+    }
+
+    public async Task<IReadOnlyList<TestRecord>> ListRecordsAsync(int? state, CancellationToken ct = default)
+    {
+        var result = new List<TestRecord>();
+        var conn = OpenConnection();
+        var owns = OwnsConnection;
+        try
+        {
+            await using var cmd = conn.CreateCommand();
+            cmd.CommandText = state is null
+                ? "SELECT id, task_id, recipe_version_id, recipe_version_number, device_mode, operator_user_id, state, conclusion, started_at_utc, finished_at_utc FROM test_records ORDER BY id DESC"
+                : "SELECT id, task_id, recipe_version_id, recipe_version_number, device_mode, operator_user_id, state, conclusion, started_at_utc, finished_at_utc FROM test_records WHERE state=$state ORDER BY id DESC";
+            if (state is not null) cmd.Parameters.AddWithValue("$state", state.Value);
+            await using var reader = await cmd.ExecuteReaderAsync(ct);
+            while (await reader.ReadAsync(ct)) result.Add(MapRecord(reader));
+            return result;
+        }
+        finally { if (owns) await conn.DisposeAsync(); }
+    }
     private static TestTask Map(Microsoft.Data.Sqlite.SqliteDataReader r) => new()
     {
         Id = r.GetInt32(0),

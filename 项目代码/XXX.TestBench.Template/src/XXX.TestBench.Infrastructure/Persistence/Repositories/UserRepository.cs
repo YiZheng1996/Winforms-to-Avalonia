@@ -109,6 +109,37 @@ public sealed class UserRepository : SqliteRepositoryBase, IUserRepository
         finally { if (owns) await conn.DisposeAsync(); }
     }
 
+    public async Task<IReadOnlyList<User>> ListUsersAsync(CancellationToken ct = default)
+    {
+        var result = new List<User>();
+        var conn = OpenConnection();
+        var owns = OwnsConnection;
+        try
+        {
+            await using var cmd = conn.CreateCommand();
+            cmd.CommandText = "SELECT id, login_name, display_name, password_hash, must_change_password, is_enabled, failed_login_count, locked_until_utc, role_id, created_at_utc FROM users ORDER BY login_name";
+            await using var reader = await cmd.ExecuteReaderAsync(ct);
+            while (await reader.ReadAsync(ct)) result.Add(Map(reader));
+            return result;
+        }
+        finally { if (owns) await conn.DisposeAsync(); }
+    }
+
+    public async Task<IReadOnlyList<Role>> ListRolesAsync(CancellationToken ct = default)
+    {
+        var result = new List<Role>();
+        var conn = OpenConnection();
+        var owns = OwnsConnection;
+        try
+        {
+            await using var cmd = conn.CreateCommand();
+            cmd.CommandText = "SELECT id, name FROM roles ORDER BY id";
+            await using var reader = await cmd.ExecuteReaderAsync(ct);
+            while (await reader.ReadAsync(ct)) result.Add(new Role { Id = reader.GetInt32(0), Name = reader.GetString(1) });
+            return result;
+        }
+        finally { if (owns) await conn.DisposeAsync(); }
+    }
     private static User Map(SqliteDataReader reader) => new()
     {
         Id = reader.GetInt32(0),
