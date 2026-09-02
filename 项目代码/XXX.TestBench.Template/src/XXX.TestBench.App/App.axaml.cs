@@ -1,4 +1,5 @@
 using Avalonia;
+using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
 using XXX.TestBench.App.Composition;
@@ -25,7 +26,13 @@ public partial class App : Application
             var configRoot = Path.Combine(baseDir, "config");
             var dataRoot = Path.Combine(baseDir, "data");
             _composition = AppComposition.Create(configRoot, dataRoot);
-            desktop.MainWindow = new MainWindow { DataContext = _composition.Shell };
+            var mainWindow = new MainWindow
+            {
+                DataContext = _composition.Shell,
+                WindowState = WindowState.Maximized
+            };
+            mainWindow.Icon = AppIconProvider.Create();
+            desktop.MainWindow = mainWindow;
         }
 
         base.OnFrameworkInitializationCompleted();

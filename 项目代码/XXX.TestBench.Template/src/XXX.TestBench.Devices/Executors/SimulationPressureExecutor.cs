@@ -6,9 +6,9 @@ using XXX.TestBench.Core.Execution;
 namespace XXX.TestBench.Devices.Executors;
 
 /// <summary>
-/// 代表性仿真执行器（ExecutorCode=PressureExecutor）：读取配方参数 Voltage（目标值），
-/// 从仿真运行时读取 AI_Pressure 点值，按 10% 容差判定通过/失败。
-/// 具体项目的试验算法通过实现 ITestItemExecutor 注册，不修改本示例。
+/// 代表性仿真执行器（ExecutorCode=PressureExecutor）：读取直编参数快照中的
+/// 试验电压/保护电流/试验时间并完成参数解析校验，随后读取 AI_Pressure 仿真点位
+/// 以佐证设备链路可用。具体项目的真实算法通过实现 ITestItemExecutor 注册。
 /// </summary>
 public sealed class SimulationPressureExecutor : ITestItemExecutor
 {
@@ -16,24 +16,26 @@ public sealed class SimulationPressureExecutor : ITestItemExecutor
 
     public async Task<ItemExecutionOutcome> ExecuteAsync(ItemExecutionContext context, CancellationToken ct = default)
     {
-        if (!context.ParameterValues.TryGetValue("Voltage", out var targetRaw) || !decimal.TryParse(targetRaw, out var target))
-            return new ItemExecutionOutcome(ItemResultState.Failed, null, "缺少有效参数 Voltage");
+        var effective = context.EffectiveParameters;
+        if (effective is null)
+            return new ItemExecutionOutcome(ItemResultState.Failed, null, "缺少有效试验参数快照");
+
+        // 校验已在启动前由 TestParameterValidator 完成，此处仅做防御性复核。
+        var validation = XXX.TestBench.Core.Domain.TestParameters.TestParameterValidator.Validate(effective);
+        if (!validation.IsValid)
+            return new ItemExecutionOutcome(ItemResultState.Failed, null, validation.Error);
 
         var points = await context.Runtime.ListPointsAsync(ct);
         var pressurePoint = points.FirstOrDefault(p => p.Code == "AI_Pressure");
         if (pressurePoint is null)
             return new ItemExecutionOutcome(ItemResultState.Failed, null, "仿真运行时缺少点位 AI_Pressure");
 
-        var value = await context.Runtime.ReadAsync(pressurePoint, ct);
-        if (value.Quality != PointQuality.Good)
-            return new ItemExecutionOutcome(ItemResultState.Failed, value.Value?.ToString(), $"点位质量异常（{value.Quality}）");
+        var read = await context.Runtime.ReadAsync(pressurePoint, ct);
+        if (read.Quality != PointQuality.Good)
+            return new ItemExecutionOutcome(ItemResultState.Failed, read.Value?.ToString(), $"点位质量异常（{read.Quality}）");
 
-        var measured = Convert.ToDecimal(value.Value);
-        var tolerance = Math.Max(Math.Abs(target) * 0.1m, 0.05m);
-        var passed = Math.Abs(measured - target) <= tolerance;
-        return new ItemExecutionOutcome(
-            passed ? ItemResultState.Passed : ItemResultState.Failed,
-            measured.ToString("0.000"),
-            $"实测 {measured:0.000} MPa，目标 {target:0.000} kV（容差 10%）");
+        var summary = $"目标 {effective.TestVoltageV:0.0}V / {effective.ProtectCurrentMa:0.0}mA / {effective.TestTimeSeconds}s";
+        var text = $"仿真执行通过：参数快照解析校验成功，AI_Pressure 当前值 {read.Value}";
+        return new ItemExecutionOutcome(ItemResultState.Passed, summary, text);
     }
 }

@@ -1,4 +1,6 @@
 using System.Collections.ObjectModel;
+using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
 using XXX.TestBench.App.Composition;
 using XXX.TestBench.Core;
 using XXX.TestBench.Core.Domain;
@@ -8,20 +10,29 @@ using XXX.TestBench.Core.Domain.Tasks;
 
 namespace XXX.TestBench.App.ViewModels;
 
-public sealed class TaskRow : ObservableObject
+/// <summary>
+/// 任务列表中的一行，状态文字可被界面刷新。
+/// </summary>
+public sealed partial class TaskRow : ObservableObject
 {
     public required int Id { get; init; }
     public required string TaskNumber { get; init; }
     public required string ModelCode { get; init; }
-    public required int RecipeVersion { get; init; }
-    private string _stateText = string.Empty;
-    public string StateText { get => _stateText; set => SetField(ref _stateText, value); }
     public required string ProductNumber { get; init; }
     public required string CreatedAt { get; init; }
+
+    /// <summary>
+    /// 任务当前状态的显示文字。
+    /// </summary>
+    [ObservableProperty]
+    private string _stateText = string.Empty;
 }
 
-/// <summary>任务管理：列表、新建（类型→型号→已发布配方+产品标识至少一项）、取消 Draft/Ready。</summary>
-public sealed class TaskManagementViewModel : PageViewModel
+/// <summary>
+/// 任务管理页面：任务列表、新建任务（类型到型号，产品标识至少一项）、取消草稿或就绪任务。
+/// 试验项顺序由代码固定，参数在启动时固化，因此任务创建不再选择配方。
+/// </summary>
+public sealed partial class TaskManagementViewModel : PageViewModel
 {
     private readonly ShellServices _services;
     private readonly UserContext _actor;
@@ -30,53 +41,80 @@ public sealed class TaskManagementViewModel : PageViewModel
     {
         _services = services;
         _actor = actor;
-        LoadCommand = new RelayCommand(() => LoadAsync());
-        NewTaskCommand = new RelayCommand(ToggleNewTask);
-        CreateTaskCommand = new RelayCommand(CreateTaskAsync);
-        CancelSelectedCommand = new RelayCommand(CancelSelectedAsync);
     }
 
     public override string Title => "任务管理";
 
+    /// <summary>
+    /// 页面展示的任务列表。
+    /// </summary>
     public ObservableCollection<TaskRow> Tasks { get; } = new();
+
+    /// <summary>
+    /// 新建任务时可选择的产品类型列表。
+    /// </summary>
     public ObservableCollection<XXX.TestBench.Core.Domain.Products.ProductType> ProductTypes { get; } = new();
+
+    /// <summary>
+    /// 新建任务时可选择的产品型号列表。
+    /// </summary>
     public ObservableCollection<XXX.TestBench.Core.Domain.Products.ProductModel> ProductModels { get; } = new();
-    public ObservableCollection<XXX.TestBench.Core.Domain.Recipes.RecipeVersion> Recipes { get; } = new();
 
     private bool _showNewTask;
-    public bool ShowNewTask { get => _showNewTask; private set => SetField(ref _showNewTask, value); }
 
+    /// <summary>
+    /// 是否展开新建任务面板。
+    /// </summary>
+    public bool ShowNewTask { get => _showNewTask; private set => SetProperty(ref _showNewTask, value); }
+
+    /// <summary>
+    /// 新建任务时选中的产品类型；变化时自动加载该类型的型号。
+    /// </summary>
+    [ObservableProperty]
     private XXX.TestBench.Core.Domain.Products.ProductType? _selectedType;
-    public XXX.TestBench.Core.Domain.Products.ProductType? SelectedType
-    {
-        get => _selectedType;
-        set { if (SetField(ref _selectedType, value)) _ = LoadModelsAsync(); }
-    }
 
+    partial void OnSelectedTypeChanged(XXX.TestBench.Core.Domain.Products.ProductType? value) => _ = LoadModelsAsync();
+
+    /// <summary>
+    /// 新建任务时选中的产品型号。
+    /// </summary>
+    [ObservableProperty]
     private XXX.TestBench.Core.Domain.Products.ProductModel? _selectedModel;
-    public XXX.TestBench.Core.Domain.Products.ProductModel? SelectedModel
-    {
-        get => _selectedModel;
-        set { if (SetField(ref _selectedModel, value)) _ = LoadRecipesAsync(); }
-    }
 
-    private XXX.TestBench.Core.Domain.Recipes.RecipeVersion? _selectedRecipe;
-    public XXX.TestBench.Core.Domain.Recipes.RecipeVersion? SelectedRecipe { get => _selectedRecipe; set => SetField(ref _selectedRecipe, value); }
-
+    /// <summary>
+    /// 新建任务时录入的产品编号。
+    /// </summary>
+    [ObservableProperty]
     private string _productNumber = string.Empty;
-    public string ProductNumber { get => _productNumber; set => SetField(ref _productNumber, value); }
+
+    /// <summary>
+    /// 新建任务时录入的批次号。
+    /// </summary>
+    [ObservableProperty]
     private string _batchNumber = string.Empty;
-    public string BatchNumber { get => _batchNumber; set => SetField(ref _batchNumber, value); }
+
+    /// <summary>
+    /// 新建任务时录入的工位号。
+    /// </summary>
+    [ObservableProperty]
     private string _stationNumber = string.Empty;
-    public string StationNumber { get => _stationNumber; set => SetField(ref _stationNumber, value); }
+
+    /// <summary>
+    /// 新建任务时录入的备注。
+    /// </summary>
+    [ObservableProperty]
     private string _remark = string.Empty;
-    public string Remark { get => _remark; set => SetField(ref _remark, value); }
 
-    public RelayCommand LoadCommand { get; }
-    public RelayCommand NewTaskCommand { get; }
-    public RelayCommand CreateTaskCommand { get; }
-    public RelayCommand CancelSelectedCommand { get; }
+    /// <summary>
+    /// 当前在列表中选中的任务行。
+    /// </summary>
+    [ObservableProperty]
+    private TaskRow? _selectedTaskRow;
 
+    /// <summary>
+    /// 页面加载命令：读取任务与型号并刷新任务列表。
+    /// </summary>
+    [RelayCommand]
     public override async Task LoadAsync(CancellationToken ct = default)
     {
         IsBusy = true;
@@ -88,21 +126,62 @@ public sealed class TaskManagementViewModel : PageViewModel
             foreach (var task in list)
             {
                 var model = models.FirstOrDefault(m => m.Id == task.ProductModelId);
-                var recipe = await _services.RecipeRepository.GetAsync(task.RecipeVersionId, ct);
                 Tasks.Add(new TaskRow
                 {
                     Id = task.Id,
                     TaskNumber = task.TaskNumber,
                     ModelCode = model?.Code ?? task.ProductModelId.ToString(),
-                    RecipeVersion = recipe?.Version ?? 0,
-                    StateText = task.State.ToString(),
                     ProductNumber = task.ProductIdentity.ProductNumber ?? string.Empty,
-                    CreatedAt = task.CreatedAtUtc.ToString("yyyy-MM-dd HH:mm")
+                    CreatedAt = task.CreatedAtUtc.ToString("yyyy-MM-dd HH:mm"),
+                    StateText = task.State.ToString()
                 });
             }
         }
         catch (Exception ex) { StatusMessage = ex.Message; }
         finally { IsBusy = false; }
+    }
+
+    /// <summary>
+    /// 新建任务命令：展开或收起新建面板，展开时刷新产品类型。
+    /// </summary>
+    [RelayCommand]
+    public void NewTask()
+    {
+        ShowNewTask = !ShowNewTask;
+        if (ShowNewTask) _ = LoadTypesAsync();
+    }
+
+    /// <summary>
+    /// 创建任务命令：按所选型号与产品标识新建任务。
+    /// </summary>
+    [RelayCommand]
+    public async Task CreateTaskAsync()
+    {
+        StatusMessage = string.Empty;
+        try
+        {
+            var identity = new ProductIdentity(string.IsNullOrWhiteSpace(ProductNumber) ? null : ProductNumber.Trim(),
+                string.IsNullOrWhiteSpace(BatchNumber) ? null : BatchNumber.Trim(),
+                string.IsNullOrWhiteSpace(StationNumber) ? null : StationNumber.Trim(),
+                string.IsNullOrWhiteSpace(Remark) ? null : Remark.Trim());
+            if (SelectedModel is null)
+                throw new Core.Common.DomainException("请选择产品型号");
+            await _services.Tasks.CreateAsync(_actor, SelectedModel.Id, identity);
+            StatusMessage = "任务创建成功";
+            ShowNewTask = false;
+            await LoadAsync();
+        }
+        catch (Exception ex) { StatusMessage = ex.Message; }
+    }
+
+    /// <summary>
+    /// 取消命令：取消当前在列表中选中的任务。
+    /// </summary>
+    [RelayCommand]
+    public async Task CancelSelectedAsync()
+    {
+        if (SelectedTaskRow is null) { StatusMessage = "请先在列表选择任务"; return; }
+        await CancelTaskAsync(SelectedTaskRow.Id);
     }
 
     private async Task LoadTypesAsync()
@@ -115,53 +194,8 @@ public sealed class TaskManagementViewModel : PageViewModel
     {
         ProductModels.Clear();
         SelectedModel = null;
-        Recipes.Clear();
         if (SelectedType is null) return;
         foreach (var m in await _services.ProductRepository.ListModelsAsync(SelectedType.Id, includeDisabled: true)) ProductModels.Add(m);
-    }
-
-    private async Task LoadRecipesAsync()
-    {
-        Recipes.Clear();
-        SelectedRecipe = null;
-        if (SelectedModel is null) return;
-        foreach (var r in await _services.RecipeRepository.ListByModelAsync(SelectedModel.Id, includeRetired: false))
-            if (r.Status == XXX.TestBench.Core.Domain.Recipes.RecipeStatus.Published) Recipes.Add(r);
-    }
-
-    private Task ToggleNewTask()
-    {
-        ShowNewTask = !ShowNewTask;
-        if (ShowNewTask) _ = LoadTypesAsync();
-        return Task.CompletedTask;
-    }
-
-    public async Task CreateTaskAsync()
-    {
-        StatusMessage = string.Empty;
-        try
-        {
-            var identity = new ProductIdentity(string.IsNullOrWhiteSpace(ProductNumber) ? null : ProductNumber.Trim(),
-                string.IsNullOrWhiteSpace(BatchNumber) ? null : BatchNumber.Trim(),
-                string.IsNullOrWhiteSpace(StationNumber) ? null : StationNumber.Trim(),
-                string.IsNullOrWhiteSpace(Remark) ? null : Remark.Trim());
-            if (SelectedModel is null || SelectedRecipe is null)
-                throw new Core.Common.DomainException("请选择产品型号与已发布配方");
-            await _services.Tasks.CreateAsync(_actor, SelectedModel.Id, SelectedRecipe.Id, identity);
-            StatusMessage = "任务创建成功";
-            ShowNewTask = false;
-            await LoadAsync();
-        }
-        catch (Exception ex) { StatusMessage = ex.Message; }
-    }
-
-    private TaskRow? _selectedTaskRow;
-    public TaskRow? SelectedTaskRow { get => _selectedTaskRow; set => SetField(ref _selectedTaskRow, value); }
-
-    public async Task CancelSelectedAsync()
-    {
-        if (SelectedTaskRow is null) { StatusMessage = "请先在列表选择任务"; return; }
-        await CancelTaskAsync(SelectedTaskRow.Id);
     }
 
     private async Task CancelTaskAsync(int? taskId)

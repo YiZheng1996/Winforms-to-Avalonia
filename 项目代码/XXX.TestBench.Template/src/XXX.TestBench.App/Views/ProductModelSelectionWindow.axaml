@@ -1,0 +1,74 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:XXX.TestBench.App.ViewModels"
+        x:Class="XXX.TestBench.App.Views.ProductModelSelectionWindow"
+        x:DataType="vm:ProductModelSelectionViewModel"
+        Title="选择产品型号"
+        Width="860"
+        Height="600"
+        MinWidth="700"
+        MinHeight="480"
+        CanResize="False"
+        WindowStartupLocation="CenterScreen"
+        SystemDecorations="None"
+        Background="#F5F8FC"
+        UseLayoutRounding="True">
+  <Window.Styles>
+    <Style Selector="Button.dialog-secondary">
+      <Setter Property="Background" Value="White" />
+      <Setter Property="Foreground" Value="#344054" />
+      <Setter Property="BorderBrush" Value="#C9D3E0" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="MinWidth" Value="96" />
+    </Style>
+    <Style Selector="Button.dialog-primary">
+      <Setter Property="Background" Value="#0868F7" />
+      <Setter Property="Foreground" Value="White" />
+      <Setter Property="BorderBrush" Value="#0868F7" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="MinWidth" Value="96" />
+    </Style>
+  </Window.Styles>
+
+  <Border Margin="18" Padding="24" Background="White" BorderBrush="#D6DEEA" BorderThickness="1" CornerRadius="4">
+    <Grid RowDefinitions="Auto,Auto,*,Auto">
+      <StackPanel Grid.Row="0" Spacing="4">
+        <TextBlock Text="选择产品型号" FontSize="22" FontWeight="Bold" Foreground="#151A24" />
+        <TextBlock Text="选择后将同步到工艺界面的产品信息栏" Foreground="#667085" FontSize="13" />
+      </StackPanel>
+
+      <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="8" Margin="0,22,0,10">
+        <TextBlock Text="当前可选型号：" Foreground="#667085" VerticalAlignment="Center" />
+        <TextBlock Text="{Binding OptionCount}" Foreground="#0868F7" FontWeight="SemiBold" VerticalAlignment="Center" />
+        <TextBlock Text="个" Foreground="#667085" VerticalAlignment="Center" />
+      </StackPanel>
+
+      <Grid Grid.Row="2">
+        <DataGrid ItemsSource="{Binding Options}"
+                  SelectedItem="{Binding SelectedOption, Mode=TwoWay}"
+                  AutoGenerateColumns="False"
+                  IsReadOnly="True"
+                  GridLinesVisibility="Horizontal"
+                  HeadersVisibility="Column"
+                  RowHeight="42">
+          <DataGrid.Columns>
+            <DataGridTextColumn Header="产品类型" Binding="{Binding TypeDisplay}" Width="1.2*" />
+            <DataGridTextColumn Header="型号代码" Binding="{Binding ProductModelCode}" Width="1*" />
+            <DataGridTextColumn Header="型号名称" Binding="{Binding ProductModelName}" Width="1.3*" />
+            <DataGridTextColumn Header="状态" Binding="{Binding StatusText}" Width="90" />
+          </DataGrid.Columns>
+        </DataGrid>
+        <TextBlock Text="暂无可选型号，请先在参数管理中新增产品类型和产品型号。"
+                   HorizontalAlignment="Center"
+                   VerticalAlignment="Center"
+                   Foreground="#98A2B3"
+                   IsVisible="{Binding !HasOptions}" />
+      </Grid>
+
+      <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10" Margin="0,18,0,0">
+        <Button Classes="dialog-secondary" Content="取消" Click="OnCancelClick" />
+        <Button Classes="dialog-primary" Content="确定" IsEnabled="{Binding CanConfirm}" Click="OnConfirmClick" />
+      </StackPanel>
+    </Grid>
+  </Border>
+</Window>

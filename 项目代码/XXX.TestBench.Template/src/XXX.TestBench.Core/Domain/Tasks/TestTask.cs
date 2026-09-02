@@ -2,13 +2,15 @@ using XXX.TestBench.Core.Common;
 
 namespace XXX.TestBench.Core.Domain.Tasks;
 
-/// <summary>本地手工创建的待执行任务。TestTask 是待执行工作，TestRecord 是一次实际执行。</summary>
+/// <summary>
+/// 本地手工创建的待执行任务。TestTask 是待执行工作，TestRecord 是一次实际执行。
+/// 任务只关联产品型号；试验项顺序由代码固定，参数在启动时固化为快照。
+/// </summary>
 public sealed class TestTask
 {
     public int Id { get; set; }
     public required string TaskNumber { get; init; }
     public int ProductModelId { get; init; }
-    public int RecipeVersionId { get; init; }
     public ProductIdentity ProductIdentity { get; set; } = new ProductIdentity(null, null, null, null);
     public TaskState State { get; internal set; } = TaskState.Draft;
     public int CreatedByUserId { get; init; }

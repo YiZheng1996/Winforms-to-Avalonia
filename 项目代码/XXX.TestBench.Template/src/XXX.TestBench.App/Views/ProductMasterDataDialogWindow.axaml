@@ -1,0 +1,70 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:XXX.TestBench.App.ViewModels"
+        x:Class="XXX.TestBench.App.Views.ProductMasterDataDialogWindow"
+        x:DataType="vm:ProductMasterDataDialogViewModel"
+        Title="{Binding DialogTitle}"
+        Width="520"
+        Height="410"
+        MinWidth="480"
+        MinHeight="360"
+        CanResize="False"
+        WindowStartupLocation="CenterScreen"
+        SystemDecorations="None"
+        Background="#F5F8FC"
+        UseLayoutRounding="True">
+  <Window.Styles>
+    <Style Selector="Button.dialog-secondary">
+      <Setter Property="Background" Value="White" />
+      <Setter Property="Foreground" Value="#344054" />
+      <Setter Property="BorderBrush" Value="#C9D3E0" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="MinWidth" Value="96" />
+    </Style>
+    <Style Selector="Button.dialog-primary">
+      <Setter Property="Background" Value="#0868F7" />
+      <Setter Property="Foreground" Value="White" />
+      <Setter Property="BorderBrush" Value="#0868F7" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="MinWidth" Value="96" />
+    </Style>
+  </Window.Styles>
+
+  <Border Margin="18" Padding="24" Background="White" BorderBrush="#D6DEEA" BorderThickness="1" CornerRadius="4">
+    <Grid RowDefinitions="Auto,*,Auto">
+      <StackPanel Grid.Row="0" Spacing="4">
+        <TextBlock Text="{Binding DialogTitle}" FontSize="22" FontWeight="Bold" Foreground="#151A24" />
+        <TextBlock Text="{Binding DialogSubtitle}" Foreground="#667085" FontSize="13" />
+      </StackPanel>
+
+      <StackPanel Grid.Row="1" Spacing="12" Margin="0,24,0,18">
+        <StackPanel IsVisible="{Binding IsModelDialog}" Spacing="6">
+          <TextBlock Text="所属产品类型" FontWeight="SemiBold" Foreground="#344054" />
+          <ComboBox ItemsSource="{Binding TypeOptions}"
+                    SelectedItem="{Binding SelectedType, Mode=TwoWay}"
+                    DisplayMemberBinding="{Binding Name}"
+                    PlaceholderText="请选择产品类型" />
+        </StackPanel>
+
+        <StackPanel Spacing="6">
+          <TextBlock Text="代码" FontWeight="SemiBold" Foreground="#344054" />
+          <TextBox Text="{Binding Code, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                   Watermark="请输入唯一代码" />
+        </StackPanel>
+
+        <StackPanel Spacing="6">
+          <TextBlock Text="名称" FontWeight="SemiBold" Foreground="#344054" />
+          <TextBox Text="{Binding Name, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                   Watermark="可选，留空时使用代码" />
+        </StackPanel>
+
+        <TextBlock Text="{Binding ValidationMessage}" Foreground="#D92D20" FontSize="13" TextWrapping="Wrap" />
+      </StackPanel>
+
+      <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10">
+        <Button Classes="dialog-secondary" Content="取消" Click="OnCancelClick" />
+        <Button Classes="dialog-primary" Content="保存" IsEnabled="{Binding CanSave}" Click="OnConfirmClick" />
+      </StackPanel>
+    </Grid>
+  </Border>
+</Window>

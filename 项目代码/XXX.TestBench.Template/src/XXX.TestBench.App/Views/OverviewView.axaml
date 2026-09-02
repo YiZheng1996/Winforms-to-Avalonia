@@ -1,20 +1,329 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:XXX.TestBench.App.ViewModels"
+             xmlns:local="using:XXX.TestBench.App.Views"
              x:Class="XXX.TestBench.App.Views.OverviewView"
-             x:DataType="vm:OverviewViewModel">
-  <StackPanel Margin="20" Spacing="12">
-    <TextBlock Text="{Binding Title}" FontSize="20" FontWeight="Bold" />
-    <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto" ColumnSpacing="12" RowSpacing="8">
-      <TextBlock Grid.Row="0" Grid.Column="0" Text="设备模式：" />
-      <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding DeviceModeText}" />
-      <TextBlock Grid.Row="1" Grid.Column="0" Text="设备健康：" />
-      <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding HealthText}" />
-      <TextBlock Grid.Row="2" Grid.Column="0" Text="活动任务：" />
-      <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding ActiveTaskText}" />
-      <TextBlock Grid.Row="3" Grid.Column="0" Text="状态：" />
-      <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding StatusMessage}" />
-    </Grid>
-    <Button Content="刷新" Command="{Binding LoadCommand}" HorizontalAlignment="Left" />
-  </StackPanel>
+             x:DataType="vm:OverviewViewModel"
+             UseLayoutRounding="True">
+
+  <UserControl.Resources>
+    <local:ResponsivePanelWidthConverter x:Key="TaskPanelWidth" Ratio="0.22" MinWidth="190" MaxWidth="248" />
+    <local:ResponsivePanelWidthConverter x:Key="MeasurementPanelWidth" Ratio="0.24" MinWidth="210" MaxWidth="280" />
+  </UserControl.Resources>
+
+  <UserControl.Styles>
+    <Style Selector="Border.dashboard-panel">
+      <Setter Property="Background" Value="White" />
+      <Setter Property="BorderBrush" Value="#D5DDE8" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="2" />
+    </Style>
+    <Style Selector="TextBlock.blue-label">
+      <Setter Property="Foreground" Value="#0067F4" />
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+  </UserControl.Styles>
+
+  <Grid x:Name="ReferenceDashboard" ColumnDefinitions="Auto,12,*,12,Auto">
+    <!-- 左侧试验节点 -->
+    <Border x:Name="TaskPanel" Grid.Column="0" Classes="dashboard-panel"
+            Width="{Binding $parent[Grid].Bounds.Width, Converter={StaticResource TaskPanelWidth}}">
+      <Grid RowDefinitions="50,*">
+        <Border Grid.Row="0" BorderBrush="#D7DFEA" BorderThickness="0,0,0,1" Padding="14,0">
+          <Grid ColumnDefinitions="*,Auto">
+            <TextBlock Text="试验项点" FontSize="17" FontWeight="SemiBold" VerticalAlignment="Center" />
+            <TextBlock Grid.Column="1" Text="⌃" FontSize="18" VerticalAlignment="Center" />
+          </Grid>
+        </Border>
+
+        <Grid Grid.Row="1" RowDefinitions="1*,1*,1*">
+          <Border Grid.Row="0" BorderBrush="#D8E0EB" BorderThickness="0,0,0,1">
+            <Grid ColumnDefinitions="46,*" Margin="8,0">
+              <Grid Grid.Column="0">
+                <Border Width="32" Height="32" CornerRadius="16" Background="White" BorderBrush="#18A654" BorderThickness="2"
+                        HorizontalAlignment="Center" VerticalAlignment="Center">
+                  <TextBlock Text="✓" Foreground="#18A654" FontSize="18" FontWeight="Bold"
+                             HorizontalAlignment="Center" VerticalAlignment="Center" />
+                </Border>
+                <Border Width="2" Background="#61B583" HorizontalAlignment="Center" VerticalAlignment="Bottom" Height="45" Margin="0,0,0,-23" />
+              </Grid>
+              <Grid Grid.Column="1" RowDefinitions="Auto,Auto,Auto" Margin="2,22,2,12">
+                <Grid ColumnDefinitions="*,Auto">
+                  <TextBlock Text="试验测试1" FontSize="17" FontWeight="SemiBold" />
+                  <TextBlock Grid.Column="1" Text="›" Foreground="#0868F7" FontSize="30" Margin="0,-8,0,0" />
+                </Grid>
+                <TextBlock Grid.Row="1" Text="风路建立与保压" Foreground="#596273" FontSize="13" Margin="0,5,0,0" />
+                <TextBlock Grid.Row="2" Text="完成时间：00:06:15" Foreground="#18A654" FontSize="13" Margin="0,5,0,0" />
+              </Grid>
+            </Grid>
+          </Border>
+
+          <Border Grid.Row="1" BorderBrush="#D8E0EB" BorderThickness="0,0,0,1" Background="#F7FAFF">
+            <Grid ColumnDefinitions="46,*" Margin="8,0">
+              <Grid Grid.Column="0">
+                <Border Width="34" Height="34" CornerRadius="17" Background="#1670F8"
+                        HorizontalAlignment="Center" VerticalAlignment="Center">
+                  <TextBlock Text="2" Foreground="White" FontSize="18" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                </Border>
+                <Border Width="2" Background="#AAB2BF" HorizontalAlignment="Center" VerticalAlignment="Bottom" Height="45" Margin="0,0,0,-23" />
+              </Grid>
+              <Grid Grid.Column="1" RowDefinitions="Auto,Auto,Auto" Margin="2,22,2,12">
+                <Grid ColumnDefinitions="*,Auto">
+                  <TextBlock Text="试验测试2" Foreground="#0868F7" FontSize="17" FontWeight="SemiBold" />
+                  <TextBlock Grid.Column="1" Text="›" Foreground="#0868F7" FontSize="30" Margin="0,-8,0,0" />
+                </Grid>
+                <TextBlock Grid.Row="1" Text="制动缓解" Foreground="#0868F7" FontSize="13" Margin="0,5,0,0" />
+                <TextBlock Grid.Row="2" Text="进行中...  00:06:33" Foreground="#0868F7" FontSize="13" FontWeight="SemiBold" Margin="0,5,0,0" />
+              </Grid>
+            </Grid>
+          </Border>
+
+          <Border Grid.Row="2">
+            <Grid ColumnDefinitions="46,*" Margin="8,0">
+              <Grid Grid.Column="0">
+                <Border Width="32" Height="32" CornerRadius="16" Background="White" BorderBrush="#A7AFBA" BorderThickness="2"
+                        HorizontalAlignment="Center" VerticalAlignment="Center">
+                  <TextBlock Text="3" Foreground="#8B94A2" FontSize="17" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                </Border>
+              </Grid>
+              <Grid Grid.Column="1" RowDefinitions="Auto,Auto,Auto" Margin="2,22,2,12">
+                <Grid ColumnDefinitions="*,Auto">
+                  <TextBlock Text="试验测试3" FontSize="17" FontWeight="SemiBold" />
+                  <TextBlock Grid.Column="1" Text="›" Foreground="#7A8492" FontSize="30" Margin="0,-8,0,0" />
+                </Grid>
+                <TextBlock Grid.Row="1" Text="制动施加" Foreground="#596273" FontSize="13" Margin="0,5,0,0" />
+                <TextBlock Grid.Row="2" Text="等待中" Foreground="#596273" FontSize="13" Margin="0,5,0,0" />
+              </Grid>
+            </Grid>
+          </Border>
+        </Grid>
+      </Grid>
+    </Border>
+
+    <!-- 中央气路/电路图，固定设计坐标通过 Viewbox 等比适配 -->
+    <Border x:Name="PipeSchematicHost" Grid.Column="2" Classes="dashboard-panel" ClipToBounds="True">
+      <Viewbox Stretch="Uniform" StretchDirection="Both" Margin="12">
+        <Canvas Width="900" Height="520" Background="White">
+          <!-- 四路气源 -->
+          <Border Canvas.Left="10" Canvas.Top="72" Width="82" Height="32" BorderBrush="#171A20" BorderThickness="1.2" CornerRadius="4" Background="White">
+            <TextBlock Text="MR(总风A)" FontSize="12" FontWeight="SemiBold" HorizontalAlignment="Center" VerticalAlignment="Center" />
+          </Border>
+          <Border Canvas.Left="10" Canvas.Top="172" Width="82" Height="32" BorderBrush="#171A20" BorderThickness="1.2" CornerRadius="4" Background="White">
+            <TextBlock Text="EX(缓解C)" FontSize="12" FontWeight="SemiBold" HorizontalAlignment="Center" VerticalAlignment="Center" />
+          </Border>
+          <Border Canvas.Left="10" Canvas.Top="272" Width="82" Height="32" BorderBrush="#171A20" BorderThickness="1.2" CornerRadius="4" Background="White">
+            <TextBlock Text="AC2(均衡E)" FontSize="12" FontWeight="SemiBold" HorizontalAlignment="Center" VerticalAlignment="Center" />
+          </Border>
+          <Border Canvas.Left="10" Canvas.Top="372" Width="82" Height="32" BorderBrush="#171A20" BorderThickness="1.2" CornerRadius="4" Background="White">
+            <TextBlock Text="BC(制动B)" FontSize="12" FontWeight="SemiBold" HorizontalAlignment="Center" VerticalAlignment="Center" />
+          </Border>
+          <Border Canvas.Left="10" Canvas.Top="18" Width="64" Height="31" BorderBrush="#171A20" BorderThickness="1.2" CornerRadius="4" Background="White">
+            <TextBlock Text="风源" FontSize="12" HorizontalAlignment="Center" VerticalAlignment="Center" />
+          </Border>
+
+          <!-- 主干管路 -->
+          <Line StartPoint="90,88" EndPoint="650,88" Stroke="#15181D" StrokeThickness="1.5" />
+          <Line StartPoint="90,188" EndPoint="410,188" Stroke="#15181D" StrokeThickness="1.5" />
+          <Line StartPoint="90,288" EndPoint="500,288" Stroke="#15181D" StrokeThickness="1.5" />
+          <Line StartPoint="90,388" EndPoint="650,388" Stroke="#15181D" StrokeThickness="1.5" />
+          <Line StartPoint="650,88" EndPoint="650,388" Stroke="#15181D" StrokeThickness="1.5" />
+          <Line StartPoint="650,188" EndPoint="740,188" Stroke="#15181D" StrokeThickness="1.5" />
+          <Line StartPoint="650,288" EndPoint="740,288" Stroke="#15181D" StrokeThickness="1.5" />
+          <Line StartPoint="650,388" EndPoint="740,388" Stroke="#15181D" StrokeThickness="1.5" />
+          <Line StartPoint="74,34" EndPoint="110,34" Stroke="#15181D" StrokeThickness="1.3" />
+          <Line StartPoint="110,34" EndPoint="110,88" Stroke="#15181D" StrokeThickness="1.3" />
+
+          <!-- 中间支路 -->
+          <Line StartPoint="410,188" EndPoint="410,288" Stroke="#15181D" StrokeThickness="1.4" />
+          <Line StartPoint="330,188" EndPoint="330,288" Stroke="#15181D" StrokeThickness="1.2" />
+          <Line StartPoint="500,88" EndPoint="500,288" Stroke="#15181D" StrokeThickness="1.2" />
+          <Ellipse Canvas.Left="107" Canvas.Top="85" Width="6" Height="6" Fill="#15181D" />
+          <Ellipse Canvas.Left="647" Canvas.Top="85" Width="6" Height="6" Fill="#15181D" />
+          <Ellipse Canvas.Left="647" Canvas.Top="185" Width="6" Height="6" Fill="#15181D" />
+          <Ellipse Canvas.Left="647" Canvas.Top="285" Width="6" Height="6" Fill="#15181D" />
+          <Ellipse Canvas.Left="647" Canvas.Top="385" Width="6" Height="6" Fill="#15181D" />
+          <Ellipse Canvas.Left="327" Canvas.Top="285" Width="6" Height="6" Fill="#15181D" />
+          <Ellipse Canvas.Left="407" Canvas.Top="285" Width="6" Height="6" Fill="#15181D" />
+
+          <!-- 压力表：PE01-PE09 -->
+          <TextBlock Canvas.Left="136" Canvas.Top="24" Text="PE01" Classes="blue-label" />
+          <Ellipse Canvas.Left="138" Canvas.Top="42" Width="28" Height="28" Fill="White" Stroke="#15181D" StrokeThickness="1.2" />
+          <Line StartPoint="151,57" EndPoint="159,49" Stroke="#15181D" StrokeThickness="1.2" />
+          <Line StartPoint="152,70" EndPoint="152,88" Stroke="#15181D" StrokeThickness="1.2" />
+
+          <TextBlock Canvas.Left="286" Canvas.Top="24" Text="PE02" Classes="blue-label" />
+          <Ellipse Canvas.Left="288" Canvas.Top="42" Width="28" Height="28" Fill="White" Stroke="#15181D" StrokeThickness="1.2" />
+          <Line StartPoint="301,57" EndPoint="309,49" Stroke="#15181D" StrokeThickness="1.2" />
+          <Line StartPoint="302,70" EndPoint="302,88" Stroke="#15181D" StrokeThickness="1.2" />
+
+          <TextBlock Canvas.Left="436" Canvas.Top="24" Text="PE03" Classes="blue-label" />
+          <Ellipse Canvas.Left="438" Canvas.Top="42" Width="28" Height="28" Fill="White" Stroke="#15181D" StrokeThickness="1.2" />
+          <Line StartPoint="451,57" EndPoint="459,49" Stroke="#15181D" StrokeThickness="1.2" />
+          <Line StartPoint="452,70" EndPoint="452,88" Stroke="#15181D" StrokeThickness="1.2" />
+
+          <TextBlock Canvas.Left="136" Canvas.Top="124" Text="PE04" Classes="blue-label" />
+          <Ellipse Canvas.Left="138" Canvas.Top="142" Width="28" Height="28" Fill="White" Stroke="#15181D" StrokeThickness="1.2" />
+          <Line StartPoint="151,157" EndPoint="159,149" Stroke="#15181D" StrokeThickness="1.2" />
+          <Line StartPoint="152,170" EndPoint="152,188" Stroke="#15181D" StrokeThickness="1.2" />
+
+          <TextBlock Canvas.Left="136" Canvas.Top="224" Text="PE05" Classes="blue-label" />
+          <Ellipse Canvas.Left="138" Canvas.Top="242" Width="28" Height="28" Fill="White" Stroke="#15181D" StrokeThickness="1.2" />
+          <Line StartPoint="151,257" EndPoint="159,249" Stroke="#15181D" StrokeThickness="1.2" />
+          <Line StartPoint="152,270" EndPoint="152,288" Stroke="#15181D" StrokeThickness="1.2" />
+
+          <TextBlock Canvas.Left="306" Canvas.Top="224" Text="PE06" Classes="blue-label" />
+          <Ellipse Canvas.Left="308" Canvas.Top="242" Width="28" Height="28" Fill="White" Stroke="#15181D" StrokeThickness="1.2" />
+          <Line StartPoint="321,257" EndPoint="329,249" Stroke="#15181D" StrokeThickness="1.2" />
+          <Line StartPoint="322,270" EndPoint="322,288" Stroke="#15181D" StrokeThickness="1.2" />
+
+          <TextBlock Canvas.Left="136" Canvas.Top="324" Text="PE07" Classes="blue-label" />
+          <Ellipse Canvas.Left="138" Canvas.Top="342" Width="28" Height="28" Fill="White" Stroke="#15181D" StrokeThickness="1.2" />
+          <Line StartPoint="151,357" EndPoint="159,349" Stroke="#15181D" StrokeThickness="1.2" />
+          <Line StartPoint="152,370" EndPoint="152,388" Stroke="#15181D" StrokeThickness="1.2" />
+
+          <TextBlock Canvas.Left="286" Canvas.Top="324" Text="PE08" Classes="blue-label" />
+          <Ellipse Canvas.Left="288" Canvas.Top="342" Width="28" Height="28" Fill="White" Stroke="#15181D" StrokeThickness="1.2" />
+          <Line StartPoint="301,357" EndPoint="309,349" Stroke="#15181D" StrokeThickness="1.2" />
+          <Line StartPoint="302,370" EndPoint="302,388" Stroke="#15181D" StrokeThickness="1.2" />
+
+          <TextBlock Canvas.Left="436" Canvas.Top="324" Text="PE09" Classes="blue-label" />
+          <Ellipse Canvas.Left="438" Canvas.Top="342" Width="28" Height="28" Fill="White" Stroke="#15181D" StrokeThickness="1.2" />
+          <Line StartPoint="451,357" EndPoint="459,349" Stroke="#15181D" StrokeThickness="1.2" />
+          <Line StartPoint="452,370" EndPoint="452,388" Stroke="#15181D" StrokeThickness="1.2" />
+
+          <!-- 电磁阀：上下三角表示阀体，短竖线表示线圈/手柄 -->
+          <TextBlock Canvas.Left="210" Canvas.Top="43" Text="VX01" Classes="blue-label" />
+          <Path Canvas.Left="205" Canvas.Top="77" Data="M0,11 L17,0 L17,22 Z M34,11 L17,0 L17,22 Z" Fill="White" Stroke="#15181D" StrokeThickness="1" />
+          <Line StartPoint="222,77" EndPoint="222,64" Stroke="#15181D" /><Rectangle Canvas.Left="216" Canvas.Top="58" Width="12" Height="7" Fill="White" Stroke="#15181D" />
+
+          <TextBlock Canvas.Left="350" Canvas.Top="43" Text="VX02" Classes="blue-label" />
+          <Path Canvas.Left="345" Canvas.Top="77" Data="M0,11 L17,0 L17,22 Z M34,11 L17,0 L17,22 Z" Fill="White" Stroke="#15181D" StrokeThickness="1" />
+          <Line StartPoint="362,77" EndPoint="362,64" Stroke="#15181D" /><Rectangle Canvas.Left="356" Canvas.Top="58" Width="12" Height="7" Fill="White" Stroke="#15181D" />
+
+          <TextBlock Canvas.Left="510" Canvas.Top="43" Text="VX03" Classes="blue-label" />
+          <Path Canvas.Left="505" Canvas.Top="77" Data="M0,11 L17,0 L17,22 Z M34,11 L17,0 L17,22 Z" Fill="White" Stroke="#15181D" StrokeThickness="1" />
+          <Line StartPoint="522,77" EndPoint="522,64" Stroke="#15181D" /><Rectangle Canvas.Left="516" Canvas.Top="58" Width="12" Height="7" Fill="White" Stroke="#15181D" />
+
+          <TextBlock Canvas.Left="210" Canvas.Top="143" Text="VX04" Classes="blue-label" />
+          <Path Canvas.Left="205" Canvas.Top="177" Data="M0,11 L17,0 L17,22 Z M34,11 L17,0 L17,22 Z" Fill="White" Stroke="#15181D" StrokeThickness="1" />
+          <Line StartPoint="222,177" EndPoint="222,164" Stroke="#15181D" /><Rectangle Canvas.Left="216" Canvas.Top="158" Width="12" Height="7" Fill="White" Stroke="#15181D" />
+
+          <TextBlock Canvas.Left="405" Canvas.Top="143" Text="VX05" Classes="blue-label" />
+          <Path Canvas.Left="405" Canvas.Top="177" Data="M0,11 L17,0 L17,22 Z M34,11 L17,0 L17,22 Z" Fill="White" Stroke="#15181D" StrokeThickness="1" />
+          <Line StartPoint="422,177" EndPoint="422,164" Stroke="#15181D" /><Rectangle Canvas.Left="416" Canvas.Top="158" Width="12" Height="7" Fill="White" Stroke="#15181D" />
+
+          <TextBlock Canvas.Left="210" Canvas.Top="243" Text="VX06" Classes="blue-label" />
+          <Path Canvas.Left="205" Canvas.Top="277" Data="M0,11 L17,0 L17,22 Z M34,11 L17,0 L17,22 Z" Fill="White" Stroke="#15181D" StrokeThickness="1" />
+          <Line StartPoint="222,277" EndPoint="222,264" Stroke="#15181D" /><Rectangle Canvas.Left="216" Canvas.Top="258" Width="12" Height="7" Fill="White" Stroke="#15181D" />
+
+          <TextBlock Canvas.Left="375" Canvas.Top="243" Text="VX07" Classes="blue-label" />
+          <Path Canvas.Left="370" Canvas.Top="277" Data="M0,11 L17,0 L17,22 Z M34,11 L17,0 L17,22 Z" Fill="White" Stroke="#15181D" StrokeThickness="1" />
+          <Line StartPoint="387,277" EndPoint="387,264" Stroke="#15181D" /><Rectangle Canvas.Left="381" Canvas.Top="258" Width="12" Height="7" Fill="White" Stroke="#15181D" />
+
+          <TextBlock Canvas.Left="210" Canvas.Top="343" Text="VX08" Classes="blue-label" />
+          <Path Canvas.Left="205" Canvas.Top="377" Data="M0,11 L17,0 L17,22 Z M34,11 L17,0 L17,22 Z" Fill="White" Stroke="#15181D" StrokeThickness="1" />
+          <Line StartPoint="222,377" EndPoint="222,364" Stroke="#15181D" /><Rectangle Canvas.Left="216" Canvas.Top="358" Width="12" Height="7" Fill="White" Stroke="#15181D" />
+
+          <TextBlock Canvas.Left="350" Canvas.Top="343" Text="VX09" Classes="blue-label" />
+          <Path Canvas.Left="345" Canvas.Top="377" Data="M0,11 L17,0 L17,22 Z M34,11 L17,0 L17,22 Z" Fill="White" Stroke="#15181D" StrokeThickness="1" />
+          <Line StartPoint="362,377" EndPoint="362,364" Stroke="#15181D" /><Rectangle Canvas.Left="356" Canvas.Top="358" Width="12" Height="7" Fill="White" Stroke="#15181D" />
+
+          <TextBlock Canvas.Left="510" Canvas.Top="343" Text="VX10" Classes="blue-label" />
+          <Path Canvas.Left="505" Canvas.Top="377" Data="M0,11 L17,0 L17,22 Z M34,11 L17,0 L17,22 Z" Fill="White" Stroke="#15181D" StrokeThickness="1" />
+          <Line StartPoint="522,377" EndPoint="522,364" Stroke="#15181D" /><Rectangle Canvas.Left="516" Canvas.Top="358" Width="12" Height="7" Fill="White" Stroke="#15181D" />
+
+          <TextBlock Canvas.Left="675" Canvas.Top="143" Text="VX11" Classes="blue-label" />
+          <Path Canvas.Left="670" Canvas.Top="177" Data="M0,11 L17,0 L17,22 Z M34,11 L17,0 L17,22 Z" Fill="White" Stroke="#15181D" StrokeThickness="1" />
+          <Line StartPoint="687,177" EndPoint="687,164" Stroke="#15181D" /><Rectangle Canvas.Left="681" Canvas.Top="158" Width="12" Height="7" Fill="White" Stroke="#15181D" />
+
+          <TextBlock Canvas.Left="675" Canvas.Top="243" Text="VX12" Classes="blue-label" />
+          <Path Canvas.Left="670" Canvas.Top="277" Data="M0,11 L17,0 L17,22 Z M34,11 L17,0 L17,22 Z" Fill="White" Stroke="#15181D" StrokeThickness="1" />
+          <Line StartPoint="687,277" EndPoint="687,264" Stroke="#15181D" /><Rectangle Canvas.Left="681" Canvas.Top="258" Width="12" Height="7" Fill="White" Stroke="#15181D" />
+
+          <!-- 右侧电气回路 -->
+          <Polyline Points="720,42 720,430 742,430" Stroke="#1670F8" StrokeThickness="1.4" StrokeDashArray="6,4" />
+          <Polyline Points="744,42 744,430" Stroke="#1670F8" StrokeThickness="1.4" StrokeDashArray="6,4" />
+          <TextBlock Canvas.Left="858" Canvas.Top="15" Text="36V" FontSize="13" FontWeight="SemiBold" />
+          <TextBlock Canvas.Left="850" Canvas.Top="473" Text="160V" FontSize="13" FontWeight="SemiBold" />
+          <Line StartPoint="868,32" EndPoint="868,468" Stroke="#15181D" StrokeThickness="1.4" />
+          <Ellipse Canvas.Left="862" Canvas.Top="26" Width="12" Height="12" Fill="White" Stroke="#15181D" />
+          <TextBlock Canvas.Left="865" Canvas.Top="22" Text="+" FontSize="11" />
+          <Ellipse Canvas.Left="862" Canvas.Top="462" Width="12" Height="12" Fill="White" Stroke="#15181D" />
+          <TextBlock Canvas.Left="865" Canvas.Top="457" Text="−" FontSize="11" />
+
+          <Polyline Points="720,88 754,88 754,102" Stroke="#1670F8" StrokeThickness="1.3" />
+          <Polyline Points="720,188 754,188 754,202" Stroke="#1670F8" StrokeThickness="1.3" />
+          <Polyline Points="720,288 754,288 754,302" Stroke="#1670F8" StrokeThickness="1.3" />
+          <Polyline Points="720,388 754,388 754,402" Stroke="#1670F8" StrokeThickness="1.3" />
+          <Line StartPoint="835,105" EndPoint="868,105" Stroke="#15181D" StrokeThickness="1.3" />
+          <Line StartPoint="835,205" EndPoint="868,205" Stroke="#15181D" StrokeThickness="1.3" />
+          <Line StartPoint="835,305" EndPoint="868,305" Stroke="#15181D" StrokeThickness="1.3" />
+          <Line StartPoint="835,405" EndPoint="868,405" Stroke="#15181D" StrokeThickness="1.3" />
+
+          <!-- 四个执行器 -->
+          <TextBlock Canvas.Left="792" Canvas.Top="58" Text="C01" Classes="blue-label" />
+          <Border Canvas.Left="770" Canvas.Top="78" Width="67" Height="52" Background="#F5F6F7" BorderBrush="#15181D" BorderThickness="1" CornerRadius="3">
+            <Grid ColumnDefinitions="1*,1.2*,1*"><Border Grid.Column="1" Background="White" BorderBrush="#15181D" BorderThickness="1,0" /></Grid>
+          </Border>
+          <TextBlock Canvas.Left="757" Canvas.Top="88" Text="↪" Foreground="#1670F8" FontSize="15" />
+          <TextBlock Canvas.Left="757" Canvas.Top="111" Text="−" FontSize="13" /><TextBlock Canvas.Left="840" Canvas.Top="111" Text="+" FontSize="13" />
+
+          <TextBlock Canvas.Left="792" Canvas.Top="158" Text="C04" Classes="blue-label" />
+          <Border Canvas.Left="770" Canvas.Top="178" Width="67" Height="52" Background="#F5F6F7" BorderBrush="#15181D" BorderThickness="1" CornerRadius="3">
+            <Grid ColumnDefinitions="1*,1.2*,1*"><Border Grid.Column="1" Background="White" BorderBrush="#15181D" BorderThickness="1,0" /></Grid>
+          </Border>
+          <TextBlock Canvas.Left="757" Canvas.Top="188" Text="↪" Foreground="#1670F8" FontSize="15" />
+          <TextBlock Canvas.Left="757" Canvas.Top="211" Text="−" FontSize="13" /><TextBlock Canvas.Left="840" Canvas.Top="211" Text="+" FontSize="13" />
+
+          <TextBlock Canvas.Left="792" Canvas.Top="258" Text="C05" Classes="blue-label" />
+          <Border Canvas.Left="770" Canvas.Top="278" Width="67" Height="52" Background="#F5F6F7" BorderBrush="#15181D" BorderThickness="1" CornerRadius="3">
+            <Grid ColumnDefinitions="1*,1.2*,1*"><Border Grid.Column="1" Background="White" BorderBrush="#15181D" BorderThickness="1,0" /></Grid>
+          </Border>
+          <TextBlock Canvas.Left="757" Canvas.Top="288" Text="↪" Foreground="#1670F8" FontSize="15" />
+          <TextBlock Canvas.Left="757" Canvas.Top="311" Text="−" FontSize="13" /><TextBlock Canvas.Left="840" Canvas.Top="311" Text="+" FontSize="13" />
+
+          <TextBlock Canvas.Left="792" Canvas.Top="358" Text="C06" Classes="blue-label" />
+          <Border Canvas.Left="770" Canvas.Top="378" Width="67" Height="52" Background="#F5F6F7" BorderBrush="#15181D" BorderThickness="1" CornerRadius="3">
+            <Grid ColumnDefinitions="1*,1.2*,1*"><Border Grid.Column="1" Background="White" BorderBrush="#15181D" BorderThickness="1,0" /></Grid>
+          </Border>
+          <TextBlock Canvas.Left="757" Canvas.Top="388" Text="↪" Foreground="#1670F8" FontSize="15" />
+          <TextBlock Canvas.Left="757" Canvas.Top="411" Text="−" FontSize="13" /><TextBlock Canvas.Left="840" Canvas.Top="411" Text="+" FontSize="13" />
+        </Canvas>
+      </Viewbox>
+    </Border>
+
+    <!-- 右侧实时测量 -->
+    <Border x:Name="MeasurementPanel" Grid.Column="4" Classes="dashboard-panel"
+            Width="{Binding $parent[Grid].Bounds.Width, Converter={StaticResource MeasurementPanelWidth}}">
+      <Grid RowDefinitions="50,*">
+        <Border Grid.Row="0" BorderBrush="#D7DFEA" BorderThickness="0,0,0,1" Padding="14,0">
+          <Grid ColumnDefinitions="*,Auto">
+            <TextBlock Text="实时测量" FontSize="17" FontWeight="SemiBold" VerticalAlignment="Center" />
+            <TextBlock Grid.Column="1" Text="⌄" FontSize="18" VerticalAlignment="Center" />
+          </Grid>
+        </Border>
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+          <ItemsControl ItemsSource="{Binding Measurements}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="vm:MeasurementRowViewModel">
+                <Grid Height="39" ColumnDefinitions="28,*,34,48,14" Margin="12,0,8,0">
+                  <Border Width="18" Height="18" CornerRadius="9" BorderBrush="#3484FF" BorderThickness="1.2"
+                          HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <TextBlock Text="⌁" Foreground="#2478FB" FontSize="10" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                  </Border>
+                  <TextBlock Grid.Column="1" Text="{Binding Name}" FontSize="13" FontWeight="SemiBold"
+                             TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                  <TextBlock Grid.Column="2" Text="{Binding Unit}" Foreground="#7A8492" FontSize="12" VerticalAlignment="Center" />
+                  <TextBlock Grid.Column="3" Text="{Binding Value}" Foreground="#0868F7" FontSize="19" FontWeight="SemiBold"
+                             HorizontalAlignment="Right" VerticalAlignment="Center" />
+                  <Ellipse Grid.Column="4" Width="10" Height="10" Fill="#21A75A" HorizontalAlignment="Right" VerticalAlignment="Center" />
+                </Grid>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </ScrollViewer>
+      </Grid>
+    </Border>
+  </Grid>
 </UserControl>

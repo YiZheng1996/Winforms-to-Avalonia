@@ -1,6 +1,8 @@
 namespace XXX.TestBench.Core.Domain.Devices;
 
-/// <summary>点位定义（来自 points.json）。</summary>
+/// <summary>
+/// 点位定义（来自 points.json）。
+/// </summary>
 public sealed record DevicePoint(
     string Code,
     string Protocol,

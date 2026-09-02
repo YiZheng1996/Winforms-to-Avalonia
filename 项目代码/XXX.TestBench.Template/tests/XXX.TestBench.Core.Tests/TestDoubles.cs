@@ -6,6 +6,7 @@ using XXX.TestBench.Core.Domain.Products;
 using XXX.TestBench.Core.Domain.Recipes;
 using XXX.TestBench.Core.Domain.Reports;
 using XXX.TestBench.Core.Domain.Tasks;
+using XXX.TestBench.Core.Domain.TestParameters;
 using XXX.TestBench.Core.Domain.TestDefinitions;
 using XXX.TestBench.Core.Ports;
 
@@ -387,5 +388,41 @@ public sealed class FakeReportGenerator : IReportGenerator
         Calls.Add(data);
         if (Fail) throw new InvalidOperationException("生成器失败");
         return Task.FromResult(Path.Combine(outputDirectory, "out.xlsx"));
+    }
+}
+
+public sealed class FakeTestParameterRepository : ITestParameterRepository
+{
+    public ProjectTestParameter? Project { get; set; }
+    public List<ProductTypeTestParameter> TypeParameters { get; } = new();
+    public List<ProductModelTestParameter> ModelParameters { get; } = new();
+
+    public Task<ProjectTestParameter?> GetProjectAsync(CancellationToken ct = default)
+        => Task.FromResult(Project);
+
+    public Task<ProductTypeTestParameter?> GetTypeAsync(int productTypeId, CancellationToken ct = default)
+        => Task.FromResult(TypeParameters.FirstOrDefault(p => p.ProductTypeId == productTypeId));
+
+    public Task<ProductModelTestParameter?> GetModelAsync(int productModelId, CancellationToken ct = default)
+        => Task.FromResult(ModelParameters.FirstOrDefault(p => p.ProductModelId == productModelId));
+
+    public Task SaveProjectAsync(ProjectTestParameter value, CancellationToken ct = default)
+    {
+        Project = value;
+        return Task.CompletedTask;
+    }
+
+    public Task SaveTypeAsync(ProductTypeTestParameter value, CancellationToken ct = default)
+    {
+        TypeParameters.RemoveAll(p => p.ProductTypeId == value.ProductTypeId);
+        TypeParameters.Add(value);
+        return Task.CompletedTask;
+    }
+
+    public Task SaveModelAsync(ProductModelTestParameter value, CancellationToken ct = default)
+    {
+        ModelParameters.RemoveAll(p => p.ProductModelId == value.ProductModelId);
+        ModelParameters.Add(value);
+        return Task.CompletedTask;
     }
 }

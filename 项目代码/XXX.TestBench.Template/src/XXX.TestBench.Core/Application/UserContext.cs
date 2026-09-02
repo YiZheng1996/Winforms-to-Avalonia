@@ -3,7 +3,9 @@ using XXX.TestBench.Core.Domain.Identity;
 
 namespace XXX.TestBench.Core.Application;
 
-/// <summary>已认证操作者上下文，携带角色权限。</summary>
+/// <summary>
+/// 已认证操作者上下文，携带角色权限。
+/// </summary>
 public sealed class UserContext
 {
     public int UserId { get; init; }

@@ -2,7 +2,9 @@ using XXX.TestBench.Core.Domain.Devices;
 
 namespace XXX.TestBench.Core.Ports;
 
-/// <summary>设备运行时边界。界面不得直接调用协议库写方法。</summary>
+/// <summary>
+/// 设备运行时边界。界面不得直接调用协议库写方法。
+/// </summary>
 public interface IDeviceRuntime : IAsyncDisposable
 {
     string Name { get; }

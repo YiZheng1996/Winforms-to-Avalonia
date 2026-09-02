@@ -1,17 +1,21 @@
 using System.Collections.ObjectModel;
+using System.Globalization;
+using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
 using XXX.TestBench.App.Composition;
 using XXX.TestBench.Core;
 using XXX.TestBench.Core.Domain;
 using XXX.TestBench.Core.Application;
 using XXX.TestBench.Core.Domain.Identity;
 using XXX.TestBench.Core.Domain.Products;
-using XXX.TestBench.Core.Domain.Recipes;
-using XXX.TestBench.Core.Domain.TestDefinitions;
 
 namespace XXX.TestBench.App.ViewModels;
 
-/// <summary>配方中心（6 个 Tab）：产品类型/产品型号/试验项定义/参数定义/配方版本/配方编辑器。写操作权限 Manage*。</summary>
-public sealed class RecipeCenterViewModel : PageViewModel
+/// <summary>
+/// 参数管理页面（三个标签页）：产品类型、产品型号、试验参数。
+/// 试验参数为代码固定字段（项目/类型/型号三级），不做动态定义表，也不做配方编辑器。
+/// </summary>
+public sealed partial class RecipeCenterViewModel : PageViewModel
 {
     private readonly ShellServices _services;
     private readonly UserContext _actor;
@@ -20,86 +24,96 @@ public sealed class RecipeCenterViewModel : PageViewModel
     {
         _services = services;
         _actor = actor;
-        LoadCommand = new RelayCommand(() => LoadAsync());
     }
 
-    public override string Title => "配方中心";
+    public override string Title => "参数管理";
 
+    /// <summary>产品类型列表。</summary>
     public ObservableCollection<ProductType> Types { get; } = new();
+
+    /// <summary>产品型号列表。</summary>
     public ObservableCollection<ProductModel> Models { get; } = new();
-    public ObservableCollection<TestItemDefinition> Items { get; } = new();
-    public ObservableCollection<ParameterDefinition> Parameters { get; } = new();
-    public ObservableCollection<RecipeVersion> Versions { get; } = new();
-    public ObservableCollection<RecipeItem> RecipeItems { get; } = new();
-    public ObservableCollection<ParameterDefinition> EditorParameters { get; } = new();
-    public ObservableCollection<RecipeParameterValue> EditorValues { get; } = new();
 
+    /// <summary>新增产品型号时可选择的产品类型。</summary>
+    public ObservableCollection<ProductType> ModelTypeOptions { get; } = new();
+
+    /// <summary>试验参数页可选择的产品类型。</summary>
+    public ObservableCollection<ProductType> ParamTypeOptions { get; } = new();
+
+    /// <summary>试验参数页可选择的产品型号。</summary>
+    public ObservableCollection<ProductModel> ParamModelOptions { get; } = new();
+
+    /// <summary>产品类型列表是否有数据。</summary>
+    public bool HasTypes => Types.Count > 0;
+
+    /// <summary>产品型号列表是否有数据。</summary>
+    public bool HasModels => Models.Count > 0;
+
+    /// <summary>当前标签页序号；变化时自动加载该页数据。</summary>
+    [ObservableProperty]
     private int _selectedTabIndex;
-    public int SelectedTabIndex { get => _selectedTabIndex; set { if (SetField(ref _selectedTabIndex, value)) _ = OnTabChangedAsync(); } }
 
-    public RelayCommand LoadCommand { get; }
+    partial void OnSelectedTabIndexChanged(int value) => _ = OnTabChangedAsync();
 
-    // ---- 新增字段 ----
+    /// <summary>新增产品类型时录入的代码。</summary>
+    [ObservableProperty]
     private string _newCode = string.Empty;
-    public string NewCode { get => _newCode; set => SetField(ref _newCode, value); }
+
+    /// <summary>新增产品类型时录入的名称。</summary>
+    [ObservableProperty]
     private string _newName = string.Empty;
-    public string NewName { get => _newName; set => SetField(ref _newName, value); }
-    private string _newExecutor = string.Empty;
-    public string NewExecutor { get => _newExecutor; set => SetField(ref _newExecutor, value); }
-    private string _newParamCode = string.Empty;
-    public string NewParamCode { get => _newParamCode; set => SetField(ref _newParamCode, value); }
-    private string _newParamName = string.Empty;
-    public string NewParamName { get => _newParamName; set => SetField(ref _newParamName, value); }
-    private string _newParamMin = string.Empty;
-    public string NewParamMin { get => _newParamMin; set => SetField(ref _newParamMin, value); }
-    private string _newParamMax = string.Empty;
-    public string NewParamMax { get => _newParamMax; set => SetField(ref _newParamMax, value); }
 
-    public ObservableCollection<XXX.TestBench.Core.Domain.Products.ProductType> ModelTypeOptions { get; } = new();
-    public ObservableCollection<XXX.TestBench.Core.Domain.Products.ProductType> VersionTypeOptions { get; } = new();
-    public ObservableCollection<XXX.TestBench.Core.Domain.Products.ProductModel> VersionModelOptions { get; } = new();
-    public ObservableCollection<XXX.TestBench.Core.Domain.Products.ProductModel> EditorModelOptions { get; } = new();
-    public ObservableCollection<TestItemDefinition> EditorItemOptions { get; } = new();
-    public ObservableCollection<TestItemDefinition> ParamItemOptions { get; } = new();
-
+    /// <summary>产品类型页当前选中的类型。</summary>
+    [ObservableProperty]
     private ProductType? _selectedType;
-    public ProductType? SelectedType { get => _selectedType; set => SetField(ref _selectedType, value); }
-    private ProductModel? _selectedModel;
-    public ProductModel? SelectedModel { get => _selectedModel; set { if (SetField(ref _selectedModel, value)) _ = LoadVersionsAsync(); } }
-    private TestItemDefinition? _selectedItem;
-    public TestItemDefinition? SelectedItem { get => _selectedItem; set { if (SetField(ref _selectedItem, value)) _ = LoadParametersAsync(); } }
-    private TestItemDefinition? _selectedParamItem;
-    public TestItemDefinition? SelectedParamItem { get => _selectedParamItem; set { if (SetField(ref _selectedParamItem, value)) _ = LoadParametersAsync(); } }
-    private RecipeVersion? _selectedVersion;
-    public RecipeVersion? SelectedVersion { get => _selectedVersion; set { if (SetField(ref _selectedVersion, value)) _ = LoadEditorAsync(); } }
-    private RecipeItem? _selectedRecipeItem;
-    public RecipeItem? SelectedRecipeItem { get => _selectedRecipeItem; set { if (SetField(ref _selectedRecipeItem, value)) _ = LoadEditorValuesAsync(); } }
-    private ProductType? _selectedModelType;
-    public ProductType? SelectedModelType { get => _selectedModelType; set => SetField(ref _selectedModelType, value); }
-    private ProductType? _selectedVersionType;
-    public ProductType? SelectedVersionType { get => _selectedVersionType; set { if (SetField(ref _selectedVersionType, value)) _ = LoadVersionModelsAsync(); } }
-    private TestItemDefinition? _selectedEditorItemOption;
-    public TestItemDefinition? SelectedEditorItemOption { get => _selectedEditorItemOption; set => SetField(ref _selectedEditorItemOption, value); }
 
-    private string _editorSortOrder = "1";
-    public string EditorSortOrder { get => _editorSortOrder; set => SetField(ref _editorSortOrder, value); }
-    private string _editorParamValue = string.Empty;
-    public string EditorParamValue { get => _editorParamValue; set => SetField(ref _editorParamValue, value); }
-    private ParameterDefinition? _selectedEditorParameter;
-    public ParameterDefinition? SelectedEditorParameter { get => _selectedEditorParameter; set => SetField(ref _selectedEditorParameter, value); }
+    /// <summary>产品型号页当前选中的型号。</summary>
+    [ObservableProperty]
+    private ProductModel? _selectedModel;
+
+    /// <summary>产品型号页筛选的产品类型；变化时自动加载该类型型号。</summary>
+    [ObservableProperty]
+    private ProductType? _selectedModelType;
+
+    partial void OnSelectedModelTypeChanged(ProductType? value) => _ = LoadModelsAsync();
+
+    /// <summary>试验参数页当前选中的产品类型。</summary>
+    [ObservableProperty]
+    private ProductType? _selectedParamType;
+
+    partial void OnSelectedParamTypeChanged(ProductType? value) => _ = LoadParamModelOptionsAsync();
+
+    /// <summary>试验参数页当前选中的产品型号。</summary>
+    [ObservableProperty]
+    private ProductModel? _selectedParamModel;
+
+    partial void OnSelectedParamModelChanged(ProductModel? value) => _ = LoadModelParameterAsync();
+
+    /// <summary>项目参数：试验时间输入文字。</summary>
+    [ObservableProperty]
+    private string _testTimeInput = string.Empty;
+
+    /// <summary>类型参数：试验电压输入文字。</summary>
+    [ObservableProperty]
+    private string _testVoltageInput = string.Empty;
+
+    /// <summary>型号参数：保护电流输入文字。</summary>
+    [ObservableProperty]
+    private string _protectCurrentInput = string.Empty;
 
     private string _status = string.Empty;
-    public string Status { get => _status; private set => SetField(ref _status, value); }
 
+    /// <summary>页面底部展示的操作结果或错误提示。</summary>
+    public string Status { get => _status; private set => SetProperty(ref _status, value); }
+
+    /// <summary>页面加载命令：加载产品与参数页共用的基础选项数据。</summary>
+    [RelayCommand]
     public override async Task LoadAsync(CancellationToken ct = default)
     {
         await LoadTypesAsync();
-        await LoadItemsAsync();
         await LoadModelTypeOptionsAsync();
-        await LoadVersionTypeOptionsAsync();
-        await LoadEditorModelOptionsAsync();
-        await LoadParamItemOptionsAsync();
-        await LoadEditorItemOptionsAsync();
+        await LoadParamTypeOptionsAsync();
+        await LoadProjectParameterAsync();
     }
 
     private async Task OnTabChangedAsync()
@@ -108,10 +122,7 @@ public sealed class RecipeCenterViewModel : PageViewModel
         {
             case 0: await LoadTypesAsync(); break;
             case 1: await LoadModelsAsync(); break;
-            case 2: await LoadItemsAsync(); break;
-            case 3: await LoadParametersAsync(); break;
-            case 4: await LoadVersionsAsync(); break;
-            case 5: await LoadEditorAsync(); break;
+            case 2: await LoadParamTypeOptionsAsync(); await LoadProjectParameterAsync(); break;
         }
     }
 
@@ -119,66 +130,14 @@ public sealed class RecipeCenterViewModel : PageViewModel
     {
         Types.Clear();
         foreach (var t in await _services.ProductRepository.ListTypesAsync(includeDisabled: true)) Types.Add(t);
+        OnPropertyChanged(nameof(HasTypes));
     }
 
     private async Task LoadModelsAsync()
     {
         Models.Clear();
         foreach (var m in await _services.ProductRepository.ListModelsAsync(SelectedModelType?.Id, includeDisabled: true)) Models.Add(m);
-    }
-
-    private async Task LoadItemsAsync()
-    {
-        Items.Clear();
-        foreach (var i in await _services.DefinitionRepository.ListItemsAsync(includeDisabled: true)) Items.Add(i);
-    }
-
-    private async Task LoadParametersAsync()
-    {
-        Parameters.Clear();
-        EditorParameters.Clear();
-        var item = SelectedParamItem ?? SelectedItem;
-        if (item is null) return;
-        foreach (var p in await _services.DefinitionRepository.ListParametersAsync(item.Id)) Parameters.Add(p);
-    }
-
-    private async Task LoadVersionsAsync()
-    {
-        Versions.Clear();
-        if (SelectedVersionType is null || SelectedModel is null) return;
-        foreach (var v in await _services.RecipeRepository.ListByModelAsync(SelectedModel.Id, includeRetired: true)) Versions.Add(v);
-    }
-
-    private async Task LoadVersionModelsAsync()
-    {
-        VersionModelOptions.Clear();
-        if (SelectedVersionType is null) return;
-        foreach (var m in await _services.ProductRepository.ListModelsAsync(SelectedVersionType.Id, includeDisabled: true)) VersionModelOptions.Add(m);
-    }
-
-    private async Task LoadEditorAsync()
-    {
-        RecipeItems.Clear();
-        EditorParameters.Clear();
-        EditorValues.Clear();
-        if (SelectedVersion is null || SelectedVersion.Status != RecipeStatus.Draft) return;
-        foreach (var ri in await _services.RecipeRepository.ListItemsAsync(SelectedVersion.Id)) RecipeItems.Add(ri);
-        await LoadEditorItemOptionsAsync();
-    }
-
-    private async Task LoadEditorValuesAsync()
-    {
-        EditorParameters.Clear();
-        EditorValues.Clear();
-        if (SelectedRecipeItem is null) return;
-        var defs = await _services.DefinitionRepository.ListParametersAsync(SelectedRecipeItem.TestItemDefinitionId);
-        foreach (var p in defs) EditorParameters.Add(p);
-        var values = await _services.RecipeRepository.ListParameterValuesAsync(SelectedVersion?.Id ?? 0);
-        foreach (var p in defs)
-        {
-            var v = values.FirstOrDefault(x => x.RecipeItemId == SelectedRecipeItem.Id && x.ParameterDefinitionId == p.Id);
-            EditorValues.Add(v ?? new RecipeParameterValue { RecipeItemId = SelectedRecipeItem.Id, ParameterDefinitionId = p.Id, RawValue = string.Empty });
-        }
+        OnPropertyChanged(nameof(HasModels));
     }
 
     private async Task LoadModelTypeOptionsAsync()
@@ -187,165 +146,177 @@ public sealed class RecipeCenterViewModel : PageViewModel
         foreach (var t in await _services.ProductRepository.ListTypesAsync(includeDisabled: true)) ModelTypeOptions.Add(t);
     }
 
-    private async Task LoadVersionTypeOptionsAsync()
+    private async Task LoadParamTypeOptionsAsync()
     {
-        VersionTypeOptions.Clear();
-        foreach (var t in await _services.ProductRepository.ListTypesAsync(includeDisabled: true)) VersionTypeOptions.Add(t);
+        ParamTypeOptions.Clear();
+        foreach (var t in await _services.ProductRepository.ListTypesAsync(includeDisabled: true)) ParamTypeOptions.Add(t);
     }
 
-    private async Task LoadEditorModelOptionsAsync()
+    public async Task LoadParamModelOptionsAsync()
     {
-        EditorModelOptions.Clear();
-        foreach (var m in await _services.ProductRepository.ListModelsAsync(null, includeDisabled: true)) EditorModelOptions.Add(m);
+        ParamModelOptions.Clear();
+        SelectedParamModel = null;
+        TestVoltageInput = string.Empty;
+        if (SelectedParamType is null) return;
+        foreach (var m in await _services.ProductRepository.ListModelsAsync(SelectedParamType.Id, includeDisabled: true)) ParamModelOptions.Add(m);
+        await LoadTypeParameterAsync();
     }
 
-    private async Task LoadParamItemOptionsAsync()
+    private async Task LoadProjectParameterAsync()
     {
-        ParamItemOptions.Clear();
-        foreach (var i in await _services.DefinitionRepository.ListItemsAsync(includeDisabled: true)) ParamItemOptions.Add(i);
+        var value = await _services.TestParameterRepository.GetProjectAsync();
+        TestTimeInput = value?.TestTimeSeconds.ToString(CultureInfo.InvariantCulture) ?? string.Empty;
     }
 
-    private async Task LoadEditorItemOptionsAsync()
+    private async Task LoadTypeParameterAsync()
     {
-        EditorItemOptions.Clear();
-        foreach (var i in await _services.DefinitionRepository.ListItemsAsync(includeDisabled: false)) EditorItemOptions.Add(i);
+        if (SelectedParamType is null)
+        {
+            TestVoltageInput = string.Empty;
+            return;
+        }
+        var value = await _services.TestParameterRepository.GetTypeAsync(SelectedParamType.Id);
+        TestVoltageInput = value?.TestVoltageV.ToString(CultureInfo.InvariantCulture) ?? string.Empty;
     }
 
-    // ---- Tab0 产品类型 ----
-    public RelayCommand AddTypeCommand => new(async () =>
+    private async Task LoadModelParameterAsync()
     {
-        try { await _services.Products.CreateTypeAsync(_actor, NewCode, NewName); Status = "产品类型已创建"; await LoadTypesAsync(); }
-        catch (Exception ex) { Status = ex.Message; }
-    });
+        if (SelectedParamModel is null)
+        {
+            ProtectCurrentInput = string.Empty;
+            return;
+        }
+        var value = await _services.TestParameterRepository.GetModelAsync(SelectedParamModel.Id);
+        ProtectCurrentInput = value?.ProtectCurrentMa.ToString(CultureInfo.InvariantCulture) ?? string.Empty;
+    }
 
-    public RelayCommand DisableSelectedTypeCommand => new(async () =>
-    {
-        try { if (SelectedType is null) return; await _services.Products.SetTypeEnabledAsync(_actor, SelectedType.Id, !SelectedType.IsEnabled); await LoadTypesAsync(); }
-        catch (Exception ex) { Status = ex.Message; }
-    });
-
-    // ---- Tab1 产品型号 ----
-    public RelayCommand AddModelCommand => new(async () =>
-    {
-        try { if (SelectedModelType is null) throw new Core.Common.DomainException("请选择产品类型"); await _services.Products.CreateModelAsync(_actor, SelectedModelType.Id, NewCode, NewName); Status = "产品型号已创建"; await LoadModelsAsync(); }
-        catch (Exception ex) { Status = ex.Message; }
-    });
-
-    public RelayCommand DisableSelectedModelCommand => new(async () =>
-    {
-        try { if (SelectedModel is null) return; await _services.Products.SetModelEnabledAsync(_actor, SelectedModel.Id, !SelectedModel.IsEnabled); await LoadModelsAsync(); }
-        catch (Exception ex) { Status = ex.Message; }
-    });
-
-    // ---- Tab2 试验项 ----
-    public RelayCommand AddItemCommand => new(async () =>
-    {
-        try { await _services.Definitions.CreateItemAsync(_actor, NewCode, NewName, NewExecutor, "PassFail", Items.Count + 1); Status = "试验项已创建"; await LoadItemsAsync(); }
-        catch (Exception ex) { Status = ex.Message; }
-    });
-
-    public RelayCommand DisableSelectedItemCommand => new(async () =>
-    {
-        try { if (SelectedItem is null) return; await _services.Definitions.SetItemEnabledAsync(_actor, SelectedItem.Id, !SelectedItem.IsEnabled); await LoadItemsAsync(); }
-        catch (Exception ex) { Status = ex.Message; }
-    });
-
-    // ---- Tab3 参数 ----
-    public RelayCommand AddParamCommand => new(async () =>
+    /// <summary>保存项目级参数（试验时间）。</summary>
+    [RelayCommand]
+    private async Task SaveProjectParameterAsync()
     {
         try
         {
-            var item = SelectedParamItem ?? SelectedItem;
-            if (item is null) throw new Core.Common.DomainException("请选择试验项");
-            decimal? min = decimal.TryParse(NewParamMin, out var m) ? m : null;
-            decimal? max = decimal.TryParse(NewParamMax, out var x) ? x : null;
-            await _services.Definitions.CreateParameterAsync(_actor, item.Id, NewParamCode, NewParamName, ParameterDataType.Decimal, false, null, min, max, null, null, Parameters.Count + 1);
-            Status = "参数已创建";
-            await LoadParametersAsync();
+            if (!int.TryParse(TestTimeInput, NumberStyles.Integer, CultureInfo.InvariantCulture, out var seconds))
+                throw new Core.Common.DomainException("试验时间必须为整数。");
+            await _services.Parameters.SaveProjectAsync(_actor, seconds);
+            Status = "项目参数已保存";
+            await LoadProjectParameterAsync();
         }
         catch (Exception ex) { Status = ex.Message; }
-    });
+    }
 
-    // ---- Tab4 配方版本 ----
-    public RelayCommand CreateDraftCommand => new(async () =>
+    /// <summary>保存产品类型级参数（试验电压）。</summary>
+    [RelayCommand]
+    private async Task SaveTypeParameterAsync()
     {
         try
         {
-            var model = SelectedModel ?? EditorModelOptions.FirstOrDefault();
-            if (model is null) throw new Core.Common.DomainException("请选择产品型号");
-            var draft = await _services.Recipes.CreateDraftAsync(_actor, model.Id, NewName);
-            Status = $"草稿已创建（V{draft.Version}）";
-            await LoadVersionsAsync();
+            if (SelectedParamType is null) throw new Core.Common.DomainException("请选择产品类型");
+            if (!double.TryParse(TestVoltageInput, NumberStyles.Float, CultureInfo.InvariantCulture, out var voltage))
+                throw new Core.Common.DomainException("试验电压必须为数值。");
+            await _services.Parameters.SaveTypeAsync(_actor, SelectedParamType.Id, voltage);
+            Status = "类型参数已保存";
+            await LoadTypeParameterAsync();
         }
         catch (Exception ex) { Status = ex.Message; }
-    });
+    }
 
-    public RelayCommand PublishSelectedVersionCommand => new(async () =>
-    {
-        try { if (SelectedVersion is null) return; await _services.Recipes.PublishAsync(_actor, SelectedVersion.Id); Status = "配方已发布"; await LoadVersionsAsync(); }
-        catch (Exception ex) { Status = ex.Message; }
-    });
-
-    public RelayCommand RetireSelectedVersionCommand => new(async () =>
-    {
-        try { if (SelectedVersion is null) return; await _services.Recipes.RetireAsync(_actor, SelectedVersion.Id); Status = "配方已停用"; await LoadVersionsAsync(); }
-        catch (Exception ex) { Status = ex.Message; }
-    });
-
-    public RelayCommand CopySelectedVersionCommand => new(async () =>
-    {
-        try { if (SelectedVersion is null) return; var copy = await _services.Recipes.NewVersionFromAsync(_actor, SelectedVersion.Id); Status = $"已复制为新草稿 V{copy.Version}"; await LoadVersionsAsync(); }
-        catch (Exception ex) { Status = ex.Message; }
-    });
-
-    // ---- Tab5 配方编辑器 ----
-    public RelayCommand AddRecipeItemCommand => new(async () =>
+    /// <summary>保存产品型号级参数（保护电流）。</summary>
+    [RelayCommand]
+    private async Task SaveModelParameterAsync()
     {
         try
         {
-            if (SelectedVersion is null || SelectedVersion.Status != RecipeStatus.Draft) throw new Core.Common.DomainException("请选择草稿配方");
-            if (SelectedEditorItemOption is null) throw new Core.Common.DomainException("请选择试验项");
-            var sort = int.TryParse(EditorSortOrder, out var s) ? s : RecipeItems.Count + 1;
-            await _services.Recipes.AddItemAsync(_actor, SelectedVersion.Id, SelectedEditorItemOption.Id, sort);
-            Status = "项点已加入配方";
-            await LoadEditorAsync();
+            if (SelectedParamModel is null) throw new Core.Common.DomainException("请选择产品型号");
+            if (!double.TryParse(ProtectCurrentInput, NumberStyles.Float, CultureInfo.InvariantCulture, out var current))
+                throw new Core.Common.DomainException("保护电流必须为数值。");
+            await _services.Parameters.SaveModelAsync(_actor, SelectedParamModel.Id, current);
+            Status = "型号参数已保存";
+            await LoadModelParameterAsync();
         }
         catch (Exception ex) { Status = ex.Message; }
-    });
+    }
 
-    public RelayCommand SetParamValueCommand => new(async () =>
+    /// <summary>处理产品类型弹窗的提交结果并创建类型。</summary>
+    public async Task CreateTypeFromDialogAsync(ProductMasterDataDialogResult result)
+        => await CreateTypeAsync(result.Code, result.Name);
+
+    private async Task CreateTypeAsync(string code, string name)
     {
         try
         {
-            if (SelectedVersion is null || SelectedRecipeItem is null || SelectedEditorParameter is null)
-                throw new Core.Common.DomainException("请选择项点与参数");
-            await _services.Recipes.SetParameterValueAsync(_actor, SelectedVersion.Id, SelectedRecipeItem.Id, SelectedEditorParameter.Id, EditorParamValue);
-            Status = "参数值已保存";
-            await LoadEditorValuesAsync();
+            await _services.Products.CreateTypeAsync(_actor, code, name);
+            Status = "产品类型已创建";
+            NewCode = string.Empty;
+            NewName = string.Empty;
+            await LoadTypesAsync();
+            await LoadModelTypeOptionsAsync();
+            await LoadParamTypeOptionsAsync();
         }
         catch (Exception ex) { Status = ex.Message; }
-    });
+    }
 
-    public RelayCommand ValidateEditorCommand => new(async () =>
+    /// <summary>新增产品类型命令：按录入的代码与名称创建类型。</summary>
+    [RelayCommand]
+    private async Task AddTypeAsync() => await CreateTypeAsync(NewCode, NewName);
+
+    /// <summary>停用或启用当前选中的产品类型。</summary>
+    [RelayCommand]
+    private async Task DisableSelectedTypeAsync()
     {
         try
         {
-            if (SelectedVersion is null) throw new Core.Common.DomainException("请选择配方");
-            var errors = await _services.Recipes.ValidateDraftAsync(SelectedVersion.Id);
-            Status = errors.Count == 0 ? "校验通过" : string.Join("；", errors);
+            if (SelectedType is null) return;
+            await _services.Products.SetTypeEnabledAsync(_actor, SelectedType.Id, !SelectedType.IsEnabled);
+            await LoadTypesAsync();
         }
         catch (Exception ex) { Status = ex.Message; }
-    });
+    }
 
-    public RelayCommand PublishEditorCommand => new(async () =>
+    /// <summary>处理产品型号弹窗的提交结果并创建型号。</summary>
+    public async Task CreateModelFromDialogAsync(ProductMasterDataDialogResult result)
     {
         try
         {
-            if (SelectedVersion is null) throw new Core.Common.DomainException("请选择配方");
-            await _services.Recipes.PublishAsync(_actor, SelectedVersion.Id);
-            Status = "配方已发布";
-            await LoadVersionsAsync();
+            if (result.ProductTypeId is null) throw new Core.Common.DomainException("请选择产品类型");
+            await _services.Products.CreateModelAsync(_actor, result.ProductTypeId.Value, result.Code, result.Name);
+            Status = "产品型号已创建";
+            NewCode = string.Empty;
+            NewName = string.Empty;
+            SelectedModelType = ModelTypeOptions.FirstOrDefault(type => type.Id == result.ProductTypeId.Value);
+            await LoadModelsAsync();
         }
         catch (Exception ex) { Status = ex.Message; }
-    });
+    }
+
+    /// <summary>新增产品型号命令：按所选类型与录入内容创建型号。</summary>
+    [RelayCommand]
+    private async Task AddModelAsync() => await CreateModelAsync(SelectedModelType?.Id, NewCode, NewName);
+
+    private async Task CreateModelAsync(int? productTypeId, string code, string name)
+    {
+        try
+        {
+            if (productTypeId is null) throw new Core.Common.DomainException("请选择产品类型");
+            await _services.Products.CreateModelAsync(_actor, productTypeId.Value, code, name);
+            Status = "产品型号已创建";
+            NewCode = string.Empty;
+            NewName = string.Empty;
+            await LoadModelsAsync();
+        }
+        catch (Exception ex) { Status = ex.Message; }
+    }
+
+    /// <summary>停用或启用当前选中的产品型号。</summary>
+    [RelayCommand]
+    private async Task DisableSelectedModelAsync()
+    {
+        try
+        {
+            if (SelectedModel is null) return;
+            await _services.Products.SetModelEnabledAsync(_actor, SelectedModel.Id, !SelectedModel.IsEnabled);
+            await LoadModelsAsync();
+        }
+        catch (Exception ex) { Status = ex.Message; }
+    }
 }

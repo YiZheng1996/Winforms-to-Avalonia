@@ -1,6 +1,8 @@
 namespace XXX.TestBench.Core.Domain.Tasks;
 
-/// <summary>本次产品标识字段。字段集合待阶段 1 确认；第一版均为可选。</summary>
+/// <summary>
+/// 本次产品标识字段。字段集合待阶段 1 确认；第一版均为可选。
+/// </summary>
 public sealed record ProductIdentity(
     string? ProductNumber,
     string? BatchNumber,

@@ -2,14 +2,23 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
+using Avalonia.VisualTree;
 using XXX.TestBench.App;
 using XXX.TestBench.App.Composition;
 using XXX.TestBench.App.ViewModels;
+using XXX.TestBench.App.Views;
 using Xunit;
 
-[assembly: AvaloniaTestApplication(typeof(App))]
+[assembly: AvaloniaTestApplication(typeof(XXX.TestBench.App.Headless.Tests.HeadlessTestAppBuilder))]
 
 namespace XXX.TestBench.App.Headless.Tests;
+
+public static class HeadlessTestAppBuilder
+{
+    public static AppBuilder BuildAvaloniaApp() => AppBuilder.Configure<App>()
+        .UseSkia()
+        .UseHeadless(new AvaloniaHeadlessPlatformOptions { UseHeadlessDrawing = false });
+}
 
 public class ShellHeadlessTests
 {
@@ -23,7 +32,7 @@ public class ShellHeadlessTests
         File.WriteAllText(Path.Combine(configRoot, "app.json"), """
         {
           "schemaVersion": 1,
-          "systemName": "测试系统",
+          "systemName": "XXX试验台",
           "brand": "XXX.TestBench.Template",
           "language": "zh-CN",
           "modules": { "processMonitor": true, "deviceCalibration": true },
@@ -53,8 +62,10 @@ public class ShellHeadlessTests
         return (configRoot, dataRoot);
     }
 
-    /// <summary>单个会话内完成外壳端到端 Headless 验证：故障横幅、模式徽标、登录与导航。
-    /// Avalonia.Headless 11.3.9 多 AvaloniaFact 会话在此环境存在挂起问题（启动守卫已缓解但仍偶发），故合并为单事实。</summary>
+    /// <summary>
+    /// 单个会话内完成外壳端到端验证：故障横幅、模式徽标、登录与导航。
+    /// 无头测试框架在该环境存在挂起问题（启动守卫已缓解但仍偶发），因此把多个断言合并为一个用例。
+    /// </summary>
     [AvaloniaFact]
     public async Task Shell_EndToEnd_FaultBanner_ModeBadge_LoginAndNavigate()
     {
@@ -72,7 +83,7 @@ public class ShellHeadlessTests
         window.Show();
 
         var modeText = window.FindControl<TextBlock>("ModeTextBlock");
-        Assert.Equal("Simulation（仿真）", modeText?.Text);
+        Assert.Equal("仿真模式", modeText?.Text);
         Assert.False(window.FindControl<Border>("FaultBanner")?.IsVisible);
 
         shell.LoginName = "admin";
@@ -87,6 +98,89 @@ public class ShellHeadlessTests
         Assert.Equal(9, shell.NavItems.Count);
         Assert.NotNull(shell.CurrentPage);
         Assert.Equal("运行总览", shell.CurrentPage!.Title);
+
+        VerifyResponsiveLayout(window, 1440, 900, "main-1440x900.png");
+        VerifyResponsiveLayout(window, 1680, 945, "main-1680x945.png");
+        VerifyResponsiveLayout(window, 1920, 1080, "main-1920x1080.png");
+        VerifyResponsiveLayout(window, 1152, 720, "main-1440x900-at-125dpi.png");
+        await VerifyStatusBarOnEveryPage(window, shell);
         window.Close();
     }
+
+    private static void VerifyResponsiveLayout(MainWindow window, double width, double height, string captureName)
+    {
+        window.WindowState = WindowState.Normal;
+        window.Width = width;
+        window.Height = height;
+
+        var frame = window.CaptureRenderedFrame();
+        Assert.NotNull(frame);
+        Assert.True(frame.PixelSize.Width > 0);
+        Assert.True(frame.PixelSize.Height > 0);
+
+        var shellRoot = window.FindControl<Grid>("ShellRoot");
+        var productBar = window.FindControl<Border>("ProductInfoBar");
+        var workspace = window.FindControl<Border>("WorkspaceRegion");
+        var bottomBar = window.FindControl<Border>("BottomControlBar");
+        var statusBar = window.FindControl<Border>("StatusBar");
+        var overview = window.GetVisualDescendants().OfType<OverviewView>().Single();
+        var schematic = overview.FindControl<Border>("PipeSchematicHost");
+        var taskPanel = overview.FindControl<Border>("TaskPanel");
+        var measurementPanel = overview.FindControl<Border>("MeasurementPanel");
+
+        Assert.NotNull(shellRoot);
+        Assert.NotNull(productBar);
+        Assert.NotNull(workspace);
+        Assert.NotNull(bottomBar);
+        Assert.NotNull(statusBar);
+        Assert.NotNull(schematic);
+        Assert.NotNull(taskPanel);
+        Assert.NotNull(measurementPanel);
+        Assert.True(shellRoot.Bounds.Width > 900);
+        Assert.True(productBar.Bounds.Height >= 68);
+        Assert.True(workspace.Bounds.Height > 350);
+        Assert.True(bottomBar.Bounds.Height >= 110);
+        Assert.True(statusBar.IsVisible);
+        Assert.True(statusBar.Bounds.Height >= 62);
+        Assert.True(statusBar.Bounds.Top >= workspace.Bounds.Bottom - 1);
+        Assert.True(statusBar.Bounds.Bottom >= shellRoot.Bounds.Height - 1);
+        Assert.True(schematic.Bounds.Width > 300);
+        Assert.True(schematic.Bounds.Height > 300);
+        Assert.InRange(taskPanel.Bounds.Width, 190, 249);
+        Assert.InRange(measurementPanel.Bounds.Width, 210, 281);
+
+        var captureDirectory = Environment.GetEnvironmentVariable("TESTBENCH_UI_CAPTURE_DIR");
+        if (!string.IsNullOrWhiteSpace(captureDirectory))
+        {
+            Directory.CreateDirectory(captureDirectory);
+            frame.Save(Path.Combine(captureDirectory, captureName));
+        }
+    }
+
+    private static async Task VerifyStatusBarOnEveryPage(MainWindow window, ShellViewModel shell)
+    {
+        var shellRoot = window.FindControl<Grid>("ShellRoot");
+        var workspace = window.FindControl<Border>("WorkspaceRegion");
+        var statusBar = window.FindControl<Border>("StatusBar");
+
+        Assert.NotNull(shellRoot);
+        Assert.NotNull(workspace);
+        Assert.NotNull(statusBar);
+
+        foreach (var item in shell.NavItems)
+        {
+            await shell.NavigateCommand.ExecuteAsync(item);
+            window.UpdateLayout();
+
+            Assert.True(statusBar.IsVisible, $"状态条在“{item.DisplayTitle}”页面不可见。");
+            Assert.True(statusBar.Bounds.Top >= workspace.Bounds.Bottom - 1,
+                $"状态条未位于“{item.DisplayTitle}”页面底部。");
+            Assert.True(statusBar.Bounds.Bottom >= shellRoot.Bounds.Height - 1,
+                $"状态条未贴合“{item.DisplayTitle}”页面底边。");
+        }
+
+        await shell.NavigateCommand.ExecuteAsync(shell.NavItems[0]);
+        window.UpdateLayout();
+    }
+
 }

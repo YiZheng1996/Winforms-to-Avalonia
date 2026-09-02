@@ -5,26 +5,17 @@ using XXX.TestBench.Core.Ports;
 
 namespace XXX.TestBench.Core.Application;
 
-/// <summary>试验项定义与参数定义管理。参数值由 ParameterDefinition.Validate 统一校验。</summary>
-public sealed class TestDefinitionService
+/// <summary>
+/// 试验项定义与参数定义管理。参数值由 ParameterDefinition.Validate 统一校验。
+/// </summary>
+public sealed class TestDefinitionService(ITestDefinitionRepository definitions, IClock clock, IAuditLog audit)
 {
-    private readonly ITestDefinitionRepository _definitions;
-    private readonly IClock _clock;
-    private readonly IAuditLog _audit;
-
-    public TestDefinitionService(ITestDefinitionRepository definitions, IClock clock, IAuditLog audit)
-    {
-        _definitions = definitions;
-        _clock = clock;
-        _audit = audit;
-    }
-
     public async Task<TestItemDefinition> CreateItemAsync(UserContext actor, string code, string name, string executorCode, string resultKind, int sortOrder, CancellationToken ct = default)
     {
         Ensure(actor, PermissionCode.ManageTestDefinitions);
         if (string.IsNullOrWhiteSpace(code)) throw new DomainException("试验项代码不能为空");
         if (string.IsNullOrWhiteSpace(executorCode)) throw new DomainException("试验项必须指定执行器代码");
-        var existing = await _definitions.ListItemsAsync(includeDisabled: true, ct);
+        var existing = await definitions.ListItemsAsync(includeDisabled: true, ct);
         if (existing.Any(i => i.Code == code.Trim()))
             throw new DomainException($"试验项代码 {code} 已存在");
         var item = new TestItemDefinition
@@ -34,20 +25,20 @@ public sealed class TestDefinitionService
             ExecutorCode = executorCode.Trim(),
             ResultKind = string.IsNullOrWhiteSpace(resultKind) ? "PassFail" : resultKind.Trim(),
             SortOrder = sortOrder,
-            CreatedAtUtc = _clock.UtcNow
+            CreatedAtUtc = clock.UtcNow
         };
-        await _definitions.AddItemAsync(item, ct);
-        await _audit.WriteAsync(actor.LoginName, "TestItemCreated", $"item:{item.Id}", code, ct);
+        await definitions.AddItemAsync(item, ct);
+        await audit.WriteAsync(actor.LoginName, "TestItemCreated", $"item:{item.Id}", code, ct);
         return item;
     }
 
     public async Task SetItemEnabledAsync(UserContext actor, int itemId, bool enabled, CancellationToken ct = default)
     {
         Ensure(actor, PermissionCode.ManageTestDefinitions);
-        var item = await _definitions.GetItemAsync(itemId, ct) ?? throw new DomainException("试验项定义不存在");
+        var item = await definitions.GetItemAsync(itemId, ct) ?? throw new DomainException("试验项定义不存在");
         item.IsEnabled = enabled;
-        await _definitions.UpdateItemAsync(item, ct);
-        await _audit.WriteAsync(actor.LoginName, enabled ? "TestItemEnabled" : "TestItemDisabled", $"item:{itemId}", null, ct);
+        await definitions.UpdateItemAsync(item, ct);
+        await audit.WriteAsync(actor.LoginName, enabled ? "TestItemEnabled" : "TestItemDisabled", $"item:{itemId}", null, ct);
     }
 
     public async Task<ParameterDefinition> CreateParameterAsync(UserContext actor, int itemId, string code, string name, ParameterDataType dataType, bool isRequired,
@@ -55,8 +46,8 @@ public sealed class TestDefinitionService
     {
         Ensure(actor, PermissionCode.ManageTestDefinitions);
         if (string.IsNullOrWhiteSpace(code)) throw new DomainException("参数代码不能为空");
-        var item = await _definitions.GetItemAsync(itemId, ct) ?? throw new DomainException("试验项定义不存在");
-        var existing = await _definitions.ListParametersAsync(itemId, ct);
+        var item = await definitions.GetItemAsync(itemId, ct) ?? throw new DomainException("试验项定义不存在");
+        var existing = await definitions.ListParametersAsync(itemId, ct);
         if (existing.Any(p => p.Code == code.Trim()))
             throw new DomainException($"试验项 {item.Code} 下参数代码 {code} 已存在");
         if (dataType == ParameterDataType.Enum && (allowedValues is null || allowedValues.Count == 0))
@@ -78,15 +69,15 @@ public sealed class TestDefinitionService
             AllowedValues = allowedValues ?? Array.Empty<string>(),
             SortOrder = sortOrder
         };
-        await _definitions.AddParameterAsync(parameter, ct);
-        await _audit.WriteAsync(actor.LoginName, "ParameterCreated", $"param:{parameter.Id}", $"{item.Code}.{code}", ct);
+        await definitions.AddParameterAsync(parameter, ct);
+        await audit.WriteAsync(actor.LoginName, "ParameterCreated", $"param:{parameter.Id}", $"{item.Code}.{code}", ct);
         return parameter;
     }
 
     public async Task UpdateParameterAsync(UserContext actor, int parameterId, string name, bool isRequired, decimal? minValue, decimal? maxValue, string? unit, CancellationToken ct = default)
     {
         Ensure(actor, PermissionCode.ManageTestDefinitions);
-        var parameter = await _definitions.GetParameterAsync(parameterId, ct) ?? throw new DomainException("参数定义不存在");
+        var parameter = await definitions.GetParameterAsync(parameterId, ct) ?? throw new DomainException("参数定义不存在");
         if (minValue.HasValue && maxValue.HasValue && minValue > maxValue)
             throw new DomainException("参数下限不能大于上限");
         parameter.Name = string.IsNullOrWhiteSpace(name) ? parameter.Name : name.Trim();
@@ -94,8 +85,8 @@ public sealed class TestDefinitionService
         parameter.MinValue = minValue;
         parameter.MaxValue = maxValue;
         parameter.Unit = unit;
-        await _definitions.UpdateParameterAsync(parameter, ct);
-        await _audit.WriteAsync(actor.LoginName, "ParameterUpdated", $"param:{parameterId}", null, ct);
+        await definitions.UpdateParameterAsync(parameter, ct);
+        await audit.WriteAsync(actor.LoginName, "ParameterUpdated", $"param:{parameterId}", null, ct);
     }
 
     private void Ensure(UserContext actor, Core.Domain.Identity.PermissionCode permission)
@@ -103,7 +94,7 @@ public sealed class TestDefinitionService
         try { actor.EnsurePermission(permission); }
         catch (AuthorizationException)
         {
-            _ = _audit.WriteAsync(actor.LoginName, "AccessDenied", permission.ToString(), null);
+            _ = audit.WriteAsync(actor.LoginName, "AccessDenied", permission.ToString(), null);
             throw;
         }
     }

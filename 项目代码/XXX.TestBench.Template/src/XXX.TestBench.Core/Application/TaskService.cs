@@ -1,27 +1,26 @@
 using XXX.TestBench.Core.Common;
 using XXX.TestBench.Core.Domain.Devices;
 using XXX.TestBench.Core.Domain.Identity;
-using XXX.TestBench.Core.Domain.Recipes;
 using XXX.TestBench.Core.Domain.Tasks;
 using XXX.TestBench.Core.Ports;
 
 namespace XXX.TestBench.Core.Application;
 
-/// <summary>本地任务创建与执行闭环（不含具体项点执行算法，阶段 4 接入）。</summary>
+/// <summary>
+/// 本地任务创建与执行闭环：任务只关联产品型号，不依赖配方；启动时固化直编参数快照。
+/// </summary>
 public sealed class TaskService
 {
     private readonly ITaskRepository _tasks;
     private readonly IProductRepository _products;
-    private readonly IRecipeRepository _recipes;
     private readonly IClock _clock;
     private readonly IAuditLog _audit;
     private readonly IUnitOfWorkFactory? _unitOfWorkFactory;
 
-    public TaskService(ITaskRepository tasks, IProductRepository products, IRecipeRepository recipes, IClock clock, IAuditLog audit, IUnitOfWorkFactory? unitOfWorkFactory = null)
+    public TaskService(ITaskRepository tasks, IProductRepository products, IClock clock, IAuditLog audit, IUnitOfWorkFactory? unitOfWorkFactory = null)
     {
         _tasks = tasks;
         _products = products;
-        _recipes = recipes;
         _clock = clock;
         _audit = audit;
         _unitOfWorkFactory = unitOfWorkFactory;
@@ -37,14 +36,11 @@ public sealed class TaskService
         }
     }
 
-    public async Task<TestTask> CreateAsync(UserContext actor, int productModelId, int recipeVersionId, ProductIdentity identity, CancellationToken ct = default)
+    public async Task<TestTask> CreateAsync(UserContext actor, int productModelId, ProductIdentity identity, CancellationToken ct = default)
     {
         Ensure(actor, PermissionCode.ManageTasks);
         var model = await _products.GetModelAsync(productModelId, ct) ?? throw new DomainException("产品型号不存在");
         if (!model.IsEnabled) throw new DomainException("产品型号已停用，不能创建任务");
-        var recipe = await _recipes.GetAsync(recipeVersionId, ct) ?? throw new DomainException("配方不存在");
-        if (recipe.ProductModelId != productModelId) throw new DomainException("配方与产品型号不匹配");
-        if (recipe.Status != RecipeStatus.Published) throw new DomainException("任务只能选择已发布配方");
         if (!identity.HasAnyValue) throw new DomainException("至少填写一项产品标识（产品编号/批次号/工位号/备注）");
 
         string taskNumber;
@@ -57,7 +53,6 @@ public sealed class TaskService
         {
             TaskNumber = taskNumber,
             ProductModelId = productModelId,
-            RecipeVersionId = recipeVersionId,
             ProductIdentity = identity,
             CreatedByUserId = actor.UserId,
             CreatedAtUtc = _clock.UtcNow
@@ -86,12 +81,13 @@ public sealed class TaskService
         await _tasks.UpdateAsync(task, ct);
     }
 
-    /// <summary>启动试验：创建一次实际执行记录（快照配方版本与设备模式）。带事务工厂时任务状态与记录原子提交。</summary>
-    public async Task<TestRecord> StartAsync(UserContext actor, int taskId, DeviceMode mode, CancellationToken ct = default)
+    /// <summary>
+    /// 启动试验：固化参数快照与设备模式并创建执行记录。带事务工厂时任务状态与记录原子提交。
+    /// </summary>
+    public async Task<TestRecord> StartAsync(UserContext actor, int taskId, DeviceMode mode, string parameterSnapshot, CancellationToken ct = default)
     {
         Ensure(actor, PermissionCode.ExecuteTests);
         var task = await GetTaskAsync(taskId, ct);
-        var recipe = await _recipes.GetAsync(task.RecipeVersionId, ct) ?? throw new DomainException("配方不存在");
 
         if (_unitOfWorkFactory is not null)
         {
@@ -99,7 +95,7 @@ public sealed class TaskService
             await uow.BeginTransactionAsync(ct);
             try
             {
-                var record = await StartCoreAsync(actor, task, recipe, mode, ct);
+                var record = await StartCoreAsync(actor, task, parameterSnapshot, mode, ct);
                 await uow.CommitAsync(ct);
                 return record;
             }
@@ -110,17 +106,16 @@ public sealed class TaskService
             }
         }
 
-        return await StartCoreAsync(actor, task, recipe, mode, ct);
+        return await StartCoreAsync(actor, task, parameterSnapshot, mode, ct);
     }
 
-    private async Task<TestRecord> StartCoreAsync(UserContext actor, TestTask task, RecipeVersion recipe, DeviceMode mode, CancellationToken ct)
+    private async Task<TestRecord> StartCoreAsync(UserContext actor, TestTask task, string parameterSnapshot, DeviceMode mode, CancellationToken ct)
     {
         task.Start(_clock.UtcNow);
         var record = new TestRecord
         {
             TaskId = task.Id,
-            RecipeVersionId = recipe.Id,
-            RecipeVersionNumber = recipe.Version,
+            ParameterSnapshot = parameterSnapshot,
             DeviceMode = mode,
             OperatorUserId = actor.UserId,
             StartedAtUtc = _clock.UtcNow

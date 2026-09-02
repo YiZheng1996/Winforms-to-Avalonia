@@ -1,4 +1,6 @@
 using System.Collections.ObjectModel;
+using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
 using XXX.TestBench.App.Composition;
 using XXX.TestBench.Core.Application;
 using XXX.TestBench.Core.Domain.Identity;
@@ -7,7 +9,10 @@ using XXX.TestBench.Core.Domain.Tasks;
 
 namespace XXX.TestBench.App.ViewModels;
 
-public sealed class RecordRow : ObservableObject
+/// <summary>
+/// 记录列表中的一行，其中结论可被界面修改。
+/// </summary>
+public sealed partial class RecordRow : ObservableObject
 {
     public required int Id { get; init; }
     public required int TaskId { get; init; }
@@ -15,10 +20,17 @@ public sealed class RecordRow : ObservableObject
     public required string StateText { get; init; }
     public required string DeviceModeText { get; init; }
     public required string StartedAt { get; init; }
+
+    /// <summary>
+    /// 记录结论文字。
+    /// </summary>
+    [ObservableProperty]
     private string _conclusion = string.Empty;
-    public string Conclusion { get => _conclusion; set => SetField(ref _conclusion, value); }
 }
 
+/// <summary>
+/// 报表列表中的一行。
+/// </summary>
 public sealed class ReportRow
 {
     public required int Id { get; init; }
@@ -27,8 +39,10 @@ public sealed class ReportRow
     public required string CreatedAt { get; init; }
 }
 
-/// <summary>数据与报表：记录查询、已完成记录生成报表、报表记录列表。</summary>
-public sealed class DataReportsViewModel : PageViewModel
+/// <summary>
+/// 数据与报表页面：记录查询、为已完成记录生成报表、展示报表记录列表。
+/// </summary>
+public sealed partial class DataReportsViewModel : PageViewModel
 {
     private readonly ShellServices _services;
     private readonly UserContext _actor;
@@ -37,21 +51,32 @@ public sealed class DataReportsViewModel : PageViewModel
     {
         _services = services;
         _actor = actor;
-        LoadCommand = new RelayCommand(() => LoadAsync());
-        GenerateReportCommand = new RelayCommand(GenerateSelectedAsync);
     }
 
     public override string Title => "数据与报表";
 
+    /// <summary>
+    /// 页面展示的记录列表。
+    /// </summary>
     public ObservableCollection<RecordRow> Records { get; } = new();
+
+    /// <summary>
+    /// 页面展示的报表列表。
+    /// </summary>
     public ObservableCollection<ReportRow> Reports { get; } = new();
 
+    /// <summary>
+    /// 当前选中的记录；变化时自动加载该记录对应的报表。
+    /// </summary>
+    [ObservableProperty]
     private RecordRow? _selectedRecord;
-    public RecordRow? SelectedRecord { get => _selectedRecord; set { if (SetField(ref _selectedRecord, value)) _ = LoadReportsAsync(); } }
 
-    public RelayCommand LoadCommand { get; }
-    public RelayCommand GenerateReportCommand { get; }
+    partial void OnSelectedRecordChanged(RecordRow? value) => _ = LoadReportsAsync();
 
+    /// <summary>
+    /// 页面加载命令：读取记录与任务并刷新记录列表。
+    /// </summary>
+    [RelayCommand]
     public override async Task LoadAsync(CancellationToken ct = default)
     {
         IsBusy = true;
@@ -78,6 +103,12 @@ public sealed class DataReportsViewModel : PageViewModel
         finally { IsBusy = false; }
     }
 
+    /// <summary>
+    /// 生成报表命令：为当前选中的记录生成报表文件。
+    /// </summary>
+    [RelayCommand]
+    public async Task GenerateReportAsync() => await GenerateReportForSelectedRowAsync(SelectedRecord);
+
     private async Task LoadReportsAsync()
     {
         Reports.Clear();
@@ -87,12 +118,7 @@ public sealed class DataReportsViewModel : PageViewModel
             Reports.Add(new ReportRow { Id = r.Id, StatusText = r.Status.ToString(), OutputPath = r.OutputPath ?? string.Empty, CreatedAt = r.CreatedAtUtc.ToString("yyyy-MM-dd HH:mm") });
     }
 
-    public async Task GenerateSelectedAsync()
-    {
-        await GenerateReportAsync(SelectedRecord);
-    }
-
-    private async Task GenerateReportAsync(RecordRow? row)
+    private async Task GenerateReportForSelectedRowAsync(RecordRow? row)
     {
         StatusMessage = string.Empty;
         try
@@ -100,10 +126,10 @@ public sealed class DataReportsViewModel : PageViewModel
             if (row is null) return;
             var record = await _services.TaskRepository.GetRecordAsync(row.Id) ?? throw new Core.Common.DomainException("记录不存在");
             var task = await _services.TaskRepository.GetAsync(record.TaskId) ?? throw new Core.Common.DomainException("任务不存在");
-            var recipe = await _services.RecipeRepository.GetAsync(record.RecipeVersionId);
-            var template = recipe?.ReportTemplatePath;
+
+
             var outputDir = Path.Combine(_services.DatabasePath is { Length: > 0 } db ? Path.GetDirectoryName(db) ?? "." : ".", "reports");
-            var report = await _services.Reports.GenerateAsync(_actor, row.Id, template ?? "assets/report-templates/标准报表.xlsx", outputDir);
+            var report = await _services.Reports.GenerateAsync(_actor, row.Id, "assets/report-templates/标准报表.xlsx", outputDir);
             StatusMessage = $"报表已生成：{report.OutputPath}";
             await LoadReportsAsync();
         }

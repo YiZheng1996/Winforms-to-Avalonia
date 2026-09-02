@@ -3,29 +3,72 @@
              xmlns:vm="using:XXX.TestBench.App.ViewModels"
              x:Class="XXX.TestBench.App.Views.LoginView"
              x:DataType="vm:ShellViewModel">
-  <Panel Background="#F4F6F9">
-    <Border Width="420" HorizontalAlignment="Center" VerticalAlignment="Center"
-            Background="White" CornerRadius="8" Padding="28" BorderBrush="#DDDDDD" BorderThickness="1">
-      <StackPanel Spacing="12">
-        <TextBlock Text="登录" FontSize="22" FontWeight="Bold" HorizontalAlignment="Center" />
-        <StackPanel Spacing="4">
-          <TextBlock Text="用户名" />
-          <TextBox Text="{Binding LoginName}" Watermark="用户名" />
+  <Grid Background="#F4F7FC">
+    <Grid ColumnDefinitions="1.1*,0.9*" MaxWidth="1260" MaxHeight="720"
+          HorizontalAlignment="Stretch" VerticalAlignment="Center" Margin="48">
+      <Border Grid.Column="0" Background="#0868F7" CornerRadius="12,0,0,12" Padding="58">
+        <Grid RowDefinitions="Auto,*,Auto">
+          <Border Background="White" CornerRadius="6" Padding="12,8" HorizontalAlignment="Left">
+            <Image Source="avares://XXX.TestBench.App/Assets/crrc-logo.png"
+                   Width="220" Height="72" Stretch="Uniform" />
+          </Border>
+
+          <StackPanel Grid.Row="1" VerticalAlignment="Center" Spacing="20">
+            <TextBlock Text="XXX试验台" Foreground="White" FontSize="42" FontWeight="Bold" />
+            <TextBlock Text="面向轨道交通试验台的通用上位机平台" Foreground="#E5EEFF" FontSize="20" />
+            <Border Width="64" Height="4" CornerRadius="2" Background="#9FC2FF" HorizontalAlignment="Left" />
+            <StackPanel Spacing="12" Margin="0,12,0,0">
+              <TextBlock Text="✓  设备连接、急停与模式状态集中展示" Foreground="White" FontSize="15" />
+              <TextBlock Text="✓  任务、配方、执行、报表完整闭环" Foreground="White" FontSize="15" />
+              <TextBlock Text="✓  Simulation 与 Hardware 安全边界隔离" Foreground="White" FontSize="15" />
+            </StackPanel>
+          </StackPanel>
+
+          <TextBlock Grid.Row="2" Text="中国中车 · Industrial Test Bench HMI" Foreground="#BCD3FF" FontSize="13" />
+        </Grid>
+      </Border>
+
+      <Border Grid.Column="1" Background="White" CornerRadius="0,12,12,0" Padding="48,40">
+        <StackPanel MaxWidth="390" HorizontalAlignment="Stretch" VerticalAlignment="Center" Spacing="18">
+          <StackPanel Spacing="7" Margin="0,0,0,16">
+            <TextBlock Text="欢迎登录" FontSize="30" FontWeight="Bold" />
+            <TextBlock Text="请输入账号信息进入试验台系统" Foreground="#6B7585" FontSize="14" />
+          </StackPanel>
+
+          <StackPanel Spacing="7">
+            <TextBlock Text="用户名" FontWeight="SemiBold" />
+            <TextBox Text="{Binding LoginName}" Watermark="请输入用户名" Height="46"
+                     HorizontalContentAlignment="Left" VerticalContentAlignment="Center" />
+          </StackPanel>
+          <StackPanel Spacing="7">
+            <TextBlock Text="密码" FontWeight="SemiBold" />
+            <TextBox Text="{Binding Password}" PasswordChar="●" Watermark="请输入密码" Height="46"
+                     HorizontalContentAlignment="Left" VerticalContentAlignment="Center" />
+          </StackPanel>
+
+          <StackPanel IsVisible="{Binding MustChangePassword}" Spacing="9">
+            <TextBlock Text="首次登录需设置新密码" Foreground="#C26A00" FontWeight="SemiBold" />
+            <TextBox Text="{Binding NewPassword}" PasswordChar="●" Watermark="新密码" Height="44"
+                     HorizontalContentAlignment="Left" VerticalContentAlignment="Center" />
+            <TextBox Text="{Binding ConfirmPassword}" PasswordChar="●" Watermark="确认新密码" Height="44"
+                     HorizontalContentAlignment="Left" VerticalContentAlignment="Center" />
+            <Button Content="修改密码并进入" Command="{Binding ChangePasswordCommand}" Height="48"
+                    Background="#0868F7" Foreground="White" BorderThickness="0"
+                    HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" />
+          </StackPanel>
+
+          <Button Content="登录" Command="{Binding LoginCommand}" Height="50"
+                  Background="#0868F7" Foreground="White" BorderThickness="0"
+                  HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
+                  IsVisible="{Binding !MustChangePassword}" />
+          <Border Background="#FFF3F2" CornerRadius="4" Padding="12,9" IsVisible="{Binding HasLoginError}">
+            <TextBlock Text="{Binding LoginError}" Foreground="#C9362B" TextWrapping="Wrap" />
+          </Border>
+
+          <TextBlock Text="默认管理员账号仅用于首次初始化，请登录后立即修改密码。"
+                     Foreground="#8A94A3" FontSize="12" TextWrapping="Wrap" Margin="0,10,0,0" />
         </StackPanel>
-        <StackPanel Spacing="4">
-          <TextBlock Text="密码" />
-          <TextBox Text="{Binding Password}" PasswordChar="●" Watermark="密码" />
-        </StackPanel>
-        <StackPanel IsVisible="{Binding MustChangePassword}" Spacing="4">
-          <TextBlock Text="新密码" />
-          <TextBox Text="{Binding NewPassword}" PasswordChar="●" />
-          <TextBlock Text="确认新密码" />
-          <TextBox Text="{Binding ConfirmPassword}" PasswordChar="●" />
-          <Button Content="修改密码并进入" Command="{Binding ChangePasswordCommand}" HorizontalAlignment="Stretch" />
-        </StackPanel>
-        <Button Content="登录" Command="{Binding LoginCommand}" HorizontalAlignment="Stretch" IsVisible="{Binding !MustChangePassword}" />
-        <TextBlock Text="{Binding LoginError}" Foreground="#C0392B" TextWrapping="Wrap" IsVisible="{Binding HasLoginError}" />
-      </StackPanel>
-    </Border>
-  </Panel>
+      </Border>
+    </Grid>
+  </Grid>
 </UserControl>

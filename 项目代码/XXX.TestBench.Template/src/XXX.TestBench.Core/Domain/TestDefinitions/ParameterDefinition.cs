@@ -2,7 +2,9 @@ using XXX.TestBench.Core.Common;
 
 namespace XXX.TestBench.Core.Domain.TestDefinitions;
 
-/// <summary>试验项参数定义。值必须通过本定义校验，不能在工艺监控页临时覆盖。</summary>
+/// <summary>
+/// 试验项参数定义。值必须通过本定义校验，不能在工艺监控页临时覆盖。
+/// </summary>
 public sealed class ParameterDefinition
 {
     public int Id { get; set; }
@@ -18,7 +20,9 @@ public sealed class ParameterDefinition
     public IReadOnlyList<string> AllowedValues { get; set; } = Array.Empty<string>();
     public int SortOrder { get; set; }
 
-    /// <summary>按定义校验参数值；返回错误信息，合法时返回 null。</summary>
+    /// <summary>
+    /// 按定义校验参数值；返回错误信息，合法时返回 null。
+    /// </summary>
     public string? Validate(string? rawValue)
     {
         if (string.IsNullOrWhiteSpace(rawValue))

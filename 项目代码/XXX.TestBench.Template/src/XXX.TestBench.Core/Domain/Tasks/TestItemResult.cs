@@ -2,12 +2,14 @@ using XXX.TestBench.Core.Common;
 
 namespace XXX.TestBench.Core.Domain.Tasks;
 
-/// <summary>单个项点执行结果；第一版仅保存判定所需摘要字段。</summary>
+/// <summary>
+/// 单个项点执行结果；试验项来自代码固定序列，故只保存试验项定义 ID，不再关联配方项。
+/// </summary>
 public sealed class TestItemResult
 {
     public int Id { get; set; }
     public int RecordId { get; init; }
-    public int RecipeItemId { get; init; }
+    public int? RecipeItemId { get; init; }
     public int TestItemDefinitionId { get; init; }
     public ItemResultState State { get; internal set; } = ItemResultState.Pending;
     public string? SummaryValue { get; set; }

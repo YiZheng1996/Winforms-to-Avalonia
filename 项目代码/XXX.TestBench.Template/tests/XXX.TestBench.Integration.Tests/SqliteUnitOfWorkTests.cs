@@ -1,4 +1,3 @@
-using Microsoft.Data.Sqlite;
 using XXX.TestBench.Infrastructure.Identity;
 using XXX.TestBench.Infrastructure.Persistence;
 using XXX.TestBench.Infrastructure.Persistence.Repositories;
@@ -19,7 +18,7 @@ public class SqliteUnitOfWorkTests
         {
             await uow.BeginTransactionAsync();
             Assert.NotNull(SqliteAmbient.Current);
-            Assert.Equal(System.Data.ConnectionState.Open, SqliteAmbient.Current!.State);
+            Assert.Equal(System.Data.ConnectionState.Open, SqliteAmbient.Current!.Connection.State);
             var repo = new RecipeRepository(factory);
             var r = await repo.GetAsync(1);
             Assert.Null(r);

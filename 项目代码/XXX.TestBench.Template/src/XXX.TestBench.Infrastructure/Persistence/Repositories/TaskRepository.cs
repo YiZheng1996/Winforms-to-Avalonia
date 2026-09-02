@@ -4,295 +4,231 @@ using XXX.TestBench.Core.Ports;
 
 namespace XXX.TestBench.Infrastructure.Persistence.Repositories;
 
+/// <summary>
+/// 任务/记录/项点结果的 SQLite 仓储；任务不关联配方，记录保存直编参数快照。
+/// </summary>
 public sealed class TaskRepository : SqliteRepositoryBase, ITaskRepository
 {
     public TaskRepository(ISqliteConnectionFactory factory) : base(factory) { }
 
     public async Task<TestTask?> GetAsync(int id, CancellationToken ct = default)
     {
-        var conn = OpenConnection();
-        var owns = OwnsConnection;
-        try
-        {
-            await using var cmd = conn.CreateCommand();
-            cmd.CommandText = "SELECT id, task_number, product_model_id, recipe_version_id, product_number, batch_number, station_number, remark, state, created_by_user_id, created_at_utc, started_at_utc, finished_at_utc FROM test_tasks WHERE id=$id";
-            cmd.Parameters.AddWithValue("$id", id);
-            await using var reader = await cmd.ExecuteReaderAsync(ct);
-            return await reader.ReadAsync(ct) ? Map(reader) : null;
-        }
-        finally { if (owns) await conn.DisposeAsync(); }
+        var row = await QuerySingleAsync<TestTaskRow>(TaskSelect + " WHERE id=@id", new { id }, ct);
+        return row is null ? null : Map(row);
     }
 
     public async Task<bool> ExistsTaskNumberAsync(string taskNumber, CancellationToken ct = default)
     {
-        var conn = OpenConnection();
-        var owns = OwnsConnection;
-        try
-        {
-            await using var cmd = conn.CreateCommand();
-            cmd.CommandText = "SELECT COUNT(1) FROM test_tasks WHERE task_number=$tn";
-            cmd.Parameters.AddWithValue("$tn", taskNumber);
-            return (long)(await cmd.ExecuteScalarAsync(ct))! > 0;
-        }
-        finally { if (owns) await conn.DisposeAsync(); }
+        var value = await ScalarAsync("SELECT COUNT(1) FROM test_tasks WHERE task_number=@taskNumber", new { taskNumber }, ct);
+        return Convert.ToInt64(value, System.Globalization.CultureInfo.InvariantCulture) > 0;
     }
 
     public async Task<TestTask?> GetActiveRunningAsync(CancellationToken ct = default)
     {
-        var conn = OpenConnection();
-        var owns = OwnsConnection;
-        try
-        {
-            await using var cmd = conn.CreateCommand();
-            cmd.CommandText = "SELECT id, task_number, product_model_id, recipe_version_id, product_number, batch_number, station_number, remark, state, created_by_user_id, created_at_utc, started_at_utc, finished_at_utc FROM test_tasks WHERE state=2 LIMIT 1";
-            await using var reader = await cmd.ExecuteReaderAsync(ct);
-            return await reader.ReadAsync(ct) ? Map(reader) : null;
-        }
-        finally { if (owns) await conn.DisposeAsync(); }
+        var row = await QuerySingleAsync<TestTaskRow>(TaskSelect + " WHERE state=2 LIMIT 1", null, ct);
+        return row is null ? null : Map(row);
     }
 
     public async Task AddAsync(TestTask task, CancellationToken ct = default)
     {
-        var conn = OpenConnection();
-        var owns = OwnsConnection;
-        try
+        var id = await ExecuteInsertAndGetIdAsync("""
+            INSERT INTO test_tasks (task_number, product_model_id, product_number, batch_number, station_number, remark, state, created_by_user_id, created_at_utc, started_at_utc, finished_at_utc)
+            VALUES (@taskNumber, @productModelId, @productNumber, @batchNumber, @stationNumber, @remark, @state, @createdByUserId, @createdAtUtc, @startedAtUtc, @finishedAtUtc)
+            """, new
         {
-            await using var cmd = conn.CreateCommand();
-            cmd.CommandText = """
-                INSERT INTO test_tasks (task_number, product_model_id, recipe_version_id, product_number, batch_number, station_number, remark, state, created_by_user_id, created_at_utc, started_at_utc, finished_at_utc)
-                VALUES ($tn, $pm, $rv, $pn, $bn, $sn, $rm, $state, $creator, $created, $started, $finished)
-                """;
-            cmd.Parameters.AddWithValue("$tn", task.TaskNumber);
-            cmd.Parameters.AddWithValue("$pm", task.ProductModelId);
-            cmd.Parameters.AddWithValue("$rv", task.RecipeVersionId);
-            cmd.Parameters.AddWithValue("$pn", (object?)task.ProductIdentity.ProductNumber ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("$bn", (object?)task.ProductIdentity.BatchNumber ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("$sn", (object?)task.ProductIdentity.StationNumber ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("$rm", (object?)task.ProductIdentity.Remark ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("$state", (int)task.State);
-            cmd.Parameters.AddWithValue("$creator", task.CreatedByUserId);
-            cmd.Parameters.AddWithValue("$created", task.CreatedAtUtc.ToString("O"));
-            cmd.Parameters.AddWithValue("$started", (object?)task.StartedAtUtc?.ToString("O") ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("$finished", (object?)task.FinishedAtUtc?.ToString("O") ?? DBNull.Value);
-            await cmd.ExecuteNonQueryAsync(ct);
-            task.Id = (int)(long)(await UserRepository.LastInsertRowIdAsync(conn, ct));
-        }
-        finally { if (owns) await conn.DisposeAsync(); }
+            taskNumber = task.TaskNumber,
+            productModelId = task.ProductModelId,
+            productNumber = DbValue(task.ProductIdentity.ProductNumber),
+            batchNumber = DbValue(task.ProductIdentity.BatchNumber),
+            stationNumber = DbValue(task.ProductIdentity.StationNumber),
+            remark = DbValue(task.ProductIdentity.Remark),
+            state = (int)task.State,
+            createdByUserId = task.CreatedByUserId,
+            createdAtUtc = task.CreatedAtUtc.ToString("O"),
+            startedAtUtc = DbValue(task.StartedAtUtc?.ToString("O")),
+            finishedAtUtc = DbValue(task.FinishedAtUtc?.ToString("O"))
+        }, ct);
+        task.Id = (int)id;
     }
 
-    public async Task UpdateAsync(TestTask task, CancellationToken ct = default)
+    public Task UpdateAsync(TestTask task, CancellationToken ct = default) => ExecuteAsync("""
+        UPDATE test_tasks SET product_number=@productNumber, batch_number=@batchNumber, station_number=@stationNumber, remark=@remark,
+        state=@state, started_at_utc=@startedAtUtc, finished_at_utc=@finishedAtUtc WHERE id=@id
+        """, new
     {
-        var conn = OpenConnection();
-        var owns = OwnsConnection;
-        try
-        {
-            await using var cmd = conn.CreateCommand();
-            cmd.CommandText = "UPDATE test_tasks SET product_number=$pn, batch_number=$bn, station_number=$sn, remark=$rm, state=$state, started_at_utc=$started, finished_at_utc=$finished WHERE id=$id";
-            cmd.Parameters.AddWithValue("$id", task.Id);
-            cmd.Parameters.AddWithValue("$pn", (object?)task.ProductIdentity.ProductNumber ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("$bn", (object?)task.ProductIdentity.BatchNumber ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("$sn", (object?)task.ProductIdentity.StationNumber ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("$rm", (object?)task.ProductIdentity.Remark ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("$state", (int)task.State);
-            cmd.Parameters.AddWithValue("$started", (object?)task.StartedAtUtc?.ToString("O") ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("$finished", (object?)task.FinishedAtUtc?.ToString("O") ?? DBNull.Value);
-            await cmd.ExecuteNonQueryAsync(ct);
-        }
-        finally { if (owns) await conn.DisposeAsync(); }
-    }
+        productNumber = DbValue(task.ProductIdentity.ProductNumber),
+        batchNumber = DbValue(task.ProductIdentity.BatchNumber),
+        stationNumber = DbValue(task.ProductIdentity.StationNumber),
+        remark = DbValue(task.ProductIdentity.Remark),
+        state = (int)task.State,
+        startedAtUtc = DbValue(task.StartedAtUtc?.ToString("O")),
+        finishedAtUtc = DbValue(task.FinishedAtUtc?.ToString("O")),
+        id = task.Id
+    }, ct);
 
     public async Task AddRecordAsync(TestRecord record, CancellationToken ct = default)
     {
-        var conn = OpenConnection();
-        var owns = OwnsConnection;
-        try
+        var id = await ExecuteInsertAndGetIdAsync("""
+            INSERT INTO test_records (task_id, parameter_snapshot, device_mode, operator_user_id, state, conclusion, started_at_utc, finished_at_utc)
+            VALUES (@taskId, @parameterSnapshot, @deviceMode, @operatorUserId, @state, @conclusion, @startedAtUtc, @finishedAtUtc)
+            """, new
         {
-            await using var cmd = conn.CreateCommand();
-            cmd.CommandText = """
-                INSERT INTO test_records (task_id, recipe_version_id, recipe_version_number, device_mode, operator_user_id, state, conclusion, started_at_utc, finished_at_utc)
-                VALUES ($task, $rv, $rvn, $mode, $op, $state, $conclusion, $started, $finished)
-                """;
-            cmd.Parameters.AddWithValue("$task", record.TaskId);
-            cmd.Parameters.AddWithValue("$rv", record.RecipeVersionId);
-            cmd.Parameters.AddWithValue("$rvn", record.RecipeVersionNumber);
-            cmd.Parameters.AddWithValue("$mode", (int)record.DeviceMode);
-            cmd.Parameters.AddWithValue("$op", record.OperatorUserId);
-            cmd.Parameters.AddWithValue("$state", (int)record.State);
-            cmd.Parameters.AddWithValue("$conclusion", (object?)record.Conclusion ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("$started", record.StartedAtUtc.ToString("O"));
-            cmd.Parameters.AddWithValue("$finished", (object?)record.FinishedAtUtc?.ToString("O") ?? DBNull.Value);
-            await cmd.ExecuteNonQueryAsync(ct);
-            record.Id = (int)(long)(await UserRepository.LastInsertRowIdAsync(conn, ct));
-        }
-        finally { if (owns) await conn.DisposeAsync(); }
+            taskId = record.TaskId,
+            parameterSnapshot = DbValue(record.ParameterSnapshot),
+            deviceMode = (int)record.DeviceMode,
+            operatorUserId = record.OperatorUserId,
+            state = (int)record.State,
+            conclusion = DbValue(record.Conclusion),
+            startedAtUtc = record.StartedAtUtc.ToString("O"),
+            finishedAtUtc = DbValue(record.FinishedAtUtc?.ToString("O"))
+        }, ct);
+        record.Id = (int)id;
     }
 
     public async Task AddItemResultAsync(TestItemResult result, CancellationToken ct = default)
     {
-        var conn = OpenConnection();
-        var owns = OwnsConnection;
-        try
+        var id = await ExecuteInsertAndGetIdAsync("""
+            INSERT INTO test_item_results (record_id, recipe_item_id, test_item_definition_id, state, summary_value, result_text, started_at_utc, finished_at_utc)
+            VALUES (@recordId, @recipeItemId, @testItemDefinitionId, @state, @summaryValue, @resultText, @startedAtUtc, @finishedAtUtc)
+            """, new
         {
-            await using var cmd = conn.CreateCommand();
-            cmd.CommandText = """
-                INSERT INTO test_item_results (record_id, recipe_item_id, test_item_definition_id, state, summary_value, result_text, started_at_utc, finished_at_utc)
-                VALUES ($record, $ri, $tid, $state, $summary, $text, $started, $finished)
-                """;
-            cmd.Parameters.AddWithValue("$record", result.RecordId);
-            cmd.Parameters.AddWithValue("$ri", result.RecipeItemId);
-            cmd.Parameters.AddWithValue("$tid", result.TestItemDefinitionId);
-            cmd.Parameters.AddWithValue("$state", (int)result.State);
-            cmd.Parameters.AddWithValue("$summary", (object?)result.SummaryValue ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("$text", (object?)result.ResultText ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("$started", (object?)result.StartedAtUtc?.ToString("O") ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("$finished", (object?)result.FinishedAtUtc?.ToString("O") ?? DBNull.Value);
-            await cmd.ExecuteNonQueryAsync(ct);
-            result.Id = (int)(long)(await UserRepository.LastInsertRowIdAsync(conn, ct));
-        }
-        finally { if (owns) await conn.DisposeAsync(); }
+            recordId = result.RecordId,
+            recipeItemId = DbValue(result.RecipeItemId),
+            testItemDefinitionId = result.TestItemDefinitionId,
+            state = (int)result.State,
+            summaryValue = DbValue(result.SummaryValue),
+            resultText = DbValue(result.ResultText),
+            startedAtUtc = DbValue(result.StartedAtUtc?.ToString("O")),
+            finishedAtUtc = DbValue(result.FinishedAtUtc?.ToString("O"))
+        }, ct);
+        result.Id = (int)id;
     }
 
     public async Task<TestRecord?> GetRecordAsync(int recordId, CancellationToken ct = default)
     {
-        var conn = OpenConnection();
-        var owns = OwnsConnection;
-        try
-        {
-            await using var cmd = conn.CreateCommand();
-            cmd.CommandText = "SELECT id, task_id, recipe_version_id, recipe_version_number, device_mode, operator_user_id, state, conclusion, started_at_utc, finished_at_utc FROM test_records WHERE id=$id";
-            cmd.Parameters.AddWithValue("$id", recordId);
-            await using var reader = await cmd.ExecuteReaderAsync(ct);
-            return await reader.ReadAsync(ct) ? MapRecord(reader) : null;
-        }
-        finally { if (owns) await conn.DisposeAsync(); }
+        var row = await QuerySingleAsync<TestRecordRow>(RecordSelect + " WHERE id=@recordId", new { recordId }, ct);
+        return row is null ? null : MapRecord(row);
     }
 
-    public async Task UpdateRecordAsync(TestRecord record, CancellationToken ct = default)
-    {
-        var conn = OpenConnection();
-        var owns = OwnsConnection;
-        try
-        {
-            await using var cmd = conn.CreateCommand();
-            cmd.CommandText = "UPDATE test_records SET state=$state, conclusion=$conclusion, finished_at_utc=$finished WHERE id=$id";
-            cmd.Parameters.AddWithValue("$state", (int)record.State);
-            cmd.Parameters.AddWithValue("$conclusion", (object?)record.Conclusion ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("$finished", (object?)record.FinishedAtUtc?.ToString("O") ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("$id", record.Id);
-            await cmd.ExecuteNonQueryAsync(ct);
-        }
-        finally { if (owns) await conn.DisposeAsync(); }
-    }
+    public Task UpdateRecordAsync(TestRecord record, CancellationToken ct = default) => ExecuteAsync(
+        "UPDATE test_records SET state=@state, conclusion=@conclusion, finished_at_utc=@finishedAtUtc WHERE id=@id",
+        new { state = (int)record.State, conclusion = DbValue(record.Conclusion), finishedAtUtc = DbValue(record.FinishedAtUtc?.ToString("O")), id = record.Id }, ct);
 
     public async Task<IReadOnlyList<TestItemResult>> ListItemResultsAsync(int recordId, CancellationToken ct = default)
     {
-        var result = new List<TestItemResult>();
-        var conn = OpenConnection();
-        var owns = OwnsConnection;
-        try
-        {
-            await using var cmd = conn.CreateCommand();
-            cmd.CommandText = "SELECT id, record_id, recipe_item_id, test_item_definition_id, state, summary_value, result_text, started_at_utc, finished_at_utc FROM test_item_results WHERE record_id=$id ORDER BY id";
-            cmd.Parameters.AddWithValue("$id", recordId);
-            await using var reader = await cmd.ExecuteReaderAsync(ct);
-            while (await reader.ReadAsync(ct))
-                result.Add(new TestItemResult
-                {
-                    Id = reader.GetInt32(0),
-                    RecordId = reader.GetInt32(1),
-                    RecipeItemId = reader.GetInt32(2),
-                    TestItemDefinitionId = reader.GetInt32(3),
-                    State = (ItemResultState)reader.GetInt32(4),
-                    SummaryValue = ParseNullableString(reader.GetValue(5)),
-                    ResultText = ParseNullableString(reader.GetValue(6)),
-                    StartedAtUtc = ParseNullableUtc(reader.GetValue(7)),
-                    FinishedAtUtc = ParseNullableUtc(reader.GetValue(8))
-                });
-            return result;
-        }
-        finally { if (owns) await conn.DisposeAsync(); }
+        var rows = await QueryAsync<TestItemResultRow>(
+            ItemResultSelect + " WHERE record_id=@recordId ORDER BY id", new { recordId }, ct);
+        return rows.Select(MapItemResult).ToList();
     }
 
-    public async Task UpdateItemResultAsync(TestItemResult result, CancellationToken ct = default)
-    {
-        var conn = OpenConnection();
-        var owns = OwnsConnection;
-        try
+    public Task UpdateItemResultAsync(TestItemResult result, CancellationToken ct = default) => ExecuteAsync(
+        "UPDATE test_item_results SET state=@state, summary_value=@summaryValue, result_text=@resultText, started_at_utc=@startedAtUtc, finished_at_utc=@finishedAtUtc WHERE id=@id",
+        new
         {
-            await using var cmd = conn.CreateCommand();
-            cmd.CommandText = "UPDATE test_item_results SET state=$state, summary_value=$summary, result_text=$text, started_at_utc=$started, finished_at_utc=$finished WHERE id=$id";
-            cmd.Parameters.AddWithValue("$state", (int)result.State);
-            cmd.Parameters.AddWithValue("$summary", (object?)result.SummaryValue ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("$text", (object?)result.ResultText ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("$started", (object?)result.StartedAtUtc?.ToString("O") ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("$finished", (object?)result.FinishedAtUtc?.ToString("O") ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("$id", result.Id);
-            await cmd.ExecuteNonQueryAsync(ct);
-        }
-        finally { if (owns) await conn.DisposeAsync(); }
-    }
+            state = (int)result.State,
+            summaryValue = DbValue(result.SummaryValue),
+            resultText = DbValue(result.ResultText),
+            startedAtUtc = DbValue(result.StartedAtUtc?.ToString("O")),
+            finishedAtUtc = DbValue(result.FinishedAtUtc?.ToString("O")),
+            id = result.Id
+        }, ct);
 
-    private static TestRecord MapRecord(Microsoft.Data.Sqlite.SqliteDataReader r) => new()
-    {
-        Id = r.GetInt32(0),
-        TaskId = r.GetInt32(1),
-        RecipeVersionId = r.GetInt32(2),
-        RecipeVersionNumber = r.GetInt32(3),
-        DeviceMode = (DeviceMode)r.GetInt32(4),
-        OperatorUserId = r.GetInt32(5),
-        State = (RecordState)r.GetInt32(6),
-        Conclusion = ParseNullableString(r.GetValue(7)),
-        StartedAtUtc = ParseUtc(r.GetString(8)),
-        FinishedAtUtc = ParseNullableUtc(r.GetValue(9))
-    };
     public async Task<IReadOnlyList<TestTask>> ListTasksAsync(int? state, CancellationToken ct = default)
     {
-        var result = new List<TestTask>();
-        var conn = OpenConnection();
-        var owns = OwnsConnection;
-        try
-        {
-            await using var cmd = conn.CreateCommand();
-            cmd.CommandText = state is null
-                ? "SELECT id, task_number, product_model_id, recipe_version_id, product_number, batch_number, station_number, remark, state, created_by_user_id, created_at_utc, started_at_utc, finished_at_utc FROM test_tasks ORDER BY id DESC"
-                : "SELECT id, task_number, product_model_id, recipe_version_id, product_number, batch_number, station_number, remark, state, created_by_user_id, created_at_utc, started_at_utc, finished_at_utc FROM test_tasks WHERE state=$state ORDER BY id DESC";
-            if (state is not null) cmd.Parameters.AddWithValue("$state", state.Value);
-            await using var reader = await cmd.ExecuteReaderAsync(ct);
-            while (await reader.ReadAsync(ct)) result.Add(Map(reader));
-            return result;
-        }
-        finally { if (owns) await conn.DisposeAsync(); }
+        var filter = state is null ? string.Empty : " WHERE state=@state";
+        var rows = await QueryAsync<TestTaskRow>(TaskSelect + filter + " ORDER BY id DESC", new { state }, ct);
+        return rows.Select(Map).ToList();
     }
 
     public async Task<IReadOnlyList<TestRecord>> ListRecordsAsync(int? state, CancellationToken ct = default)
     {
-        var result = new List<TestRecord>();
-        var conn = OpenConnection();
-        var owns = OwnsConnection;
-        try
-        {
-            await using var cmd = conn.CreateCommand();
-            cmd.CommandText = state is null
-                ? "SELECT id, task_id, recipe_version_id, recipe_version_number, device_mode, operator_user_id, state, conclusion, started_at_utc, finished_at_utc FROM test_records ORDER BY id DESC"
-                : "SELECT id, task_id, recipe_version_id, recipe_version_number, device_mode, operator_user_id, state, conclusion, started_at_utc, finished_at_utc FROM test_records WHERE state=$state ORDER BY id DESC";
-            if (state is not null) cmd.Parameters.AddWithValue("$state", state.Value);
-            await using var reader = await cmd.ExecuteReaderAsync(ct);
-            while (await reader.ReadAsync(ct)) result.Add(MapRecord(reader));
-            return result;
-        }
-        finally { if (owns) await conn.DisposeAsync(); }
+        var filter = state is null ? string.Empty : " WHERE state=@state";
+        var rows = await QueryAsync<TestRecordRow>(RecordSelect + filter + " ORDER BY id DESC", new { state }, ct);
+        return rows.Select(MapRecord).ToList();
     }
-    private static TestTask Map(Microsoft.Data.Sqlite.SqliteDataReader r) => new()
+
+    private static TestTask Map(TestTaskRow row) => new()
     {
-        Id = r.GetInt32(0),
-        TaskNumber = r.GetString(1),
-        ProductModelId = r.GetInt32(2),
-        RecipeVersionId = r.GetInt32(3),
-        ProductIdentity = new ProductIdentity(ParseNullableString(r.GetValue(4)), ParseNullableString(r.GetValue(5)), ParseNullableString(r.GetValue(6)), ParseNullableString(r.GetValue(7))),
-        State = (TaskState)r.GetInt32(8),
-        CreatedByUserId = r.GetInt32(9),
-        CreatedAtUtc = ParseUtc(r.GetString(10)),
-        StartedAtUtc = ParseNullableUtc(r.GetValue(11)),
-        FinishedAtUtc = ParseNullableUtc(r.GetValue(12))
+        Id = row.Id,
+        TaskNumber = row.TaskNumber,
+        ProductModelId = row.ProductModelId,
+        ProductIdentity = new ProductIdentity(row.ProductNumber, row.BatchNumber, row.StationNumber, row.Remark),
+        State = (TaskState)row.State,
+        CreatedByUserId = row.CreatedByUserId,
+        CreatedAtUtc = ParseUtc(row.CreatedAtUtc),
+        StartedAtUtc = ParseNullableUtc(row.StartedAtUtc),
+        FinishedAtUtc = ParseNullableUtc(row.FinishedAtUtc)
     };
+
+    private static TestRecord MapRecord(TestRecordRow row) => new()
+    {
+        Id = row.Id,
+        TaskId = row.TaskId,
+        ParameterSnapshot = row.ParameterSnapshot,
+        DeviceMode = (DeviceMode)row.DeviceMode,
+        OperatorUserId = row.OperatorUserId,
+        State = (RecordState)row.State,
+        Conclusion = row.Conclusion,
+        StartedAtUtc = ParseUtc(row.StartedAtUtc),
+        FinishedAtUtc = ParseNullableUtc(row.FinishedAtUtc)
+    };
+
+    private static TestItemResult MapItemResult(TestItemResultRow row) => new()
+    {
+        Id = row.Id,
+        RecordId = row.RecordId,
+        RecipeItemId = row.RecipeItemId,
+        TestItemDefinitionId = row.TestItemDefinitionId,
+        State = (ItemResultState)row.State,
+        SummaryValue = row.SummaryValue,
+        ResultText = row.ResultText,
+        StartedAtUtc = ParseNullableUtc(row.StartedAtUtc),
+        FinishedAtUtc = ParseNullableUtc(row.FinishedAtUtc)
+    };
+
+    private const string TaskSelect = "SELECT id AS Id, task_number AS TaskNumber, product_model_id AS ProductModelId, product_number AS ProductNumber, batch_number AS BatchNumber, station_number AS StationNumber, remark AS Remark, state AS State, created_by_user_id AS CreatedByUserId, created_at_utc AS CreatedAtUtc, started_at_utc AS StartedAtUtc, finished_at_utc AS FinishedAtUtc FROM test_tasks";
+    private const string RecordSelect = "SELECT id AS Id, task_id AS TaskId, parameter_snapshot AS ParameterSnapshot, device_mode AS DeviceMode, operator_user_id AS OperatorUserId, state AS State, conclusion AS Conclusion, started_at_utc AS StartedAtUtc, finished_at_utc AS FinishedAtUtc FROM test_records";
+    private const string ItemResultSelect = "SELECT id AS Id, record_id AS RecordId, recipe_item_id AS RecipeItemId, test_item_definition_id AS TestItemDefinitionId, state AS State, summary_value AS SummaryValue, result_text AS ResultText, started_at_utc AS StartedAtUtc, finished_at_utc AS FinishedAtUtc FROM test_item_results";
+
+    private sealed class TestTaskRow
+    {
+        public int Id { get; set; }
+        public string TaskNumber { get; set; } = string.Empty;
+        public int ProductModelId { get; set; }
+        public string? ProductNumber { get; set; }
+        public string? BatchNumber { get; set; }
+        public string? StationNumber { get; set; }
+        public string? Remark { get; set; }
+        public int State { get; set; }
+        public int CreatedByUserId { get; set; }
+        public string CreatedAtUtc { get; set; } = string.Empty;
+        public string? StartedAtUtc { get; set; }
+        public string? FinishedAtUtc { get; set; }
+    }
+
+    private sealed class TestRecordRow
+    {
+        public int Id { get; set; }
+        public int TaskId { get; set; }
+        public string? ParameterSnapshot { get; set; }
+        public int DeviceMode { get; set; }
+        public int OperatorUserId { get; set; }
+        public int State { get; set; }
+        public string? Conclusion { get; set; }
+        public string StartedAtUtc { get; set; } = string.Empty;
+        public string? FinishedAtUtc { get; set; }
+    }
+
+    private sealed class TestItemResultRow
+    {
+        public int Id { get; set; }
+        public int RecordId { get; set; }
+        public int? RecipeItemId { get; set; }
+        public int TestItemDefinitionId { get; set; }
+        public int State { get; set; }
+        public string? SummaryValue { get; set; }
+        public string? ResultText { get; set; }
+        public string? StartedAtUtc { get; set; }
+        public string? FinishedAtUtc { get; set; }
+    }
 }

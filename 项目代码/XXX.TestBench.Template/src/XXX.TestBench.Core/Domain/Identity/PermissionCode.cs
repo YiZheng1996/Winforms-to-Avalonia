@@ -1,6 +1,8 @@
 namespace XXX.TestBench.Core.Domain.Identity;
 
-/// <summary>第一版权限代码。UI 隐藏/禁用不是安全边界，用例与仓储层需再次检查。</summary>
+/// <summary>
+/// 第一版权限代码。UI 隐藏/禁用不是安全边界，用例与仓储层需再次检查。
+/// </summary>
 public enum PermissionCode
 {
     ViewOverview = 1,

@@ -1,4 +1,6 @@
 using System.Collections.ObjectModel;
+using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
 using XXX.TestBench.App.Composition;
 using XXX.TestBench.Core.Application;
 using XXX.TestBench.Core.Domain.Devices;
@@ -7,18 +9,36 @@ using XXX.TestBench.Core.Domain.Tasks;
 
 namespace XXX.TestBench.App.ViewModels;
 
-public sealed class ExecutionItemRow : ObservableObject
+/// <summary>
+/// 试验项执行表格中的一行，状态、摘要与结果可被界面刷新。
+/// </summary>
+public sealed partial class ExecutionItemRow : ObservableObject
 {
-    public required int RecipeItemId { get; init; }
+    public required int ItemDefinitionId { get; init; }
     public required string Name { get; init; }
+
+    /// <summary>
+    /// 试验项当前状态的显示文字。
+    /// </summary>
+    [ObservableProperty]
     private string _stateText = "Pending";
-    public string StateText { get => _stateText; set => SetField(ref _stateText, value); }
+
+    /// <summary>
+    /// 试验项的汇总值文字。
+    /// </summary>
+    [ObservableProperty]
     private string? _summary;
-    public string? Summary { get => _summary; set => SetField(ref _summary, value); }
+
+    /// <summary>
+    /// 试验项的结果文字。
+    /// </summary>
+    [ObservableProperty]
     private string? _resultText;
-    public string? ResultText { get => _resultText; set => SetField(ref _resultText, value); }
 }
 
+/// <summary>
+/// 试验执行任务列表中的一行。
+/// </summary>
 public sealed class ExecutionTaskRow
 {
     public required int Id { get; init; }
@@ -26,8 +46,10 @@ public sealed class ExecutionTaskRow
     public required string StateText { get; init; }
 }
 
-/// <summary>试验执行：选择 Ready 任务→预检启动→逐项执行→全部完成后结束。</summary>
-public sealed class TestExecutionViewModel : PageViewModel
+/// <summary>
+/// 试验执行页面：选择就绪任务、预检启动、逐项执行、全部完成后结束。
+/// </summary>
+public sealed partial class TestExecutionViewModel : PageViewModel
 {
     private readonly ShellServices _services;
     private readonly UserContext _actor;
@@ -36,36 +58,53 @@ public sealed class TestExecutionViewModel : PageViewModel
     {
         _services = services;
         _actor = actor;
-        LoadCommand = new RelayCommand(() => LoadAsync());
-        StartCommand = new RelayCommand(StartAsync);
-        ExecuteItemCommand = new RelayCommand<ExecutionItemRow>(ExecuteItemAsync);
-        FinishCommand = new RelayCommand(FinishAsync);
     }
 
     public override string Title => "试验执行";
 
+    /// <summary>
+    /// 页面展示的可执行任务列表。
+    /// </summary>
     public ObservableCollection<ExecutionTaskRow> Tasks { get; } = new();
+
+    /// <summary>
+    /// 当前试验的执行项列表。
+    /// </summary>
     public ObservableCollection<ExecutionItemRow> Items { get; } = new();
 
+    /// <summary>
+    /// 当前选中的任务。
+    /// </summary>
+    [ObservableProperty]
     private ExecutionTaskRow? _selectedTask;
-    public ExecutionTaskRow? SelectedTask { get => _selectedTask; set => SetField(ref _selectedTask, value); }
 
     private int _recordId;
 
     private string _recordStateText = "未启动";
-    public string RecordStateText { get => _recordStateText; private set => SetField(ref _recordStateText, value); }
+
+    /// <summary>
+    /// 当前试验记录的状态文字。
+    /// </summary>
+    public string RecordStateText { get => _recordStateText; private set => SetProperty(ref _recordStateText, value); }
 
     private string _conclusion = string.Empty;
-    public string Conclusion { get => _conclusion; private set => SetField(ref _conclusion, value); }
+
+    /// <summary>
+    /// 当前试验结束后的结论文字。
+    /// </summary>
+    public string Conclusion { get => _conclusion; private set => SetProperty(ref _conclusion, value); }
 
     private bool _deviceReady;
-    public bool DeviceReady { get => _deviceReady; private set => SetField(ref _deviceReady, value); }
 
-    public RelayCommand LoadCommand { get; }
-    public RelayCommand StartCommand { get; }
-    public RelayCommand<ExecutionItemRow> ExecuteItemCommand { get; }
-    public RelayCommand FinishCommand { get; }
+    /// <summary>
+    /// 设备是否就绪，决定能否启动试验。
+    /// </summary>
+    public bool DeviceReady { get => _deviceReady; private set => SetProperty(ref _deviceReady, value); }
 
+    /// <summary>
+    /// 页面加载命令：读取就绪或运行中的任务并刷新设备就绪状态。
+    /// </summary>
+    [RelayCommand]
     public override async Task LoadAsync(CancellationToken ct = default)
     {
         IsBusy = true;
@@ -80,6 +119,10 @@ public sealed class TestExecutionViewModel : PageViewModel
         finally { IsBusy = false; }
     }
 
+    /// <summary>
+    /// 启动命令：预检并启动选中的任务，然后加载执行项列表。
+    /// </summary>
+    [RelayCommand]
     public async Task StartAsync()
     {
         StatusMessage = string.Empty;
@@ -96,28 +139,10 @@ public sealed class TestExecutionViewModel : PageViewModel
         catch (Exception ex) { StatusMessage = ex.Message; }
     }
 
-    private async Task LoadItemsAsync()
-    {
-        Items.Clear();
-        var record = await _services.TaskRepository.GetRecordAsync(_recordId);
-        if (record is null) return;
-        var recipeItems = await _services.RecipeRepository.ListItemsAsync(record.RecipeVersionId);
-        var results = await _services.TaskRepository.ListItemResultsAsync(_recordId);
-        foreach (var ri in recipeItems)
-        {
-            var def = await _services.DefinitionRepository.GetItemAsync(ri.TestItemDefinitionId);
-            var result = results.FirstOrDefault(r => r.RecipeItemId == ri.Id);
-            Items.Add(new ExecutionItemRow
-            {
-                RecipeItemId = ri.Id,
-                Name = def?.Name ?? ri.TestItemDefinitionId.ToString(),
-                StateText = result?.State.ToString() ?? "Pending",
-                Summary = result?.SummaryValue,
-                ResultText = result?.ResultText
-            });
-        }
-    }
-
+    /// <summary>
+    /// 执行命令：执行表格中指定的一项试验。
+    /// </summary>
+    [RelayCommand]
     public async Task ExecuteItemAsync(ExecutionItemRow? row)
     {
         StatusMessage = string.Empty;
@@ -126,7 +151,7 @@ public sealed class TestExecutionViewModel : PageViewModel
             if (row is null) return;
             if (_recordId == 0) throw new Core.Common.DomainException("请先启动试验");
             var runtime = _services.DeviceModes.Runtime ?? throw new Core.Common.DomainException("设备运行时未初始化");
-            var result = await _services.Execution.ExecuteItemAsync(_actor, _recordId, row.RecipeItemId, runtime);
+            var result = await _services.Execution.ExecuteItemAsync(_actor, _recordId, row.ItemDefinitionId, runtime);
             row.StateText = result.State.ToString();
             row.Summary = result.SummaryValue;
             row.ResultText = result.ResultText;
@@ -135,6 +160,10 @@ public sealed class TestExecutionViewModel : PageViewModel
         catch (Exception ex) { StatusMessage = ex.Message; }
     }
 
+    /// <summary>
+    /// 结束命令：完成当前试验并展示结论。
+    /// </summary>
+    [RelayCommand]
     public async Task FinishAsync()
     {
         StatusMessage = string.Empty;
@@ -148,5 +177,26 @@ public sealed class TestExecutionViewModel : PageViewModel
             await LoadAsync();
         }
         catch (Exception ex) { StatusMessage = ex.Message; }
+    }
+
+    private async Task LoadItemsAsync()
+    {
+        Items.Clear();
+        var record = await _services.TaskRepository.GetRecordAsync(_recordId);
+        if (record is null) return;
+        var sequence = await _services.Execution.GetSequenceAsync();
+        var results = await _services.TaskRepository.ListItemResultsAsync(_recordId);
+        foreach (var def in sequence)
+        {
+            var result = results.FirstOrDefault(r => r.TestItemDefinitionId == def.Id);
+            Items.Add(new ExecutionItemRow
+            {
+                ItemDefinitionId = def.Id,
+                Name = def.Name,
+                StateText = result?.State.ToString() ?? "Pending",
+                Summary = result?.SummaryValue,
+                ResultText = result?.ResultText
+            });
+        }
     }
 }

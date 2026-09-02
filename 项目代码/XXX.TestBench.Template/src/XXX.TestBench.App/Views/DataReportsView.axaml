@@ -13,11 +13,27 @@
     <Grid ColumnDefinitions="*,*" ColumnSpacing="12">
       <DockPanel Grid.Column="0">
         <TextBlock DockPanel.Dock="Top" Text="试验记录" FontWeight="Bold" />
-        <DataGrid ItemsSource="{Binding Records}" SelectedItem="{Binding SelectedRecord}" AutoGenerateColumns="True" IsReadOnly="True" />
+        <DataGrid ItemsSource="{Binding Records}" SelectedItem="{Binding SelectedRecord}" AutoGenerateColumns="False" IsReadOnly="True" RowHeight="42" HeadersVisibility="Column">
+          <DataGrid.Columns>
+            <DataGridTextColumn Header="记录编号" Binding="{Binding Id}" Width="90" />
+            <DataGridTextColumn Header="任务编号" Binding="{Binding TaskNumber}" Width="1.4*" />
+            <DataGridTextColumn Header="记录状态" Binding="{Binding StateText}" Width="110" />
+            <DataGridTextColumn Header="设备模式" Binding="{Binding DeviceModeText}" Width="110" />
+            <DataGridTextColumn Header="开始时间" Binding="{Binding StartedAt}" Width="1.4*" />
+            <DataGridTextColumn Header="结论" Binding="{Binding Conclusion}" Width="1.2*" />
+          </DataGrid.Columns>
+        </DataGrid>
       </DockPanel>
       <DockPanel Grid.Column="1">
         <TextBlock DockPanel.Dock="Top" Text="报表记录" FontWeight="Bold" />
-        <DataGrid ItemsSource="{Binding Reports}" AutoGenerateColumns="True" IsReadOnly="True" />
+        <DataGrid ItemsSource="{Binding Reports}" AutoGenerateColumns="False" IsReadOnly="True" RowHeight="42" HeadersVisibility="Column">
+          <DataGrid.Columns>
+            <DataGridTextColumn Header="报表编号" Binding="{Binding Id}" Width="90" />
+            <DataGridTextColumn Header="报表状态" Binding="{Binding StatusText}" Width="110" />
+            <DataGridTextColumn Header="输出路径" Binding="{Binding OutputPath}" Width="2*" />
+            <DataGridTextColumn Header="创建时间" Binding="{Binding CreatedAt}" Width="1.4*" />
+          </DataGrid.Columns>
+        </DataGrid>
       </DockPanel>
     </Grid>
   </DockPanel>

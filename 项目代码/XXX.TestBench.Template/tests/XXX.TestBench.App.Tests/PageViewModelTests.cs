@@ -16,6 +16,20 @@ public class PageViewModelTests
         return (harness, actor);
     }
 
+    private static async Task<(int TypeId, int ModelId)> SeedProductAsync(AppTestHarness harness, UserContext actor)
+    {
+        var type = await harness.Services.Products.CreateTypeAsync(actor, "PT", "压力试验");
+        var model = await harness.Services.Products.CreateModelAsync(actor, type.Id, "M1", "型号1");
+        return (type.Id, model.Id);
+    }
+
+    private static async Task SeedParametersAsync(AppTestHarness harness, UserContext actor, int typeId, int modelId)
+    {
+        await harness.Services.Parameters.SaveProjectAsync(actor, 60);
+        await harness.Services.Parameters.SaveTypeAsync(actor, typeId, 5000);
+        await harness.Services.Parameters.SaveModelAsync(actor, modelId, 100);
+    }
+
     [Fact]
     public async Task TaskManagement_ListAndCancel()
     {
@@ -25,16 +39,8 @@ public class PageViewModelTests
         await vm.LoadAsync();
         Assert.Empty(vm.Tasks);
 
-        var productType = await harness.Services.Products.CreateTypeAsync(actor, "PT", "压力试验");
-        var model = await harness.Services.Products.CreateModelAsync(actor, productType.Id, "M1", "型号1");
-        var item = await harness.Services.Definitions.CreateItemAsync(actor, "IT1", "耐压", "PressureExecutor", "PassFail", 1);
-        var param = await harness.Services.Definitions.CreateParameterAsync(actor, item.Id, "Voltage", "试验电压", XXX.TestBench.Core.Domain.TestDefinitions.ParameterDataType.Decimal, true, "kV", 0, 50, null, null, 1);
-        var draft = await harness.Services.Recipes.CreateDraftAsync(actor, model.Id, "配方1");
-        await harness.Services.Recipes.AddItemAsync(actor, draft.Id, item.Id, 1);
-        var recipeItems = await harness.Services.RecipeRepository.ListItemsAsync(draft.Id);
-        await harness.Services.Recipes.SetParameterValueAsync(actor, draft.Id, recipeItems[0].Id, param.Id, "0");
-        await harness.Services.Recipes.PublishAsync(actor, draft.Id);
-        var task = await harness.Services.Tasks.CreateAsync(actor, model.Id, draft.Id, new ProductIdentity("SN001", null, null, null));
+        var (_, modelId) = await SeedProductAsync(harness, actor);
+        var task = await harness.Services.Tasks.CreateAsync(actor, modelId, new ProductIdentity("SN001", null, null, null));
 
         await vm.LoadAsync();
         Assert.Single(vm.Tasks);
@@ -50,16 +56,9 @@ public class PageViewModelTests
     public async Task TestExecution_FullRun()
     {
         var (harness, actor) = await AdminAsync();
-        var productType = await harness.Services.Products.CreateTypeAsync(actor, "PT", "压力试验");
-        var model = await harness.Services.Products.CreateModelAsync(actor, productType.Id, "M1", "型号1");
-        var item = await harness.Services.Definitions.CreateItemAsync(actor, "IT1", "耐压", "PressureExecutor", "PassFail", 1);
-        var param = await harness.Services.Definitions.CreateParameterAsync(actor, item.Id, "Voltage", "试验电压", XXX.TestBench.Core.Domain.TestDefinitions.ParameterDataType.Decimal, true, "kV", 0, 50, null, null, 1);
-        var draft = await harness.Services.Recipes.CreateDraftAsync(actor, model.Id, "配方1");
-        await harness.Services.Recipes.AddItemAsync(actor, draft.Id, item.Id, 1);
-        var recipeItems = await harness.Services.RecipeRepository.ListItemsAsync(draft.Id);
-        await harness.Services.Recipes.SetParameterValueAsync(actor, draft.Id, recipeItems[0].Id, param.Id, "0");
-        await harness.Services.Recipes.PublishAsync(actor, draft.Id);
-        var task = await harness.Services.Tasks.CreateAsync(actor, model.Id, draft.Id, new ProductIdentity("SN001", null, null, null));
+        var (typeId, modelId) = await SeedProductAsync(harness, actor);
+        await SeedParametersAsync(harness, actor, typeId, modelId);
+        var task = await harness.Services.Tasks.CreateAsync(actor, modelId, new ProductIdentity("SN001", null, null, null));
         await harness.Services.Tasks.ToReadyAsync(actor, task.Id);
 
         var vm = new TestExecutionViewModel(harness.Services, actor);
@@ -81,7 +80,7 @@ public class PageViewModelTests
     }
 
     [Fact]
-    public async Task RecipeCenter_CreatesTypeAndDraft()
+    public async Task RecipeCenter_CreatesTypeAndSavesFixedParameters()
     {
         var (harness, actor) = await AdminAsync();
         var vm = new RecipeCenterViewModel(harness.Services, actor);
@@ -90,8 +89,58 @@ public class PageViewModelTests
 
         vm.NewCode = "PT";
         vm.NewName = "压力试验";
-        await vm.AddTypeCommand.ExecuteAsync();
+        await vm.AddTypeCommand.ExecuteAsync(null);
         await vm.LoadAsync();
         Assert.Single(vm.Types);
+
+        var type = vm.Types[0];
+        var model = await harness.Services.Products.CreateModelAsync(actor, type.Id, "M1", "型号1");
+
+        vm.TestTimeInput = "60";
+        await vm.SaveProjectParameterCommand.ExecuteAsync(null);
+        Assert.Equal("60", (await harness.Services.TestParameterRepository.GetProjectAsync())!.TestTimeSeconds.ToString());
+
+        vm.SelectedParamType = type;
+        vm.TestVoltageInput = "5000";
+        await vm.SaveTypeParameterCommand.ExecuteAsync(null);
+        Assert.Equal(5000.0, (await harness.Services.TestParameterRepository.GetTypeAsync(type.Id))!.TestVoltageV);
+
+        await vm.LoadParamModelOptionsAsync();
+        vm.SelectedParamModel = model;
+        vm.ProtectCurrentInput = "100";
+        await vm.SaveModelParameterCommand.ExecuteAsync(null);
+        Assert.Equal(100.0, (await harness.Services.TestParameterRepository.GetModelAsync(model.Id))!.ProtectCurrentMa);
+    }
+
+    [Fact]
+    public void RecipeDialogViewModels_ValidateParameterRangeAndEnumValues()
+    {
+        var item = new XXX.TestBench.Core.Domain.TestDefinitions.TestItemDefinition
+        {
+            Id = 7,
+            Code = "PRESSURE",
+            Name = "耐压试验",
+            ExecutorCode = "PressureExecutor",
+            ResultKind = "PassFail"
+        };
+        var vm = new ParameterDefinitionDialogViewModel([item])
+        {
+            SelectedItem = item,
+            Code = "Voltage",
+            Name = "试验电压",
+            MinValue = "10",
+            MaxValue = "1"
+        };
+
+        Assert.False(vm.TryBuildResult(out _));
+
+        vm.MaxValue = "50";
+        Assert.True(vm.TryBuildResult(out var decimalResult));
+        Assert.Equal(XXX.TestBench.Core.Domain.TestDefinitions.ParameterDataType.Decimal, decimalResult.DataType);
+
+        vm.SelectedDataType = vm.DataTypeOptions.Single(option => option.Value == XXX.TestBench.Core.Domain.TestDefinitions.ParameterDataType.Enum);
+        vm.AllowedValues = "自动,手动";
+        Assert.True(vm.TryBuildResult(out var enumResult));
+        Assert.Equal(new[] { "自动", "手动" }, enumResult.AllowedValues);
     }
 }

@@ -2,10 +2,83 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:XXX.TestBench.App.ViewModels"
              xmlns:views="using:XXX.TestBench.App.Views"
-             x:Class="XXX.TestBench.App.App">
+             x:Class="XXX.TestBench.App.App"
+             RequestedThemeVariant="Light">
+  <Application.Resources>
+    <SolidColorBrush x:Key="BrandBlueBrush" Color="#0868F7" />
+    <SolidColorBrush x:Key="BrandBlueDarkBrush" Color="#0758D7" />
+    <SolidColorBrush x:Key="SuccessBrush" Color="#18A654" />
+    <SolidColorBrush x:Key="DangerBrush" Color="#F5222D" />
+    <SolidColorBrush x:Key="TextPrimaryBrush" Color="#151A24" />
+    <SolidColorBrush x:Key="TextSecondaryBrush" Color="#5F6878" />
+    <SolidColorBrush x:Key="PanelBorderBrush" Color="#D6DEEA" />
+    <SolidColorBrush x:Key="WorkspaceBrush" Color="#F5F8FC" />
+  </Application.Resources>
+
   <Application.Styles>
     <FluentTheme />
+    <StyleInclude Source="avares://Avalonia.Controls.DataGrid/Themes/Fluent.xaml" />
+
+    <Style Selector="Window">
+      <Setter Property="FontFamily" Value="Microsoft YaHei UI, Noto Sans CJK SC, Arial" />
+      <Setter Property="Background" Value="#F5F8FC" />
+    </Style>
+    <Style Selector="Button">
+      <Setter Property="FontSize" Value="14" />
+      <Setter Property="CornerRadius" Value="4" />
+      <Setter Property="MinHeight" Value="36" />
+      <Setter Property="HorizontalContentAlignment" Value="Center" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
+    <Style Selector="TextBox">
+      <Setter Property="MinHeight" Value="36" />
+      <Setter Property="CornerRadius" Value="3" />
+      <Setter Property="HorizontalContentAlignment" Value="Left" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
+      <Setter Property="Padding" Value="12,0" />
+    </Style>
+    <Style Selector="ComboBox">
+      <Setter Property="MinHeight" Value="36" />
+      <Setter Property="CornerRadius" Value="3" />
+      <Setter Property="HorizontalContentAlignment" Value="Left" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
+      <Setter Property="Padding" Value="12,0" />
+    </Style>
+    <Style Selector="CheckBox">
+      <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
+    <Style Selector="DataGridCell">
+      <Setter Property="Padding" Value="12,0" />
+      <Setter Property="Foreground" Value="#344054" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
+      <Setter Property="BorderBrush" Value="#E7ECF3" />
+      <Setter Property="BorderThickness" Value="0,0,1,1" />
+    </Style>
+    <Style Selector="DataGridColumnHeader">
+      <Setter Property="Background" Value="#EAF2FF" />
+      <Setter Property="Foreground" Value="#153B72" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="FontSize" Value="13" />
+      <Setter Property="Padding" Value="12,0" />
+      <Setter Property="MinHeight" Value="42" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
+      <Setter Property="BorderBrush" Value="#D6DEEA" />
+      <Setter Property="BorderThickness" Value="0,0,1,1" />
+    </Style>
+    <Style Selector="DataGrid">
+      <Setter Property="Background" Value="White" />
+      <Setter Property="BorderBrush" Value="{DynamicResource PanelBorderBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="GridLinesVisibility" Value="All" />
+      <Setter Property="HorizontalGridLinesBrush" Value="#E7ECF3" />
+      <Setter Property="VerticalGridLinesBrush" Value="#E7ECF3" />
+      <Setter Property="RowBackground" Value="White" />
+    </Style>
+    <Style Selector="DataGridRow">
+      <Setter Property="MinHeight" Value="42" />
+    </Style>
   </Application.Styles>
+
   <Application.DataTemplates>
     <DataTemplate DataType="{x:Type vm:OverviewViewModel}"><views:OverviewView /></DataTemplate>
     <DataTemplate DataType="{x:Type vm:TaskManagementViewModel}"><views:TaskManagementView /></DataTemplate>

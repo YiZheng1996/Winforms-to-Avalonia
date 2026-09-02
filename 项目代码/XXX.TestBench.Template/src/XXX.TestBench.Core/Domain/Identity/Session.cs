@@ -1,6 +1,8 @@
 namespace XXX.TestBench.Core.Domain.Identity;
 
-/// <summary>登录会话。撤销或过期后不可再用于权限校验。</summary>
+/// <summary>
+/// 登录会话。撤销或过期后不可再用于权限校验。
+/// </summary>
 public sealed class Session
 {
     public required string Token { get; init; }

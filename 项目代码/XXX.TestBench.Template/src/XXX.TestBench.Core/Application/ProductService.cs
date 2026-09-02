@@ -5,7 +5,9 @@ using XXX.TestBench.Core.Ports;
 
 namespace XXX.TestBench.Core.Application;
 
-/// <summary>产品类型与产品型号主数据管理。类型/型号停用后不可新建任务（TaskService 校验）。</summary>
+/// <summary>
+/// 产品类型与产品型号主数据管理。类型/型号停用后不可新建任务（TaskService 校验）。
+/// </summary>
 public sealed class ProductService
 {
     private readonly IProductRepository _products;

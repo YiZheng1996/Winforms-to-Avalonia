@@ -3,7 +3,9 @@ using XXX.TestBench.Core.Ports;
 
 namespace XXX.TestBench.Infrastructure.Identity;
 
-/// <summary>PBKDF2-SHA256 密码哈希（格式：iterations.salt.hash，均为 Base64）。</summary>
+/// <summary>
+/// PBKDF2-SHA256 密码哈希（格式：iterations.salt.hash，均为 Base64）。
+/// </summary>
 public sealed class Pbkdf2PasswordHasher : IPasswordHasher
 {
     private const int Iterations = 100_000;

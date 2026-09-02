@@ -6,7 +6,9 @@ namespace XXX.TestBench.Core.Application;
 
 public sealed record LoginResult(bool Success, string? Error, Session? Session, User? User);
 
-/// <summary>登录、失败锁定、首次强制改密与会话撤销。</summary>
+/// <summary>
+/// 登录、失败锁定、首次强制改密与会话撤销。
+/// </summary>
 public sealed class AuthenticationService
 {
     public const int MaxFailedAttempts = 5;

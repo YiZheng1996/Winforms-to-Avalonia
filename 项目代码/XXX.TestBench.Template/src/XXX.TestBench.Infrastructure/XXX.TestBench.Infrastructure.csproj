@@ -7,7 +7,8 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="ClosedXML" Version="0.105.0" />
-    <PackageReference Include="Microsoft.Data.Sqlite" Version="8.0.10" />
+    <PackageReference Include="FreeSql" Version="3.5.213" />
+    <PackageReference Include="FreeSql.Provider.Sqlite" Version="3.5.213" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="../XXX.TestBench.Core/XXX.TestBench.Core.csproj" />

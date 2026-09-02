@@ -10,7 +10,9 @@ using Xunit;
 
 namespace XXX.TestBench.Integration.Tests;
 
-/// <summary>阶段 3 集成：产品/项点/参数管理 + 配方编辑（upsert/移除/重命名/模板）→发布→复制→停用→重启回读。</summary>
+/// <summary>
+/// 阶段 3 集成：产品/项点/参数管理 + 配方编辑（upsert/移除/重命名/模板）→发布→复制→停用→重启回读。
+/// </summary>
 public class Phase3ManagementTests
 {
     [Fact]
@@ -83,7 +85,7 @@ public class Phase3ManagementTests
 
         Assert.Single(await productRepo2.ListTypesAsync(includeDisabled: true));
         Assert.Single(await productRepo2.ListModelsAsync(type.Id, includeDisabled: true));
-        Assert.Equal(2, (await defRepo2.ListItemsAsync(includeDisabled: true)).Count);
+        Assert.Equal(3, (await defRepo2.ListItemsAsync(includeDisabled: true)).Count); // 2 个测试项点 + 1 个内建固定项点
         Assert.Equal(2, (await recipeRepo2.ListByModelAsync(model.Id, includeRetired: true)).Count);
         var reloaded = await recipeRepo2.GetAsync(draft.Id);
         Assert.Equal(RecipeStatus.Retired, reloaded!.Status);

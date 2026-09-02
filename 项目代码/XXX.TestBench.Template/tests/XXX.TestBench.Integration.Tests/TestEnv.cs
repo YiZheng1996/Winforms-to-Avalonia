@@ -1,6 +1,8 @@
 namespace XXX.TestBench.Integration.Tests;
 
-/// <summary>集成测试环境：在临时目录写 config 样例并给出数据目录。</summary>
+/// <summary>
+/// 集成测试环境：在临时目录写 config 样例并给出数据目录。
+/// </summary>
 public sealed class TestEnv : IDisposable
 {
     public string Root { get; }

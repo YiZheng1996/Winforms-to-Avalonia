@@ -4,7 +4,9 @@ using XXX.TestBench.Core.Ports;
 
 namespace XXX.TestBench.Infrastructure.Services;
 
-/// <summary>内存会话管理（进程内）。重启后会话失效，需重新登录；会话表落库在阶段 2 后按需引入。</summary>
+/// <summary>
+/// 内存会话管理（进程内）。重启后会话失效，需重新登录；会话表落库在阶段 2 后按需引入。
+/// </summary>
 public sealed class InMemorySessionManager : ISessionManager
 {
     private readonly ConcurrentDictionary<string, Session> _sessions = new();

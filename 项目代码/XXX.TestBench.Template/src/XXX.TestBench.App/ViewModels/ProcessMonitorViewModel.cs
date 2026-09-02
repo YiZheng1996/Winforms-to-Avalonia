@@ -1,4 +1,6 @@
 using System.Collections.ObjectModel;
+using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
 using XXX.TestBench.App.Composition;
 using XXX.TestBench.Core.Application;
 using XXX.TestBench.Core.Domain.Devices;
@@ -7,20 +9,33 @@ using XXX.TestBench.Core.Domain.Tasks;
 
 namespace XXX.TestBench.App.ViewModels;
 
-public sealed class PointRow : ObservableObject
+/// <summary>
+/// 工艺监控点位表格中的一行，值与质量可被界面刷新。
+/// </summary>
+public sealed partial class PointRow : ObservableObject
 {
     public required string Code { get; init; }
     public required string Address { get; init; }
     public required bool IsWritable { get; init; }
     public required WriteRiskLevel RiskLevel { get; init; }
+
+    /// <summary>
+    /// 点位当前的实时值文字。
+    /// </summary>
+    [ObservableProperty]
     private string _value = string.Empty;
-    public string Value { get => _value; set => SetField(ref _value, value); }
+
+    /// <summary>
+    /// 点位当前的数据质量文字。
+    /// </summary>
+    [ObservableProperty]
     private string _quality = string.Empty;
-    public string Quality { get => _quality; set => SetField(ref _quality, value); }
 }
 
-/// <summary>工艺监控：Simulation 点位只读实时值 + 受控手动写入（走 DeviceWritePipeline）。</summary>
-public sealed class ProcessMonitorViewModel : PageViewModel
+/// <summary>
+/// 工艺监控页面：仿真点位只读实时值，以及走安全链的受控手动写入。
+/// </summary>
+public sealed partial class ProcessMonitorViewModel : PageViewModel
 {
     private readonly ShellServices _services;
     private readonly UserContext _actor;
@@ -29,28 +44,37 @@ public sealed class ProcessMonitorViewModel : PageViewModel
     {
         _services = services;
         _actor = actor;
-        LoadCommand = new RelayCommand(() => LoadAsync());
-        RefreshCommand = new RelayCommand(RefreshAsync);
-        WriteCommand = new RelayCommand(WriteSelectedAsync);
     }
 
     public override string Title => "工艺监控";
 
+    /// <summary>
+    /// 页面展示的点位列表。
+    /// </summary>
     public ObservableCollection<PointRow> Points { get; } = new();
 
+    /// <summary>
+    /// 当前选中的点位。
+    /// </summary>
+    [ObservableProperty]
     private PointRow? _selectedPoint;
-    public PointRow? SelectedPoint { get => _selectedPoint; set => SetField(ref _selectedPoint, value); }
 
+    /// <summary>
+    /// 操作员输入的要写入点位的值。
+    /// </summary>
+    [ObservableProperty]
     private string _writeValue = string.Empty;
-    public string WriteValue { get => _writeValue; set => SetField(ref _writeValue, value); }
 
+    /// <summary>
+    /// 高风险写入是否已经得到操作员确认。
+    /// </summary>
+    [ObservableProperty]
     private bool _riskConfirmed;
-    public bool RiskConfirmed { get => _riskConfirmed; set => SetField(ref _riskConfirmed, value); }
 
-    public RelayCommand LoadCommand { get; }
-    public RelayCommand RefreshCommand { get; }
-    public RelayCommand WriteCommand { get; }
-
+    /// <summary>
+    /// 页面加载命令：读取点位列表并刷新一次实时值。
+    /// </summary>
+    [RelayCommand]
     public override async Task LoadAsync(CancellationToken ct = default)
     {
         IsBusy = true;
@@ -67,6 +91,10 @@ public sealed class ProcessMonitorViewModel : PageViewModel
         finally { IsBusy = false; }
     }
 
+    /// <summary>
+    /// 刷新命令：重新读取全部点位的实时值与质量。
+    /// </summary>
+    [RelayCommand]
     public async Task RefreshAsync()
     {
         var runtime = _services.DeviceModes.Runtime;
@@ -82,12 +110,13 @@ public sealed class ProcessMonitorViewModel : PageViewModel
         }
     }
 
-    public async Task WriteSelectedAsync()
-    {
-        await WriteAsync(SelectedPoint);
-    }
+    /// <summary>
+    /// 写入命令：把输入值写入当前选中的点位。
+    /// </summary>
+    [RelayCommand]
+    public async Task WriteAsync() => await WriteSelectedPointAsync(SelectedPoint);
 
-    private async Task WriteAsync(PointRow? row)
+    private async Task WriteSelectedPointAsync(PointRow? row)
     {
         StatusMessage = string.Empty;
         try

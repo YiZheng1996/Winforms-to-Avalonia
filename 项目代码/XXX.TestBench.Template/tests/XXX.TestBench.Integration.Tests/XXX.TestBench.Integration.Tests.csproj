@@ -20,7 +20,6 @@
     <ProjectReference Include="../../src/XXX.TestBench.Core/XXX.TestBench.Core.csproj" />
     <ProjectReference Include="../../src/XXX.TestBench.Infrastructure/XXX.TestBench.Infrastructure.csproj" />
     <ProjectReference Include="../../src/XXX.TestBench.Devices/XXX.TestBench.Devices.csproj" />
-    <PackageReference Include="Microsoft.Data.Sqlite" Version="8.0.10" />
     <PackageReference Include="ClosedXML" Version="0.105.0" />
   </ItemGroup>
 </Project>

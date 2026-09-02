@@ -10,11 +10,23 @@
     <Grid ColumnDefinitions="*,*" ColumnSpacing="12">
       <DockPanel Grid.Column="0">
         <TextBlock DockPanel.Dock="Top" Text="用户" FontWeight="Bold" />
-        <DataGrid ItemsSource="{Binding Users}" AutoGenerateColumns="True" IsReadOnly="True" />
+        <DataGrid ItemsSource="{Binding Users}" AutoGenerateColumns="False" IsReadOnly="True" RowHeight="42" HeadersVisibility="Column">
+          <DataGrid.Columns>
+            <DataGridTextColumn Header="登录账号" Binding="{Binding LoginName}" Width="1.2*" />
+            <DataGridTextColumn Header="显示名称" Binding="{Binding DisplayName}" Width="1.2*" />
+            <DataGridTextColumn Header="角色" Binding="{Binding RoleName}" Width="1.1*" />
+            <DataGridTextColumn Header="状态" Binding="{Binding StatusText}" Width="100" />
+          </DataGrid.Columns>
+        </DataGrid>
       </DockPanel>
       <DockPanel Grid.Column="1">
         <TextBlock DockPanel.Dock="Top" Text="角色与权限" FontWeight="Bold" />
-        <DataGrid ItemsSource="{Binding Roles}" AutoGenerateColumns="True" IsReadOnly="True" />
+        <DataGrid ItemsSource="{Binding Roles}" AutoGenerateColumns="False" IsReadOnly="True" RowHeight="42" HeadersVisibility="Column">
+          <DataGrid.Columns>
+            <DataGridTextColumn Header="角色名称" Binding="{Binding Name}" Width="1.2*" />
+            <DataGridTextColumn Header="权限" Binding="{Binding Permissions}" Width="2.2*" />
+          </DataGrid.Columns>
+        </DataGrid>
       </DockPanel>
     </Grid>
   </DockPanel>

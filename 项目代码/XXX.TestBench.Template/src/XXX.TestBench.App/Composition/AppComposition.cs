@@ -17,7 +17,9 @@ using XXX.TestBench.Infrastructure.Time;
 
 namespace XXX.TestBench.App.Composition;
 
-/// <summary>组合根：创建具体实现；View/ViewModel 不通过全局服务定位器获取依赖。</summary>
+/// <summary>
+/// 组合根：创建具体实现；View/ViewModel 不通过全局服务定位器获取依赖。
+/// </summary>
 public sealed class AppComposition
 {
     private AppComposition() { }
@@ -63,6 +65,7 @@ public sealed class AppComposition
             var userRepo = new UserRepository(factory);
             var productRepo = new ProductRepository(factory);
             var definitionRepo = new TestDefinitionRepository(factory);
+            var testParameterRepo = new TestParameterRepository(factory);
             var recipeRepo = new RecipeRepository(factory);
             var taskRepo = new TaskRepository(factory);
             var audit = new SqliteAuditLog(factory);
@@ -72,7 +75,8 @@ public sealed class AppComposition
             Authentication = new AuthenticationService(userRepo, hasher, sessions, clock, audit);
             var uowFactory = new SqliteUnitOfWorkFactory(factory);
             var recipes = new RecipeService(recipeRepo, productRepo, definitionRepo, clock, audit, uowFactory);
-            var tasks = new TaskService(taskRepo, productRepo, recipeRepo, clock, audit, uowFactory);
+            var testParameters = new TestParameterService(testParameterRepo, productRepo, clock, audit);
+            var tasks = new TaskService(taskRepo, productRepo, clock, audit, uowFactory);
             var writePipeline = new DeviceWritePipeline(audit, Logger);
             var runtimeFactory = new DeviceRuntimeFactory(deviceConfig, pointsConfig, simulationConfig, clock);
             DeviceModes = new DeviceModeController(runtimeFactory, Logger, audit);
@@ -80,8 +84,8 @@ public sealed class AppComposition
             var executorFactory = new ExecutorFactory();
             var reportRepository = new ReportRepository(factory);
             var reportGenerator = new ClosedXmlReportGenerator();
-            TestExecution = new TestExecutionService(taskRepo, recipeRepo, definitionRepo, executorFactory, tasks, clock, audit, uowFactory);
-            Reports = new ReportService(taskRepo, recipeRepo, productRepo, definitionRepo, userRepo, reportRepository, reportGenerator, clock, audit);
+            TestExecution = new TestExecutionService(taskRepo, definitionRepo, executorFactory, tasks, testParameters, clock, audit, uowFactory);
+            Reports = new ReportService(taskRepo, productRepo, definitionRepo, userRepo, reportRepository, reportGenerator, clock, audit);
 
             var services = new ShellServices(
                 Authentication,
@@ -90,6 +94,7 @@ public sealed class AppComposition
                 recipes,
                 new ProductService(productRepo, clock, audit),
                 new TestDefinitionService(definitionRepo, clock, audit),
+                testParameters,
                 Reports,
                 DeviceModes,
                 writePipeline,
@@ -97,6 +102,7 @@ public sealed class AppComposition
                 recipeRepo,
                 productRepo,
                 definitionRepo,
+                testParameterRepo,
                 userRepo,
                 reportRepository,
                 audit,

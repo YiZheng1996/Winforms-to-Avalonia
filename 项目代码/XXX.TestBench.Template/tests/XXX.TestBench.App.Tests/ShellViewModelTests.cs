@@ -46,7 +46,7 @@ public class ShellViewModelTests
         await shell.LoginAsync();
 
         Assert.True(shell.IsAuthenticated);
-        Assert.DoesNotContain(shell.NavItems, n => n.Title == "配方中心");
+        Assert.DoesNotContain(shell.NavItems, n => n.Title == "参数管理");
         Assert.DoesNotContain(shell.NavItems, n => n.Title == "系统管理");
         Assert.Contains(shell.NavItems, n => n.Title == "任务管理");
         Assert.Contains(shell.NavItems, n => n.Title == "试验执行");

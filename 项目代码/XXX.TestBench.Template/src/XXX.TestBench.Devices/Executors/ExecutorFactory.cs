@@ -3,7 +3,9 @@ using XXX.TestBench.Core.Execution;
 
 namespace XXX.TestBench.Devices.Executors;
 
-/// <summary>执行器注册表。未注册的执行器代码明确失败，不允许运行时编译任意 C#。</summary>
+/// <summary>
+/// 执行器注册表。未注册的执行器代码明确失败，不允许运行时编译任意 C#。
+/// </summary>
 public sealed class ExecutorFactory : ITestItemExecutorFactory
 {
     private readonly IReadOnlyDictionary<string, ITestItemExecutor> _executors;

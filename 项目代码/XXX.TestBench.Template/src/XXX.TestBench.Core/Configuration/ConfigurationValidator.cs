@@ -3,7 +3,9 @@ using XXX.TestBench.Core.Domain.Devices;
 
 namespace XXX.TestBench.Core.Configuration;
 
-/// <summary>跨配置一致性校验：Hardware 必须有启用设备；Simulation 初值/规则/故障注入地址必须存在于 points.json。</summary>
+/// <summary>
+/// 跨配置一致性校验：Hardware 必须有启用设备；Simulation 初值/规则/故障注入地址必须存在于 points.json。
+/// </summary>
 public static class ConfigurationValidator
 {
     public static void ValidateAll(AppConfig app, DeviceConfig device, PointsConfig points, SimulationConfig simulation)

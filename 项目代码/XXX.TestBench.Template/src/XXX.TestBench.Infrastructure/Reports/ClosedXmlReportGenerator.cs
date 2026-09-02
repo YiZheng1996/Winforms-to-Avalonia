@@ -53,7 +53,9 @@ public sealed class ClosedXmlReportGenerator : IReportGenerator
         return outputPath;
     }
 
-    /// <summary>生成标准模板（固定版式，无数据），供管理员准备阶段使用。</summary>
+    /// <summary>
+    /// 生成标准模板（固定版式，无数据），供管理员准备阶段使用。
+    /// </summary>
     public static void CreateStandardTemplate(string templatePath)
     {
         Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(templatePath))!);

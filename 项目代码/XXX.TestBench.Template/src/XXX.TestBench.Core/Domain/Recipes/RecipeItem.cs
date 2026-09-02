@@ -1,6 +1,8 @@
 namespace XXX.TestBench.Core.Domain.Recipes;
 
-/// <summary>配方包含的项点；顺序在配方内唯一。</summary>
+/// <summary>
+/// 配方包含的项点；顺序在配方内唯一。
+/// </summary>
 public sealed class RecipeItem
 {
     public int Id { get; set; }

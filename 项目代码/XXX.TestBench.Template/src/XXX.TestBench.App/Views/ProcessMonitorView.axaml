@@ -12,6 +12,15 @@
       <Button Content="写入（走安全链）" Command="{Binding WriteCommand}" />
       <TextBlock Text="{Binding StatusMessage}" Foreground="#1F618D" VerticalAlignment="Center" />
     </StackPanel>
-    <DataGrid ItemsSource="{Binding Points}" SelectedItem="{Binding SelectedPoint}" AutoGenerateColumns="True" IsReadOnly="True" />
+    <DataGrid ItemsSource="{Binding Points}" SelectedItem="{Binding SelectedPoint}" AutoGenerateColumns="False" IsReadOnly="True" RowHeight="42" HeadersVisibility="Column">
+      <DataGrid.Columns>
+        <DataGridTextColumn Header="点位代码" Binding="{Binding Code}" Width="1.2*" />
+        <DataGridTextColumn Header="地址" Binding="{Binding Address}" Width="1.2*" />
+        <DataGridTextColumn Header="可写" Binding="{Binding IsWritable}" Width="80" />
+        <DataGridTextColumn Header="风险等级" Binding="{Binding RiskLevel}" Width="110" />
+        <DataGridTextColumn Header="当前值" Binding="{Binding Value}" Width="1.2*" />
+        <DataGridTextColumn Header="质量" Binding="{Binding Quality}" Width="110" />
+      </DataGrid.Columns>
+    </DataGrid>
   </DockPanel>
 </UserControl>

@@ -1,10 +1,14 @@
 using System.Collections.ObjectModel;
+using CommunityToolkit.Mvvm.Input;
 using XXX.TestBench.App.Composition;
 using XXX.TestBench.Core.Application;
 using XXX.TestBench.Core.Domain.Identity;
 
 namespace XXX.TestBench.App.ViewModels;
 
+/// <summary>
+/// 用户表格中的一行。
+/// </summary>
 public sealed class UserRow
 {
     public required string LoginName { get; init; }
@@ -13,14 +17,19 @@ public sealed class UserRow
     public required string StatusText { get; init; }
 }
 
+/// <summary>
+/// 角色表格中的一行。
+/// </summary>
 public sealed class RoleRow
 {
     public required string Name { get; init; }
     public required string Permissions { get; init; }
 }
 
-/// <summary>系统管理：用户/角色只读列表（第一版；写管理后续扩展）。</summary>
-public sealed class SystemManagementViewModel : PageViewModel
+/// <summary>
+/// 系统管理页面：只读展示用户与角色列表（第一版；写管理后续扩展）。
+/// </summary>
+public sealed partial class SystemManagementViewModel : PageViewModel
 {
     private readonly ShellServices _services;
     private readonly UserContext _actor;
@@ -29,16 +38,24 @@ public sealed class SystemManagementViewModel : PageViewModel
     {
         _services = services;
         _actor = actor;
-        LoadCommand = new RelayCommand(() => LoadAsync());
     }
 
     public override string Title => "系统管理";
 
+    /// <summary>
+    /// 页面展示的用户列表。
+    /// </summary>
     public ObservableCollection<UserRow> Users { get; } = new();
+
+    /// <summary>
+    /// 页面展示的角色列表。
+    /// </summary>
     public ObservableCollection<RoleRow> Roles { get; } = new();
 
-    public RelayCommand LoadCommand { get; }
-
+    /// <summary>
+    /// 页面加载命令：读取用户与角色并刷新两个列表。
+    /// </summary>
+    [RelayCommand]
     public override async Task LoadAsync(CancellationToken ct = default)
     {
         IsBusy = true;

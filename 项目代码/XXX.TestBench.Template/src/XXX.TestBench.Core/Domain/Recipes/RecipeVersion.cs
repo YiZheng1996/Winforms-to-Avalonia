@@ -2,7 +2,9 @@ using XXX.TestBench.Core.Common;
 
 namespace XXX.TestBench.Core.Domain.Recipes;
 
-/// <summary>某产品型号的一版配方。Published 一经使用不可原地修改。</summary>
+/// <summary>
+/// 某产品型号的一版配方。Published 一经使用不可原地修改。
+/// </summary>
 public sealed class RecipeVersion
 {
     public int Id { get; set; }
@@ -34,7 +36,9 @@ public sealed class RecipeVersion
         RetiredAtUtc = utcNow;
     }
 
-    /// <summary>复制为新草稿版本（Published 修改必须复制为新版本）。</summary>
+    /// <summary>
+    /// 复制为新草稿版本（Published 修改必须复制为新版本）。
+    /// </summary>
     public RecipeVersion CreateNewVersion(int newVersion, int userId, DateTime utcNow) => new()
     {
         ProductModelId = ProductModelId,

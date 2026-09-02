@@ -6,13 +6,12 @@ using XXX.TestBench.Core.Ports;
 namespace XXX.TestBench.Core.Application;
 
 /// <summary>
-/// 报表生成：从已保存的 TestRecord/TestItemResult/配方快照生成报表数据并调用 IReportGenerator。
-/// Excel 不参与任务、配方或运行参数输入；生成失败不回滚试验记录，可重试。
+/// 报表生成：从已保存的 TestRecord/TestItemResult/参数快照生成报表数据并调用 IReportGenerator。
+/// Excel 不参与任务或运行参数输入；生成失败不回滚试验记录，可重试。
 /// </summary>
 public sealed class ReportService
 {
     private readonly ITaskRepository _tasks;
-    private readonly IRecipeRepository _recipes;
     private readonly IProductRepository _products;
     private readonly ITestDefinitionRepository _definitions;
     private readonly IUserRepository _users;
@@ -21,12 +20,11 @@ public sealed class ReportService
     private readonly IClock _clock;
     private readonly IAuditLog _audit;
 
-    public ReportService(ITaskRepository tasks, IRecipeRepository recipes, IProductRepository products,
+    public ReportService(ITaskRepository tasks, IProductRepository products,
         ITestDefinitionRepository definitions, IUserRepository users, IReportRepository reports,
         IReportGenerator generator, IClock clock, IAuditLog audit)
     {
         _tasks = tasks;
-        _recipes = recipes;
         _products = products;
         _definitions = definitions;
         _users = users;
@@ -43,7 +41,6 @@ public sealed class ReportService
         if (record.State != Domain.Tasks.RecordState.Completed)
             throw new DomainException("只有已完成的试验记录可以生成报表");
         var task = await _tasks.GetAsync(record.TaskId, ct) ?? throw new DomainException("任务不存在");
-        var recipe = await _recipes.GetAsync(record.RecipeVersionId, ct) ?? throw new DomainException("配方不存在");
         var model = await _products.GetModelAsync(task.ProductModelId, ct);
         var operatorUser = await _users.GetByIdAsync(record.OperatorUserId, ct);
         var results = await _tasks.ListItemResultsAsync(recordId, ct);
@@ -61,7 +58,7 @@ public sealed class ReportService
             task.TaskNumber,
             task.ProductIdentity.ProductNumber ?? string.Empty,
             model?.Code ?? string.Empty,
-            recipe.Version.ToString(),
+            record.ParameterSnapshot is null ? "未固化" : "固定流程",
             record.DeviceMode.ToString(),
             operatorUser?.DisplayName ?? record.OperatorUserId.ToString(),
             record.StartedAtUtc,

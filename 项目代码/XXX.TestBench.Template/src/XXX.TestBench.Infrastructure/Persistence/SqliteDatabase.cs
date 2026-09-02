@@ -1,13 +1,15 @@
-using Microsoft.Data.Sqlite;
+using System.Data.Common;
 using XXX.TestBench.Core.Domain.Identity;
 using XXX.TestBench.Core.Ports;
 
 namespace XXX.TestBench.Infrastructure.Persistence;
 
-/// <summary>SQLite 数据库初始化：完整性检查、正式业务 schema、种子数据。不迁移旧 management_records JSON 表。</summary>
+/// <summary>
+/// FreeSql SQLite database initializer: integrity check, versioned schema and seed data.
+/// </summary>
 public sealed class SqliteDatabase
 {
-    public const int CurrentSchemaVersion = 1;
+    public const int CurrentSchemaVersion = 2;
 
     private readonly ISqliteConnectionFactory _factory;
     private readonly IPasswordHasher _hasher;
@@ -20,37 +22,32 @@ public sealed class SqliteDatabase
 
     public async Task InitializeAsync(CancellationToken ct = default)
     {
-        await using var conn = _factory.Open();
-        await using (var cmd = conn.CreateCommand())
-        {
-            cmd.CommandText = "PRAGMA integrity_check";
-            var result = (string)(await cmd.ExecuteScalarAsync(ct))!;
-            if (!string.Equals(result, "ok", StringComparison.OrdinalIgnoreCase))
-                throw new InvalidOperationException($"SQLite 完整性检查失败：{result}");
-        }
+        await using var lease = await _factory.OpenLeaseAsync(ct);
+        var conn = lease.Connection;
+        var db = _factory.Db;
 
-        // 版本化迁移：按 PRAGMA user_version 依次应用未执行的迁移（当前 v1；后续新增版本追加到 Migrations）
-        await using (var cmd = conn.CreateCommand())
+        var integrity = Convert.ToString(
+            await db.Ado.ExecuteScalarAsync(conn, null, "PRAGMA integrity_check", new { }, ct));
+        if (!string.Equals(integrity, "ok", StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException($"SQLite 完整性检查失败：{integrity}");
+
+        var currentVersion = Convert.ToInt32(
+            await db.Ado.ExecuteScalarAsync(conn, null, "PRAGMA user_version", new { }, ct));
+        foreach (var (version, statements) in Migrations.Where(m => m.Version > currentVersion).OrderBy(m => m.Version))
         {
-            cmd.CommandText = "PRAGMA user_version";
-            var currentVersion = Convert.ToInt32(await cmd.ExecuteScalarAsync(ct));
-            foreach (var (version, statements) in Migrations.Where(m => m.Version > currentVersion).OrderBy(m => m.Version))
+            await using var txn = await conn.BeginTransactionAsync(ct);
+            try
             {
-                await using var txn = conn.BeginTransaction();
                 foreach (var statement in statements)
-                {
-                    await using var scmd = conn.CreateCommand();
-                    scmd.Transaction = txn;
-                    scmd.CommandText = statement;
-                    await scmd.ExecuteNonQueryAsync(ct);
-                }
-                await using (var ucmd = conn.CreateCommand())
-                {
-                    ucmd.Transaction = txn;
-                    ucmd.CommandText = $"PRAGMA user_version = {version}";
-                    await ucmd.ExecuteNonQueryAsync(ct);
-                }
+                    await db.Ado.ExecuteNonQueryAsync(conn, txn, statement, new { }, ct);
+
+                await db.Ado.ExecuteNonQueryAsync(conn, txn, $"PRAGMA user_version = {version}", new { }, ct);
                 await txn.CommitAsync(ct);
+            }
+            catch
+            {
+                await txn.RollbackAsync(ct);
+                throw;
             }
         }
 
@@ -59,45 +56,43 @@ public sealed class SqliteDatabase
 
     private async Task SeedAsync(CancellationToken ct)
     {
-        await using var conn = _factory.Open();
-        await using var txn = conn.BeginTransaction();
+        await using var lease = await _factory.OpenLeaseAsync(ct);
+        var conn = lease.Connection;
+        var db = _factory.Db;
+        await using var txn = await conn.BeginTransactionAsync(ct);
         try
         {
-            await using (var cmd = conn.CreateCommand())
+            var roleCount = Convert.ToInt64(
+                await db.Ado.ExecuteScalarAsync(conn, txn, "SELECT COUNT(1) FROM roles", new { }, ct));
+            if (roleCount == 0)
             {
-                cmd.Transaction = txn;
-                cmd.CommandText = "SELECT COUNT(1) FROM roles";
-                if ((long)(await cmd.ExecuteScalarAsync(ct))! > 0) { await txn.CommitAsync(ct); return; }
-            }
+                var all = Enum.GetValues<PermissionCode>();
+                await InsertRoleAsync(conn, txn, "Administrator", all, ct);
+                await InsertRoleAsync(conn, txn, "Operator", new[]
+                {
+                    PermissionCode.ViewOverview, PermissionCode.ManageTasks, PermissionCode.ExecuteTests,
+                    PermissionCode.ViewRecords, PermissionCode.ViewLogs
+                }, ct);
+                await InsertRoleAsync(conn, txn, "Maintenance", new[]
+                {
+                    PermissionCode.ViewOverview, PermissionCode.ManualControl, PermissionCode.ManageDevices,
+                    PermissionCode.CalibrateDevices, PermissionCode.ViewRecords, PermissionCode.ViewLogs
+                }, ct);
 
-            var all = Enum.GetValues<PermissionCode>();
-            await InsertRoleAsync(conn, txn, "Administrator", all, ct);
-            await InsertRoleAsync(conn, txn, "Operator", new[]
-            {
-                PermissionCode.ViewOverview, PermissionCode.ManageTasks, PermissionCode.ExecuteTests,
-                PermissionCode.ViewRecords, PermissionCode.ViewLogs
-            }, ct);
-            await InsertRoleAsync(conn, txn, "Maintenance", new[]
-            {
-                PermissionCode.ViewOverview, PermissionCode.ManualControl, PermissionCode.ManageDevices,
-                PermissionCode.CalibrateDevices, PermissionCode.ViewRecords, PermissionCode.ViewLogs
-            }, ct);
-
-            // 初始管理员：admin / admin123，首次登录强制改密
-            await using (var cmd = conn.CreateCommand())
-            {
-                cmd.Transaction = txn;
-                cmd.CommandText = "SELECT id FROM roles WHERE name='Administrator'";
-                var roleId = Convert.ToInt32(await cmd.ExecuteScalarAsync(ct));
-                cmd.CommandText = """
+                var roleId = Convert.ToInt32(await db.Ado.ExecuteScalarAsync(
+                    conn, txn, "SELECT id FROM roles WHERE name='Administrator'", new { }, ct));
+                await db.Ado.ExecuteNonQueryAsync(conn, txn, """
                     INSERT INTO users (login_name, display_name, password_hash, must_change_password, is_enabled, failed_login_count, locked_until_utc, role_id, created_at_utc)
-                    VALUES ('admin', '管理员', $hash, 1, 1, 0, NULL, $role, $now)
-                    """;
-                cmd.Parameters.AddWithValue("$hash", _hasher.Hash("admin123"));
-                cmd.Parameters.AddWithValue("$role", roleId);
-                cmd.Parameters.AddWithValue("$now", DateTime.UtcNow.ToString("O"));
-                await cmd.ExecuteNonQueryAsync(ct);
+                    VALUES ('admin', '管理员', @hash, 1, 1, 0, NULL, @role, @now)
+                    """, new
+                {
+                    hash = _hasher.Hash("admin123"),
+                    role = roleId,
+                    now = DateTime.UtcNow.ToString("O")
+                }, ct);
             }
+
+            await EnsureBuiltInDefinitionsAsync(conn, txn, ct);
             await txn.CommitAsync(ct);
         }
         catch
@@ -107,36 +102,55 @@ public sealed class SqliteDatabase
         }
     }
 
-    private static async Task InsertRoleAsync(SqliteConnection conn, SqliteTransaction txn, string name, IEnumerable<PermissionCode> permissions, CancellationToken ct)
+    /// <summary>
+    /// 按代码把固定试验项序列种子化到试验项定义表（幂等）；模板执行流程由代码固定。
+    /// </summary>
+    private async Task EnsureBuiltInDefinitionsAsync(
+        DbConnection conn,
+        DbTransaction txn,
+        CancellationToken ct)
     {
-        await using var cmd = conn.CreateCommand();
-        cmd.Transaction = txn;
-        cmd.CommandText = "INSERT INTO roles (name) VALUES ($name)";
-        cmd.Parameters.AddWithValue("$name", name);
-        await cmd.ExecuteNonQueryAsync(ct);
-        var roleId = (int)(long)(await LastIdAsync(conn, txn, ct));
-        foreach (var p in permissions)
+        var db = _factory.Db;
+        foreach (var item in XXX.TestBench.Core.Domain.TestDefinitions.BuiltInTestSequence.Items)
         {
-            await using var pcmd = conn.CreateCommand();
-            pcmd.Transaction = txn;
-            pcmd.CommandText = "INSERT INTO role_permissions (role_id, permission_code) VALUES ($role, $perm)";
-            pcmd.Parameters.AddWithValue("$role", roleId);
-            pcmd.Parameters.AddWithValue("$perm", (int)p);
-            await pcmd.ExecuteNonQueryAsync(ct);
+            await db.Ado.ExecuteNonQueryAsync(conn, txn, """
+                INSERT INTO test_item_definitions (code, name, executor_code, result_kind, is_enabled, sort_order, created_at_utc)
+                SELECT @code, @name, @executor, @resultKind, 1, @sortOrder, @now
+                WHERE NOT EXISTS (SELECT 1 FROM test_item_definitions WHERE code = @code)
+                """, new
+            {
+                code = item.Code,
+                name = item.Name,
+                executor = item.ExecutorCode,
+                resultKind = item.ResultKind,
+                sortOrder = item.SortOrder,
+                now = DateTime.UtcNow.ToString("O")
+            }, ct);
         }
     }
-
-    private static async Task<long> LastIdAsync(SqliteConnection conn, SqliteTransaction txn, CancellationToken ct)
+    private async Task InsertRoleAsync(
+        DbConnection conn,
+        DbTransaction txn,
+        string name,
+        IEnumerable<PermissionCode> permissions,
+        CancellationToken ct)
     {
-        await using var cmd = conn.CreateCommand();
-        cmd.Transaction = txn;
-        cmd.CommandText = "SELECT last_insert_rowid()";
-        return (long)(await cmd.ExecuteScalarAsync(ct))!;
+        var db = _factory.Db;
+        await db.Ado.ExecuteNonQueryAsync(
+            conn, txn, "INSERT INTO roles (name) VALUES (@name)", new { name }, ct);
+        var roleId = Convert.ToInt32(await db.Ado.ExecuteScalarAsync(
+            conn, txn, "SELECT last_insert_rowid()", new { }, ct));
+
+        foreach (var permission in permissions)
+            await db.Ado.ExecuteNonQueryAsync(
+                conn,
+                txn,
+                "INSERT INTO role_permissions (role_id, permission_code) VALUES (@role, @permission)",
+                new { role = roleId, permission = (int)permission },
+                ct);
     }
 
-    // 属性延迟求值，避免静态字段初始化顺序问题（SchemaStatements 在后面声明）
-    private static (int Version, string[] Statements)[] Migrations =>
-        new[] { (1, SchemaStatements) };
+    private static (int Version, string[] Statements)[] Migrations => new[] { (1, SchemaStatements), (2, Version2Statements) };
 
     private static readonly string[] SchemaStatements =
     {
@@ -346,5 +360,100 @@ public sealed class SqliteDatabase
             created_at_utc TEXT NOT NULL
         )
         """
+    };
+
+    private static readonly string[] Version2Statements =
+    {
+        """
+        CREATE TABLE IF NOT EXISTS project_test_parameters (
+            scope_key TEXT PRIMARY KEY,
+            test_time_seconds INTEGER NOT NULL,
+            updated_by TEXT NOT NULL,
+            updated_at_utc TEXT NOT NULL
+        )
+        """,
+        """
+        CREATE TABLE IF NOT EXISTS product_type_test_parameters (
+            product_type_id INTEGER PRIMARY KEY,
+            test_voltage_v REAL NOT NULL,
+            updated_by TEXT NOT NULL,
+            updated_at_utc TEXT NOT NULL,
+            FOREIGN KEY (product_type_id) REFERENCES product_types(id)
+        )
+        """,
+        """
+        CREATE TABLE IF NOT EXISTS product_model_test_parameters (
+            product_model_id INTEGER PRIMARY KEY,
+            protect_current_ma REAL NOT NULL,
+            updated_by TEXT NOT NULL,
+            updated_at_utc TEXT NOT NULL,
+            FOREIGN KEY (product_model_id) REFERENCES product_models(id)
+        )
+        """,
+        """
+        CREATE TABLE test_tasks_v2 (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            task_number TEXT NOT NULL UNIQUE,
+            product_model_id INTEGER NOT NULL,
+            product_number TEXT NULL,
+            batch_number TEXT NULL,
+            station_number TEXT NULL,
+            remark TEXT NULL,
+            state INTEGER NOT NULL DEFAULT 0,
+            created_by_user_id INTEGER NOT NULL,
+            created_at_utc TEXT NOT NULL,
+            started_at_utc TEXT NULL,
+            finished_at_utc TEXT NULL,
+            FOREIGN KEY (product_model_id) REFERENCES product_models(id),
+            FOREIGN KEY (created_by_user_id) REFERENCES users(id)
+        )
+        """,
+        """
+        INSERT INTO test_tasks_v2 (id, task_number, product_model_id, product_number, batch_number, station_number, remark, state, created_by_user_id, created_at_utc, started_at_utc, finished_at_utc)
+        SELECT id, task_number, product_model_id, product_number, batch_number, station_number, remark, state, created_by_user_id, created_at_utc, started_at_utc, finished_at_utc FROM test_tasks
+        """,
+        "DROP TABLE test_tasks",
+        "ALTER TABLE test_tasks_v2 RENAME TO test_tasks",
+        """
+        CREATE TABLE test_records_v2 (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            task_id INTEGER NOT NULL,
+            parameter_snapshot TEXT NULL,
+            device_mode INTEGER NOT NULL,
+            operator_user_id INTEGER NOT NULL,
+            state INTEGER NOT NULL DEFAULT 0,
+            conclusion TEXT NULL,
+            started_at_utc TEXT NOT NULL,
+            finished_at_utc TEXT NULL,
+            FOREIGN KEY (task_id) REFERENCES test_tasks(id),
+            FOREIGN KEY (operator_user_id) REFERENCES users(id)
+        )
+        """,
+        """
+        INSERT INTO test_records_v2 (id, task_id, parameter_snapshot, device_mode, operator_user_id, state, conclusion, started_at_utc, finished_at_utc)
+        SELECT id, task_id, NULL, device_mode, operator_user_id, state, conclusion, started_at_utc, finished_at_utc FROM test_records
+        """,
+        "DROP TABLE test_records",
+        "ALTER TABLE test_records_v2 RENAME TO test_records",
+        """
+        CREATE TABLE test_item_results_v2 (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            record_id INTEGER NOT NULL,
+            recipe_item_id INTEGER NULL,
+            test_item_definition_id INTEGER NOT NULL,
+            state INTEGER NOT NULL DEFAULT 0,
+            summary_value TEXT NULL,
+            result_text TEXT NULL,
+            started_at_utc TEXT NULL,
+            finished_at_utc TEXT NULL,
+            FOREIGN KEY (record_id) REFERENCES test_records(id)
+        )
+        """,
+        """
+        INSERT INTO test_item_results_v2 (id, record_id, recipe_item_id, test_item_definition_id, state, summary_value, result_text, started_at_utc, finished_at_utc)
+        SELECT id, record_id, recipe_item_id, test_item_definition_id, state, summary_value, result_text, started_at_utc, finished_at_utc FROM test_item_results
+        """,
+        "DROP TABLE test_item_results",
+        "ALTER TABLE test_item_results_v2 RENAME TO test_item_results"
     };
 }

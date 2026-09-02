@@ -1,4 +1,3 @@
-using Microsoft.Data.Sqlite;
 using XXX.TestBench.Infrastructure.Identity;
 using XXX.TestBench.Infrastructure.Persistence;
 using Xunit;
@@ -18,28 +17,20 @@ public class SqliteDatabaseTests
         var db = new SqliteDatabase(factory, hasher);
         await db.InitializeAsync();
 
-        await using (var conn = factory.Open())
-        {
-            await using var cmd = conn.CreateCommand();
-            cmd.CommandText = "SELECT COUNT(1) FROM users WHERE login_name='admin'";
-            Assert.Equal(1L, (long)(await cmd.ExecuteScalarAsync())!);
-            cmd.CommandText = "SELECT COUNT(1) FROM roles";
-            Assert.Equal(3L, (long)(await cmd.ExecuteScalarAsync())!);
-            cmd.CommandText = "PRAGMA integrity_check";
-            Assert.Equal("ok", (string)(await cmd.ExecuteScalarAsync())!);
-        }
+        Assert.Equal(1L, Convert.ToInt64(await factory.Db.Ado.ExecuteScalarAsync(
+            "SELECT COUNT(1) FROM users WHERE login_name='admin'", new { }, default)));
+        Assert.Equal(3L, Convert.ToInt64(await factory.Db.Ado.ExecuteScalarAsync(
+            "SELECT COUNT(1) FROM roles", new { }, default)));
+        Assert.Equal("ok", Convert.ToString(await factory.Db.Ado.ExecuteScalarAsync(
+            "PRAGMA integrity_check", new { }, default)));
 
         // 第二次初始化（重启回读）：schema 已存在，种子不重复
         var factory2 = new SqliteConnectionFactory(env.DbPath);
         var db2 = new SqliteDatabase(factory2, hasher);
         await db2.InitializeAsync();
 
-        await using (var conn = factory2.Open())
-        {
-            await using var cmd = conn.CreateCommand();
-            cmd.CommandText = "SELECT COUNT(1) FROM users";
-            Assert.Equal(1L, (long)(await cmd.ExecuteScalarAsync())!);
-        }
+        Assert.Equal(1L, Convert.ToInt64(await factory2.Db.Ado.ExecuteScalarAsync(
+            "SELECT COUNT(1) FROM users", new { }, default)));
     }
 
     [Fact]
@@ -50,13 +41,16 @@ public class SqliteDatabaseTests
         var factory = new SqliteConnectionFactory(env.DbPath);
         await new SqliteDatabase(factory, hasher).InitializeAsync();
 
-        await using var conn = factory.Open();
-        await using var cmd = conn.CreateCommand();
-        cmd.CommandText = "SELECT password_hash, must_change_password FROM users WHERE login_name='admin'";
-        await using var reader = await cmd.ExecuteReaderAsync();
-        Assert.True(await reader.ReadAsync());
-        var hash = reader.GetString(0);
-        Assert.True(hasher.Verify("admin123", hash));
-        Assert.Equal(1, reader.GetInt32(1)); // 首次登录强制改密
+        var row = (await factory.Db.Ado.QueryAsync<AdminSeedRow>(
+            "SELECT password_hash AS PasswordHash, must_change_password AS MustChangePassword FROM users WHERE login_name='admin'",
+            new { }, default)).Single();
+        Assert.True(hasher.Verify("admin123", row.PasswordHash));
+        Assert.Equal(1, row.MustChangePassword); // 首次登录强制改密
+    }
+
+    private sealed class AdminSeedRow
+    {
+        public string PasswordHash { get; set; } = string.Empty;
+        public int MustChangePassword { get; set; }
     }
 }

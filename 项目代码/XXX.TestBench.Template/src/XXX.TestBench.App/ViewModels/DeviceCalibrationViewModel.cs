@@ -1,4 +1,6 @@
 using System.Collections.ObjectModel;
+using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
 using XXX.TestBench.App.Composition;
 using XXX.TestBench.Core.Application;
 using XXX.TestBench.Core.Domain.Devices;
@@ -6,8 +8,10 @@ using XXX.TestBench.Core.Domain.Identity;
 
 namespace XXX.TestBench.App.ViewModels;
 
-/// <summary>设备与校准：设备状态、点位读取；写入走安全链（校准/高风险需权限+确认）。</summary>
-public sealed class DeviceCalibrationViewModel : PageViewModel
+/// <summary>
+/// 设备与校准页面：展示设备状态与点位读取；写入走安全链（校准或高风险需权限加确认）。
+/// </summary>
+public sealed partial class DeviceCalibrationViewModel : PageViewModel
 {
     private readonly ShellServices _services;
     private readonly UserContext _actor;
@@ -16,31 +20,44 @@ public sealed class DeviceCalibrationViewModel : PageViewModel
     {
         _services = services;
         _actor = actor;
-        LoadCommand = new RelayCommand(() => LoadAsync());
-        RefreshCommand = new RelayCommand(RefreshAsync);
-        CalibrateCommand = new RelayCommand(CalibrateSelectedAsync);
     }
 
     public override string Title => "设备与校准";
 
+    /// <summary>
+    /// 页面展示的点位列表。
+    /// </summary>
     public ObservableCollection<PointRow> Points { get; } = new();
 
     private string _deviceStatus = string.Empty;
-    public string DeviceStatus { get => _deviceStatus; private set => SetField(ref _deviceStatus, value); }
 
+    /// <summary>
+    /// 设备当前状态的显示文字。
+    /// </summary>
+    public string DeviceStatus { get => _deviceStatus; private set => SetProperty(ref _deviceStatus, value); }
+
+    /// <summary>
+    /// 当前选中的点位。
+    /// </summary>
+    [ObservableProperty]
     private PointRow? _selectedPoint;
-    public PointRow? SelectedPoint { get => _selectedPoint; set => SetField(ref _selectedPoint, value); }
 
+    /// <summary>
+    /// 操作员输入的要写入点位的值。
+    /// </summary>
+    [ObservableProperty]
     private string _writeValue = string.Empty;
-    public string WriteValue { get => _writeValue; set => SetField(ref _writeValue, value); }
 
+    /// <summary>
+    /// 是否已完成校准写入确认。
+    /// </summary>
+    [ObservableProperty]
     private bool _confirmed;
-    public bool Confirmed { get => _confirmed; set => SetField(ref _confirmed, value); }
 
-    public RelayCommand LoadCommand { get; }
-    public RelayCommand RefreshCommand { get; }
-    public RelayCommand CalibrateCommand { get; }
-
+    /// <summary>
+    /// 页面加载命令：读取设备状态与点位列表并刷新实时值。
+    /// </summary>
+    [RelayCommand]
     public override async Task LoadAsync(CancellationToken ct = default)
     {
         IsBusy = true;
@@ -57,6 +74,10 @@ public sealed class DeviceCalibrationViewModel : PageViewModel
         finally { IsBusy = false; }
     }
 
+    /// <summary>
+    /// 刷新命令：重新读取全部点位的实时值与质量。
+    /// </summary>
+    [RelayCommand]
     public async Task RefreshAsync()
     {
         var runtime = _services.DeviceModes.Runtime;
@@ -72,12 +93,13 @@ public sealed class DeviceCalibrationViewModel : PageViewModel
         }
     }
 
-    public async Task CalibrateSelectedAsync()
-    {
-        await CalibrateAsync(SelectedPoint);
-    }
+    /// <summary>
+    /// 校准命令：把输入值写入当前选中的点位。
+    /// </summary>
+    [RelayCommand]
+    public async Task CalibrateAsync() => await CalibrateSelectedPointAsync(SelectedPoint);
 
-    private async Task CalibrateAsync(PointRow? row)
+    private async Task CalibrateSelectedPointAsync(PointRow? row)
     {
         StatusMessage = string.Empty;
         try

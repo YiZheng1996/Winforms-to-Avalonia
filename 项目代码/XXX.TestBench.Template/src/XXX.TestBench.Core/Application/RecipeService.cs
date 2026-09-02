@@ -6,7 +6,9 @@ namespace XXX.TestBench.Core.Application;
 
 public sealed record RecipeDraftSnapshot(RecipeVersion Version, IReadOnlyList<RecipeItem> Items, IReadOnlyList<RecipeParameterValue> Values);
 
-/// <summary>配方：草稿编辑、校验、发布、复制新版本与停用。发布后不可原地修改。</summary>
+/// <summary>
+/// 配方：草稿编辑、校验、发布、复制新版本与停用。发布后不可原地修改。
+/// </summary>
 public sealed class RecipeService
 {
     private readonly IRecipeRepository _recipes;

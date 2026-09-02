@@ -1,4 +1,3 @@
-using Microsoft.Data.Sqlite;
 using XXX.TestBench.Core.Domain.Identity;
 using XXX.TestBench.Core.Ports;
 
@@ -10,154 +9,115 @@ public sealed class UserRepository : SqliteRepositoryBase, IUserRepository
 
     public async Task<User?> GetByLoginNameAsync(string loginName, CancellationToken ct = default)
     {
-        var conn = OpenConnection();
-        var owns = OwnsConnection;
-        try
-        {
-            await using var cmd = conn.CreateCommand();
-            cmd.CommandText = "SELECT id, login_name, display_name, password_hash, must_change_password, is_enabled, failed_login_count, locked_until_utc, role_id, created_at_utc FROM users WHERE login_name = $name";
-            cmd.Parameters.AddWithValue("$name", loginName);
-            await using var reader = await cmd.ExecuteReaderAsync(ct);
-            return await reader.ReadAsync(ct) ? Map(reader) : null;
-        }
-        finally { if (owns) await conn.DisposeAsync(); }
+        var row = await QuerySingleAsync<UserRow>(UserSelect + " WHERE login_name=@loginName", new { loginName }, ct);
+        return row is null ? null : Map(row);
     }
 
     public async Task<User?> GetByIdAsync(int id, CancellationToken ct = default)
     {
-        var conn = OpenConnection();
-        var owns = OwnsConnection;
-        try
-        {
-            await using var cmd = conn.CreateCommand();
-            cmd.CommandText = "SELECT id, login_name, display_name, password_hash, must_change_password, is_enabled, failed_login_count, locked_until_utc, role_id, created_at_utc FROM users WHERE id = $id";
-            cmd.Parameters.AddWithValue("$id", id);
-            await using var reader = await cmd.ExecuteReaderAsync(ct);
-            return await reader.ReadAsync(ct) ? Map(reader) : null;
-        }
-        finally { if (owns) await conn.DisposeAsync(); }
+        var row = await QuerySingleAsync<UserRow>(UserSelect + " WHERE id=@id", new { id }, ct);
+        return row is null ? null : Map(row);
     }
 
     public async Task<Role?> GetRoleAsync(int roleId, CancellationToken ct = default)
     {
-        var conn = OpenConnection();
-        var owns = OwnsConnection;
-        try
-        {
-            await using var cmd = conn.CreateCommand();
-            cmd.CommandText = "SELECT id, name FROM roles WHERE id = $id";
-            cmd.Parameters.AddWithValue("$id", roleId);
-            await using var reader = await cmd.ExecuteReaderAsync(ct);
-            if (!await reader.ReadAsync(ct)) return null;
-            var role = new Role { Id = roleId, Name = reader.GetString(1) };
-            await using var permCmd = conn.CreateCommand();
-            permCmd.CommandText = "SELECT permission_code FROM role_permissions WHERE role_id = $id";
-            permCmd.Parameters.AddWithValue("$id", roleId);
-            await using var permReader = await permCmd.ExecuteReaderAsync(ct);
-            while (await permReader.ReadAsync(ct)) role.Permissions.Add((PermissionCode)permReader.GetInt32(0));
-            return role;
-        }
-        finally { if (owns) await conn.DisposeAsync(); }
+        var role = await QuerySingleAsync<RoleRow>(
+            "SELECT id AS Id, name AS Name FROM roles WHERE id=@roleId", new { roleId }, ct);
+        if (role is null) return null;
+
+        var permissions = await QueryAsync<PermissionRow>(
+            "SELECT permission_code AS PermissionCode FROM role_permissions WHERE role_id=@roleId",
+            new { roleId }, ct);
+        var result = new Role { Id = role.Id, Name = role.Name };
+        foreach (var permission in permissions)
+            result.Permissions.Add((PermissionCode)permission.PermissionCode);
+        return result;
     }
 
     public async Task AddAsync(User user, CancellationToken ct = default)
     {
-        var conn = OpenConnection();
-        var owns = OwnsConnection;
-        try
+        var id = await ExecuteInsertAndGetIdAsync("""
+            INSERT INTO users (login_name, display_name, password_hash, must_change_password, is_enabled, failed_login_count, locked_until_utc, role_id, created_at_utc)
+            VALUES (@loginName, @displayName, @passwordHash, @mustChangePassword, @isEnabled, @failedLoginCount, @lockedUntilUtc, @roleId, @createdAtUtc)
+            """, new
         {
-            await using var cmd = conn.CreateCommand();
-            cmd.CommandText = """
-                INSERT INTO users (login_name, display_name, password_hash, must_change_password, is_enabled, failed_login_count, locked_until_utc, role_id, created_at_utc)
-                VALUES ($login, $display, $hash, $must, $enabled, $failed, $locked, $role, $created)
-                """;
-            cmd.Parameters.AddWithValue("$login", user.LoginName);
-            cmd.Parameters.AddWithValue("$display", user.DisplayName);
-            cmd.Parameters.AddWithValue("$hash", user.PasswordHash);
-            cmd.Parameters.AddWithValue("$must", user.MustChangePassword ? 1 : 0);
-            cmd.Parameters.AddWithValue("$enabled", user.IsEnabled ? 1 : 0);
-            cmd.Parameters.AddWithValue("$failed", user.FailedLoginCount);
-            cmd.Parameters.AddWithValue("$locked", (object?)user.LockedUntilUtc?.ToString("O") ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("$role", user.RoleId);
-            cmd.Parameters.AddWithValue("$created", user.CreatedAtUtc.ToString("O"));
-            await cmd.ExecuteNonQueryAsync(ct);
-            user.Id = (int)(long)(await LastInsertRowIdAsync(conn, ct));
-        }
-        finally { if (owns) await conn.DisposeAsync(); }
+            loginName = user.LoginName,
+            displayName = user.DisplayName,
+            passwordHash = user.PasswordHash,
+            mustChangePassword = user.MustChangePassword ? 1 : 0,
+            isEnabled = user.IsEnabled ? 1 : 0,
+            failedLoginCount = user.FailedLoginCount,
+            lockedUntilUtc = DbValue(user.LockedUntilUtc?.ToString("O")),
+            roleId = user.RoleId,
+            createdAtUtc = user.CreatedAtUtc.ToString("O")
+        }, ct);
+        user.Id = (int)id;
     }
 
-    public async Task UpdateAsync(User user, CancellationToken ct = default)
+    public Task UpdateAsync(User user, CancellationToken ct = default) => ExecuteAsync("""
+        UPDATE users SET display_name=@displayName, password_hash=@passwordHash, must_change_password=@mustChangePassword, is_enabled=@isEnabled,
+        failed_login_count=@failedLoginCount, locked_until_utc=@lockedUntilUtc WHERE id=@id
+        """, new
     {
-        var conn = OpenConnection();
-        var owns = OwnsConnection;
-        try
-        {
-            await using var cmd = conn.CreateCommand();
-            cmd.CommandText = """
-                UPDATE users SET display_name=$display, password_hash=$hash, must_change_password=$must, is_enabled=$enabled,
-                failed_login_count=$failed, locked_until_utc=$locked WHERE id=$id
-                """;
-            cmd.Parameters.AddWithValue("$display", user.DisplayName);
-            cmd.Parameters.AddWithValue("$hash", user.PasswordHash);
-            cmd.Parameters.AddWithValue("$must", user.MustChangePassword ? 1 : 0);
-            cmd.Parameters.AddWithValue("$enabled", user.IsEnabled ? 1 : 0);
-            cmd.Parameters.AddWithValue("$failed", user.FailedLoginCount);
-            cmd.Parameters.AddWithValue("$locked", (object?)user.LockedUntilUtc?.ToString("O") ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("$id", user.Id);
-            await cmd.ExecuteNonQueryAsync(ct);
-        }
-        finally { if (owns) await conn.DisposeAsync(); }
-    }
+        displayName = user.DisplayName,
+        passwordHash = user.PasswordHash,
+        mustChangePassword = user.MustChangePassword ? 1 : 0,
+        isEnabled = user.IsEnabled ? 1 : 0,
+        failedLoginCount = user.FailedLoginCount,
+        lockedUntilUtc = DbValue(user.LockedUntilUtc?.ToString("O")),
+        id = user.Id
+    }, ct);
 
     public async Task<IReadOnlyList<User>> ListUsersAsync(CancellationToken ct = default)
     {
-        var result = new List<User>();
-        var conn = OpenConnection();
-        var owns = OwnsConnection;
-        try
-        {
-            await using var cmd = conn.CreateCommand();
-            cmd.CommandText = "SELECT id, login_name, display_name, password_hash, must_change_password, is_enabled, failed_login_count, locked_until_utc, role_id, created_at_utc FROM users ORDER BY login_name";
-            await using var reader = await cmd.ExecuteReaderAsync(ct);
-            while (await reader.ReadAsync(ct)) result.Add(Map(reader));
-            return result;
-        }
-        finally { if (owns) await conn.DisposeAsync(); }
+        var rows = await QueryAsync<UserRow>(UserSelect + " ORDER BY login_name", null, ct);
+        return rows.Select(Map).ToList();
     }
 
     public async Task<IReadOnlyList<Role>> ListRolesAsync(CancellationToken ct = default)
     {
-        var result = new List<Role>();
-        var conn = OpenConnection();
-        var owns = OwnsConnection;
-        try
-        {
-            await using var cmd = conn.CreateCommand();
-            cmd.CommandText = "SELECT id, name FROM roles ORDER BY id";
-            await using var reader = await cmd.ExecuteReaderAsync(ct);
-            while (await reader.ReadAsync(ct)) result.Add(new Role { Id = reader.GetInt32(0), Name = reader.GetString(1) });
-            return result;
-        }
-        finally { if (owns) await conn.DisposeAsync(); }
+        var rows = await QueryAsync<RoleRow>("SELECT id AS Id, name AS Name FROM roles ORDER BY id", null, ct);
+        return rows.Select(row => new Role { Id = row.Id, Name = row.Name }).ToList();
     }
-    private static User Map(SqliteDataReader reader) => new()
+
+    private static User Map(UserRow row) => new()
     {
-        Id = reader.GetInt32(0),
-        LoginName = reader.GetString(1),
-        DisplayName = reader.GetString(2),
-        PasswordHash = reader.GetString(3),
-        MustChangePassword = reader.GetInt32(4) != 0,
-        IsEnabled = reader.GetInt32(5) != 0,
-        FailedLoginCount = reader.GetInt32(6),
-        LockedUntilUtc = ParseNullableUtc(reader.GetValue(7)),
-        RoleId = reader.GetInt32(8),
-        CreatedAtUtc = ParseUtc(reader.GetString(9))
+        Id = row.Id,
+        LoginName = row.LoginName,
+        DisplayName = row.DisplayName,
+        PasswordHash = row.PasswordHash,
+        MustChangePassword = row.MustChangePassword != 0,
+        IsEnabled = row.IsEnabled != 0,
+        FailedLoginCount = row.FailedLoginCount,
+        LockedUntilUtc = ParseNullableUtc(row.LockedUntilUtc),
+        RoleId = row.RoleId,
+        CreatedAtUtc = ParseUtc(row.CreatedAtUtc)
     };
 
-    internal static async Task<long> LastInsertRowIdAsync(SqliteConnection conn, CancellationToken ct)
+    private const string UserSelect = "SELECT id AS Id, login_name AS LoginName, display_name AS DisplayName, password_hash AS PasswordHash, must_change_password AS MustChangePassword, is_enabled AS IsEnabled, failed_login_count AS FailedLoginCount, locked_until_utc AS LockedUntilUtc, role_id AS RoleId, created_at_utc AS CreatedAtUtc FROM users";
+
+    private sealed class UserRow
     {
-        await using var cmd = conn.CreateCommand();
-        cmd.CommandText = "SELECT last_insert_rowid()";
-        return (long)(await cmd.ExecuteScalarAsync(ct))!;
+        public int Id { get; set; }
+        public string LoginName { get; set; } = string.Empty;
+        public string DisplayName { get; set; } = string.Empty;
+        public string PasswordHash { get; set; } = string.Empty;
+        public int MustChangePassword { get; set; }
+        public int IsEnabled { get; set; }
+        public int FailedLoginCount { get; set; }
+        public string? LockedUntilUtc { get; set; }
+        public int RoleId { get; set; }
+        public string CreatedAtUtc { get; set; } = string.Empty;
+    }
+
+    private sealed class RoleRow
+    {
+        public int Id { get; set; }
+        public string Name { get; set; } = string.Empty;
+    }
+
+    private sealed class PermissionRow
+    {
+        public int PermissionCode { get; set; }
     }
 }

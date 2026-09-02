@@ -1,10 +1,6 @@
 namespace XXX.TestBench.Infrastructure.Persistence;
 
-public sealed class SqliteUnitOfWorkFactory : Core.Ports.IUnitOfWorkFactory
+public sealed class SqliteUnitOfWorkFactory(ISqliteConnectionFactory factory) : Core.Ports.IUnitOfWorkFactory
 {
-    private readonly ISqliteConnectionFactory _factory;
-
-    public SqliteUnitOfWorkFactory(ISqliteConnectionFactory factory) => _factory = factory;
-
-    public Core.Ports.IUnitOfWork Create() => new SqliteUnitOfWork(_factory);
+    public Core.Ports.IUnitOfWork Create() => new SqliteUnitOfWork(factory);
 }
