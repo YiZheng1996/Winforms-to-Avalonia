@@ -91,12 +91,16 @@ public class AuthenticationServiceTests
     }
 
     [Fact]
-    public async Task ChangePassword_WeakPassword_IsRejected()
+    public async Task ChangePassword_AnyLength_IsAccepted_EmptyRejected()
     {
         var (service, users, _, _, _) = Create();
         await users.AddAsync(new User { Id = 1, LoginName = "admin", DisplayName = "管理员", PasswordHash = "H:admin123", MustChangePassword = true, RoleId = 1, CreatedAtUtc = DateTime.UtcNow });
 
-        await Assert.ThrowsAsync<DomainException>(() => service.ChangePasswordAsync(1, "admin123", "abcdefgh")); // 无数字
-        await Assert.ThrowsAsync<DomainException>(() => service.ChangePasswordAsync(1, "admin123", "12345678")); // 无字母
+        await service.ChangePasswordAsync(1, "admin123", "a"); // 1 位字母
+        Assert.False((await users.GetByIdAsync(1))!.MustChangePassword);
+        await service.ChangePasswordAsync(1, "a", "1");        // 1 位纯数字
+        await service.ChangePasswordAsync(1, "1", "ab1");      // 任意组合
+
+        await Assert.ThrowsAsync<DomainException>(() => service.ChangePasswordAsync(1, "ab1", "   ")); // 空白仍拒绝
     }
 }

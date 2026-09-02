@@ -76,8 +76,8 @@ public sealed class AuthenticationService
         var user = await _users.GetByIdAsync(userId, ct) ?? throw new DomainException("用户不存在");
         if (!_hasher.Verify(oldPassword, user.PasswordHash))
             throw new DomainException("原密码错误");
-        if (string.IsNullOrWhiteSpace(newPassword) || newPassword.Length < 8 || !newPassword.Any(char.IsLetter) || !newPassword.Any(char.IsDigit))
-            throw new DomainException("新密码至少 8 位，且必须包含字母和数字");
+        if (string.IsNullOrWhiteSpace(newPassword))
+            throw new DomainException("新密码不能为空");
         if (newPassword == oldPassword)
             throw new DomainException("新密码不能与原密码相同");
 
