@@ -5,13 +5,13 @@ using XXX.TestBench.App.ViewModels;
 
 namespace XXX.TestBench.App.Views;
 
-public partial class RecipeCenterView : UserControl
+public partial class ParameterManagementView : UserControl
 {
-    public RecipeCenterView() => InitializeComponent();
+    public ParameterManagementView() => InitializeComponent();
 
     private async void OnAddTypeClick(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is not RecipeCenterViewModel viewModel || GetOwner() is not { } owner)
+        if (DataContext is not ParameterManagementViewModel viewModel || GetOwner() is not { } owner)
             return;
 
         try
@@ -32,7 +32,7 @@ public partial class RecipeCenterView : UserControl
 
     private async void OnAddModelClick(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is not RecipeCenterViewModel viewModel || GetOwner() is not { } owner)
+        if (DataContext is not ParameterManagementViewModel viewModel || GetOwner() is not { } owner)
             return;
 
         try
@@ -58,7 +58,7 @@ public partial class RecipeCenterView : UserControl
     private static async Task<TResult?> ShowDialogAsync<TResult>(Window owner, Window dialog)
     {
         if (owner is not MainWindow mainWindow)
-            throw new InvalidOperationException("RecipeCenterView 必须由 MainWindow 承载，才能显示弹窗遮罩。");
+            throw new InvalidOperationException("ParameterManagementView 必须由 MainWindow 承载，才能显示弹窗遮罩。");
 
         return await mainWindow.ShowDialogWithOverlayAsync<TResult>(dialog);
     }

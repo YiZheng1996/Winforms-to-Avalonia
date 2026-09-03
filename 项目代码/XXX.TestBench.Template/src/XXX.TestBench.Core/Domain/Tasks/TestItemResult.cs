@@ -9,7 +9,6 @@ public sealed class TestItemResult
 {
     public int Id { get; set; }
     public int RecordId { get; init; }
-    public int? RecipeItemId { get; init; }
     public int TestItemDefinitionId { get; init; }
     public ItemResultState State { get; internal set; } = ItemResultState.Pending;
     public string? SummaryValue { get; set; }

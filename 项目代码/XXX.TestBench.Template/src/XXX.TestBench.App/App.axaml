@@ -83,7 +83,7 @@
     <DataTemplate DataType="{x:Type vm:OverviewViewModel}"><views:OverviewView /></DataTemplate>
     <DataTemplate DataType="{x:Type vm:TaskManagementViewModel}"><views:TaskManagementView /></DataTemplate>
     <DataTemplate DataType="{x:Type vm:TestExecutionViewModel}"><views:TestExecutionView /></DataTemplate>
-    <DataTemplate DataType="{x:Type vm:RecipeCenterViewModel}"><views:RecipeCenterView /></DataTemplate>
+    <DataTemplate DataType="{x:Type vm:ParameterManagementViewModel}"><views:ParameterManagementView /></DataTemplate>
     <DataTemplate DataType="{x:Type vm:DataReportsViewModel}"><views:DataReportsView /></DataTemplate>
     <DataTemplate DataType="{x:Type vm:ProcessMonitorViewModel}"><views:ProcessMonitorView /></DataTemplate>
     <DataTemplate DataType="{x:Type vm:DeviceCalibrationViewModel}"><views:DeviceCalibrationView /></DataTemplate>

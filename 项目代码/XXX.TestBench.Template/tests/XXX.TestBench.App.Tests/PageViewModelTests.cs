@@ -80,10 +80,10 @@ public class PageViewModelTests
     }
 
     [Fact]
-    public async Task RecipeCenter_CreatesTypeAndSavesFixedParameters()
+    public async Task ParameterManagement_CreatesTypeAndSavesFixedParameters()
     {
         var (harness, actor) = await AdminAsync();
-        var vm = new RecipeCenterViewModel(harness.Services, actor);
+        var vm = new ParameterManagementViewModel(harness.Services, actor);
         await vm.LoadAsync();
         Assert.Empty(vm.Types);
 
@@ -110,37 +110,5 @@ public class PageViewModelTests
         vm.ProtectCurrentInput = "100";
         await vm.SaveModelParameterCommand.ExecuteAsync(null);
         Assert.Equal(100.0, (await harness.Services.TestParameterRepository.GetModelAsync(model.Id))!.ProtectCurrentMa);
-    }
-
-    [Fact]
-    public void RecipeDialogViewModels_ValidateParameterRangeAndEnumValues()
-    {
-        var item = new XXX.TestBench.Core.Domain.TestDefinitions.TestItemDefinition
-        {
-            Id = 7,
-            Code = "PRESSURE",
-            Name = "耐压试验",
-            ExecutorCode = "PressureExecutor",
-            ResultKind = "PassFail"
-        };
-        var vm = new ParameterDefinitionDialogViewModel([item])
-        {
-            SelectedItem = item,
-            Code = "Voltage",
-            Name = "试验电压",
-            MinValue = "10",
-            MaxValue = "1"
-        };
-
-        Assert.False(vm.TryBuildResult(out _));
-
-        vm.MaxValue = "50";
-        Assert.True(vm.TryBuildResult(out var decimalResult));
-        Assert.Equal(XXX.TestBench.Core.Domain.TestDefinitions.ParameterDataType.Decimal, decimalResult.DataType);
-
-        vm.SelectedDataType = vm.DataTypeOptions.Single(option => option.Value == XXX.TestBench.Core.Domain.TestDefinitions.ParameterDataType.Enum);
-        vm.AllowedValues = "自动,手动";
-        Assert.True(vm.TryBuildResult(out var enumResult));
-        Assert.Equal(new[] { "自动", "手动" }, enumResult.AllowedValues);
     }
 }

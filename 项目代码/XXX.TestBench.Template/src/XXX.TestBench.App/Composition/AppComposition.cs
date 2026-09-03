@@ -66,7 +66,6 @@ public sealed class AppComposition
             var productRepo = new ProductRepository(factory);
             var definitionRepo = new TestDefinitionRepository(factory);
             var testParameterRepo = new TestParameterRepository(factory);
-            var recipeRepo = new RecipeRepository(factory);
             var taskRepo = new TaskRepository(factory);
             var audit = new SqliteAuditLog(factory);
             var sessions = new InMemorySessionManager();
@@ -74,7 +73,6 @@ public sealed class AppComposition
 
             Authentication = new AuthenticationService(userRepo, hasher, sessions, clock, audit);
             var uowFactory = new SqliteUnitOfWorkFactory(factory);
-            var recipes = new RecipeService(recipeRepo, productRepo, definitionRepo, clock, audit, uowFactory);
             var testParameters = new TestParameterService(testParameterRepo, productRepo, clock, audit);
             var tasks = new TaskService(taskRepo, productRepo, clock, audit, uowFactory);
             var writePipeline = new DeviceWritePipeline(audit, Logger);
@@ -91,15 +89,12 @@ public sealed class AppComposition
                 Authentication,
                 tasks,
                 TestExecution,
-                recipes,
                 new ProductService(productRepo, clock, audit),
-                new TestDefinitionService(definitionRepo, clock, audit),
                 testParameters,
                 Reports,
                 DeviceModes,
                 writePipeline,
                 taskRepo,
-                recipeRepo,
                 productRepo,
                 definitionRepo,
                 testParameterRepo,

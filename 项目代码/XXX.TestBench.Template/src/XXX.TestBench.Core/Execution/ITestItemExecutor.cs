@@ -12,7 +12,7 @@ namespace XXX.TestBench.Core.Execution;
 public sealed record ItemExecutionContext(
     UserContext Actor,
     TestRecord Record,
-    RecipeItemContext RecipeItem,
+    SequenceItemContext Sequence,
     TestItemDefinition Definition,
     IReadOnlyDictionary<string, string> ParameterValues,
     DeviceMode Mode,
@@ -22,7 +22,7 @@ public sealed record ItemExecutionContext(
 /// <summary>
 /// 执行项定位信息：Id 在固定序列中表示试验项定义 ID。
 /// </summary>
-public sealed record RecipeItemContext(int Id, int SortOrder, bool IsEnabled);
+public sealed record SequenceItemContext(int Id, int SortOrder, bool IsEnabled);
 
 public sealed record ItemExecutionOutcome(ItemResultState State, string? SummaryValue, string? ResultText);
 

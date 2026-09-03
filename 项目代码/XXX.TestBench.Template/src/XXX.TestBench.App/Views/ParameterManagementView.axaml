@@ -1,8 +1,8 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:XXX.TestBench.App.ViewModels"
-             x:Class="XXX.TestBench.App.Views.RecipeCenterView"
-             x:DataType="vm:RecipeCenterViewModel">
+             x:Class="XXX.TestBench.App.Views.ParameterManagementView"
+             x:DataType="vm:ParameterManagementViewModel">
   <UserControl.Styles>
     <Style Selector="Border.recipe-card">
       <Setter Property="Background" Value="White" />

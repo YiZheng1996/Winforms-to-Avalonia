@@ -88,12 +88,11 @@ public sealed class TaskRepository : SqliteRepositoryBase, ITaskRepository
     public async Task AddItemResultAsync(TestItemResult result, CancellationToken ct = default)
     {
         var id = await ExecuteInsertAndGetIdAsync("""
-            INSERT INTO test_item_results (record_id, recipe_item_id, test_item_definition_id, state, summary_value, result_text, started_at_utc, finished_at_utc)
-            VALUES (@recordId, @recipeItemId, @testItemDefinitionId, @state, @summaryValue, @resultText, @startedAtUtc, @finishedAtUtc)
+            INSERT INTO test_item_results (record_id, test_item_definition_id, state, summary_value, result_text, started_at_utc, finished_at_utc)
+            VALUES (@recordId, @testItemDefinitionId, @state, @summaryValue, @resultText, @startedAtUtc, @finishedAtUtc)
             """, new
         {
             recordId = result.RecordId,
-            recipeItemId = DbValue(result.RecipeItemId),
             testItemDefinitionId = result.TestItemDefinitionId,
             state = (int)result.State,
             summaryValue = DbValue(result.SummaryValue),
@@ -177,7 +176,6 @@ public sealed class TaskRepository : SqliteRepositoryBase, ITaskRepository
     {
         Id = row.Id,
         RecordId = row.RecordId,
-        RecipeItemId = row.RecipeItemId,
         TestItemDefinitionId = row.TestItemDefinitionId,
         State = (ItemResultState)row.State,
         SummaryValue = row.SummaryValue,
@@ -188,7 +186,7 @@ public sealed class TaskRepository : SqliteRepositoryBase, ITaskRepository
 
     private const string TaskSelect = "SELECT id AS Id, task_number AS TaskNumber, product_model_id AS ProductModelId, product_number AS ProductNumber, batch_number AS BatchNumber, station_number AS StationNumber, remark AS Remark, state AS State, created_by_user_id AS CreatedByUserId, created_at_utc AS CreatedAtUtc, started_at_utc AS StartedAtUtc, finished_at_utc AS FinishedAtUtc FROM test_tasks";
     private const string RecordSelect = "SELECT id AS Id, task_id AS TaskId, parameter_snapshot AS ParameterSnapshot, device_mode AS DeviceMode, operator_user_id AS OperatorUserId, state AS State, conclusion AS Conclusion, started_at_utc AS StartedAtUtc, finished_at_utc AS FinishedAtUtc FROM test_records";
-    private const string ItemResultSelect = "SELECT id AS Id, record_id AS RecordId, recipe_item_id AS RecipeItemId, test_item_definition_id AS TestItemDefinitionId, state AS State, summary_value AS SummaryValue, result_text AS ResultText, started_at_utc AS StartedAtUtc, finished_at_utc AS FinishedAtUtc FROM test_item_results";
+    private const string ItemResultSelect = "SELECT id AS Id, record_id AS RecordId, test_item_definition_id AS TestItemDefinitionId, state AS State, summary_value AS SummaryValue, result_text AS ResultText, started_at_utc AS StartedAtUtc, finished_at_utc AS FinishedAtUtc FROM test_item_results";
 
     private sealed class TestTaskRow
     {
@@ -223,7 +221,6 @@ public sealed class TaskRepository : SqliteRepositoryBase, ITaskRepository
     {
         public int Id { get; set; }
         public int RecordId { get; set; }
-        public int? RecipeItemId { get; set; }
         public int TestItemDefinitionId { get; set; }
         public int State { get; set; }
         public string? SummaryValue { get; set; }

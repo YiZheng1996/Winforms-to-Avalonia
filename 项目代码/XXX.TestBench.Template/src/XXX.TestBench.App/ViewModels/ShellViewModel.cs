@@ -392,7 +392,7 @@ public sealed partial class ShellViewModel : ObservableObject
         {
             ( "运行总览", "工艺界面", "⌂", PermissionCode.ViewOverview, () => new OverviewViewModel(_services, user) ),
             ( "数据与报表", "报表界面", "▤", PermissionCode.ViewRecords, () => new DataReportsViewModel(_services, user) ),
-            ( "参数管理", "参数管理", "☷", PermissionCode.ManageTestDefinitions, () => new RecipeCenterViewModel(_services, user) ),
+            ( "参数管理", "参数管理", "☷", PermissionCode.ManageTestDefinitions, () => new ParameterManagementViewModel(_services, user) ),
             ( "任务管理", "数据查询", "⌕", PermissionCode.ManageTasks, () => new TaskManagementViewModel(_services, user) ),
             ( "试验执行", "试验执行", "▷", PermissionCode.ExecuteTests, () => new TestExecutionViewModel(_services, user) ),
             ( "工艺监控", "工艺监控", "⌁", PermissionCode.ManualControl, () => new ProcessMonitorViewModel(_services, user) ),

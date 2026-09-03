@@ -92,10 +92,10 @@ public sealed class TestExecutionService
             ?? throw new DomainException("试验参数快照缺失，不能执行项点");
         var executor = _executors.Get(definition.ExecutorCode);
 
-        var result = new TestItemResult { RecordId = recordId, RecipeItemId = null, TestItemDefinitionId = definition.Id };
+        var result = new TestItemResult { RecordId = recordId, TestItemDefinitionId = definition.Id };
         result.Start(_clock.UtcNow);
         var outcome = await executor.ExecuteAsync(new ItemExecutionContext(
-            actor, record, new RecipeItemContext(definition.Id, definition.SortOrder, definition.IsEnabled),
+            actor, record, new SequenceItemContext(definition.Id, definition.SortOrder, definition.IsEnabled),
             definition, new Dictionary<string, string>(), record.DeviceMode, runtime, effective), ct);
         result.SetResult(outcome.State, outcome.SummaryValue, outcome.ResultText, _clock.UtcNow);
         await _tasks.AddItemResultAsync(result, ct);

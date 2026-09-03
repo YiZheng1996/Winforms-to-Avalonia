@@ -10,7 +10,7 @@ public sealed record ReportData(
     string TaskNumber,
     string ProductNumber,
     string ProductModelCode,
-    string RecipeVersionNumber,
+    string FlowText,
     string DeviceMode,
     string OperatorName,
     DateTime StartedAtUtc,

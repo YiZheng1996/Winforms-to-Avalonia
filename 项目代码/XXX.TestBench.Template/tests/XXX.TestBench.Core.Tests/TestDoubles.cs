@@ -3,7 +3,7 @@ using XXX.TestBench.Core.Common;
 using XXX.TestBench.Core.Domain.Devices;
 using XXX.TestBench.Core.Domain.Identity;
 using XXX.TestBench.Core.Domain.Products;
-using XXX.TestBench.Core.Domain.Recipes;
+
 using XXX.TestBench.Core.Domain.Reports;
 using XXX.TestBench.Core.Domain.Tasks;
 using XXX.TestBench.Core.Domain.TestParameters;
@@ -143,20 +143,13 @@ public sealed class FakeProductRepository : IProductRepository
 public sealed class FakeTestDefinitionRepository : ITestDefinitionRepository
 {
     public List<TestItemDefinition> Items { get; } = new();
-    public List<ParameterDefinition> Parameters { get; } = new();
-    private int _nextId = 1;
+        private int _nextId = 1;
 
     public Task<TestItemDefinition?> GetItemAsync(int id, CancellationToken ct = default)
         => Task.FromResult(Items.FirstOrDefault(i => i.Id == id));
 
     public Task<IReadOnlyList<TestItemDefinition>> ListItemsAsync(bool includeDisabled, CancellationToken ct = default)
         => Task.FromResult<IReadOnlyList<TestItemDefinition>>(includeDisabled ? Items : Items.Where(i => i.IsEnabled).ToList());
-
-    public Task<IReadOnlyList<ParameterDefinition>> ListParametersAsync(int itemId, CancellationToken ct = default)
-        => Task.FromResult<IReadOnlyList<ParameterDefinition>>(Parameters.Where(p => p.TestItemDefinitionId == itemId).OrderBy(p => p.SortOrder).ToList());
-
-    public Task<ParameterDefinition?> GetParameterAsync(int id, CancellationToken ct = default)
-        => Task.FromResult(Parameters.FirstOrDefault(p => p.Id == id));
 
     public Task AddItemAsync(TestItemDefinition item, CancellationToken ct = default)
     {
@@ -165,91 +158,9 @@ public sealed class FakeTestDefinitionRepository : ITestDefinitionRepository
         return Task.CompletedTask;
     }
 
-    public Task AddParameterAsync(ParameterDefinition parameter, CancellationToken ct = default)
-    {
-        if (parameter.Id == 0) parameter.Id = NextId();
-        Parameters.Add(parameter);
-        return Task.CompletedTask;
-    }
-
     public int NextId() => _nextId++;
 
     public Task UpdateItemAsync(TestItemDefinition item, CancellationToken ct = default) => Task.CompletedTask;
-    public Task UpdateParameterAsync(ParameterDefinition parameter, CancellationToken ct = default) => Task.CompletedTask;
-}
-
-public sealed class FakeRecipeRepository : IRecipeRepository
-{
-    public List<RecipeVersion> Versions { get; } = new();
-    public List<RecipeItem> Items { get; } = new();
-    public List<RecipeParameterValue> Values { get; } = new();
-    private int _nextVersionId = 1;
-    private int _nextItemId = 1;
-    private int _nextValueId = 1;
-    public Task<RecipeVersion?> GetAsync(int id, CancellationToken ct = default)
-        => Task.FromResult(Versions.FirstOrDefault(v => v.Id == id));
-
-    public Task<RecipeVersion?> GetLatestAsync(int productModelId, CancellationToken ct = default)
-        => Task.FromResult(Versions.Where(v => v.ProductModelId == productModelId).OrderByDescending(v => v.Version).FirstOrDefault());
-
-    public Task<IReadOnlyList<RecipeVersion>> ListByModelAsync(int productModelId, bool includeRetired, CancellationToken ct = default)
-        => Task.FromResult<IReadOnlyList<RecipeVersion>>(Versions.Where(v => v.ProductModelId == productModelId && (includeRetired || v.Status != RecipeStatus.Retired)).ToList());
-
-    public Task<RecipeVersion?> GetPublishedByModelAsync(int productModelId, CancellationToken ct = default)
-        => Task.FromResult(Versions.Where(v => v.ProductModelId == productModelId && v.Status == RecipeStatus.Published).OrderByDescending(v => v.Version).FirstOrDefault());
-
-    public Task<IReadOnlyList<RecipeItem>> ListItemsAsync(int recipeVersionId, CancellationToken ct = default)
-        => Task.FromResult<IReadOnlyList<RecipeItem>>(Items.Where(i => i.RecipeVersionId == recipeVersionId).OrderBy(i => i.SortOrder).ToList());
-
-    public Task<IReadOnlyList<RecipeParameterValue>> ListParameterValuesAsync(int recipeVersionId, CancellationToken ct = default)
-    {
-        var itemIds = Items.Where(i => i.RecipeVersionId == recipeVersionId).Select(i => i.Id).ToHashSet();
-        return Task.FromResult<IReadOnlyList<RecipeParameterValue>>(Values.Where(v => itemIds.Contains(v.RecipeItemId)).ToList());
-    }
-
-    public Task AddAsync(RecipeVersion recipe, CancellationToken ct = default)
-    {
-        if (recipe.Id == 0) recipe.Id = _nextVersionId++;
-        Versions.Add(recipe);
-        return Task.CompletedTask;
-    }
-
-    public Task UpdateAsync(RecipeVersion recipe, CancellationToken ct = default) => Task.CompletedTask;
-
-    public Task AddItemAsync(RecipeItem item, CancellationToken ct = default)
-    {
-        if (item.Id == 0) item.Id = _nextItemId++;
-        Items.Add(item);
-        return Task.CompletedTask;
-    }
-
-    public Task AddParameterValueAsync(RecipeParameterValue value, CancellationToken ct = default)
-    {
-        if (value.Id == 0) value.Id = _nextValueId++;
-        Values.Add(value);
-        return Task.CompletedTask;
-    }
-    public Task UpdateItemAsync(RecipeItem item, CancellationToken ct = default)
-    {
-        var existing = Items.FirstOrDefault(i => i.Id == item.Id);
-        if (existing is not null) { existing.SortOrder = item.SortOrder; existing.IsEnabled = item.IsEnabled; }
-        return Task.CompletedTask;
-    }
-
-    public Task DeleteItemAsync(int itemId, CancellationToken ct = default)
-    {
-        Values.RemoveAll(v => v.RecipeItemId == itemId);
-        Items.RemoveAll(i => i.Id == itemId);
-        return Task.CompletedTask;
-    }
-
-    public Task ReplaceParameterValueAsync(int recipeItemId, int parameterDefinitionId, string rawValue, CancellationToken ct = default)
-    {
-        var existing = Values.FirstOrDefault(v => v.RecipeItemId == recipeItemId && v.ParameterDefinitionId == parameterDefinitionId);
-        if (existing is not null) existing.RawValue = rawValue;
-        else Values.Add(new RecipeParameterValue { Id = _nextValueId++, RecipeItemId = recipeItemId, ParameterDefinitionId = parameterDefinitionId, RawValue = rawValue });
-        return Task.CompletedTask;
-    }
 }
 
 public sealed class FakeTaskRepository : ITaskRepository

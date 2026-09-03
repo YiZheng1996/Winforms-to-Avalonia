@@ -31,7 +31,7 @@ public class ReportServiceTests
         var record = new TestRecord { Id = 1, TaskId = 1, ParameterSnapshot = "{\"snapshot\":1}", DeviceMode = Domain.Devices.DeviceMode.Simulation, OperatorUserId = 1, StartedAtUtc = clock.UtcNow };
         if (recordCompleted) record.Complete(clock.UtcNow, "全部通过（1/1）");
         tasks.AddRecordAsync(record).Wait();
-        var itemResult = new TestItemResult { Id = 1, RecordId = 1, RecipeItemId = null, TestItemDefinitionId = 1 };
+        var itemResult = new TestItemResult { Id = 1, RecordId = 1, TestItemDefinitionId = 1 };
         itemResult.Start(clock.UtcNow);
         itemResult.SetResult(ItemResultState.Passed, "10.0", "实测 10.0", clock.UtcNow);
         tasks.AddItemResultAsync(itemResult).Wait();
@@ -55,7 +55,7 @@ public class ReportServiceTests
         Assert.Equal("D:\\out\\out.xlsx", report.OutputPath);
         Assert.Single(generator.Calls);
         Assert.Equal("T-20260901-0001", generator.Calls[0].TaskNumber);
-        Assert.Equal("固定流程", generator.Calls[0].RecipeVersionNumber);
+        Assert.Equal("固定流程", generator.Calls[0].FlowText);
         Assert.Single(generator.Calls[0].Items);
         Assert.Single(reports.Records);
     }

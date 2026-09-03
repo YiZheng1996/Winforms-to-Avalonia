@@ -26,7 +26,7 @@ public sealed class ClosedXmlReportGenerator : IReportGenerator
             sheet.Cell("C2").Value = data.TaskNumber;
             sheet.Cell("C3").Value = data.ProductNumber;
             sheet.Cell("C4").Value = data.ProductModelCode;
-            sheet.Cell("C5").Value = data.RecipeVersionNumber;
+            sheet.Cell("C5").Value = data.FlowText;
             sheet.Cell("E2").Value = data.DeviceMode;
             sheet.Cell("E3").Value = data.OperatorName;
             sheet.Cell("E4").Value = data.StartedAtUtc.ToString("yyyy-MM-dd HH:mm:ss");
@@ -74,8 +74,8 @@ public sealed class ClosedXmlReportGenerator : IReportGenerator
         sheet.Cell("C3").Value = data?.ProductNumber ?? string.Empty;
         sheet.Cell("B4").Value = "产品型号";
         sheet.Cell("C4").Value = data?.ProductModelCode ?? string.Empty;
-        sheet.Cell("B5").Value = "配方版本";
-        sheet.Cell("C5").Value = data?.RecipeVersionNumber ?? string.Empty;
+        sheet.Cell("B5").Value = "试验流程";
+        sheet.Cell("C5").Value = data?.FlowText ?? string.Empty;
         sheet.Cell("D2").Value = "设备模式";
         sheet.Cell("E2").Value = data?.DeviceMode ?? string.Empty;
         sheet.Cell("D3").Value = "操作员";

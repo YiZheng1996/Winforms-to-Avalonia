@@ -19,9 +19,10 @@ public class SqliteUnitOfWorkTests
             await uow.BeginTransactionAsync();
             Assert.NotNull(SqliteAmbient.Current);
             Assert.Equal(System.Data.ConnectionState.Open, SqliteAmbient.Current!.Connection.State);
-            var repo = new RecipeRepository(factory);
-            var r = await repo.GetAsync(1);
-            Assert.Null(r);
+            var repo = new TestDefinitionRepository(factory);
+            var r = await repo.GetItemAsync(1);
+            Assert.NotNull(r);
+            Assert.Equal("PRESSURE", r!.Code);
             await uow.CommitAsync();
         }
         Assert.Null(SqliteAmbient.Current);

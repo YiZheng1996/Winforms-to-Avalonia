@@ -15,12 +15,12 @@ namespace XXX.TestBench.App.ViewModels;
 /// 参数管理页面（三个标签页）：产品类型、产品型号、试验参数。
 /// 试验参数为代码固定字段（项目/类型/型号三级），不做动态定义表，也不做配方编辑器。
 /// </summary>
-public sealed partial class RecipeCenterViewModel : PageViewModel
+public sealed partial class ParameterManagementViewModel : PageViewModel
 {
     private readonly ShellServices _services;
     private readonly UserContext _actor;
 
-    public RecipeCenterViewModel(ShellServices services, UserContext actor)
+    public ParameterManagementViewModel(ShellServices services, UserContext actor)
     {
         _services = services;
         _actor = actor;

@@ -65,7 +65,6 @@ public sealed class AppTestHarness : IDisposable
         var userRepo = new UserRepository(factory);
         var productRepo = new ProductRepository(factory);
         var definitionRepo = new TestDefinitionRepository(factory);
-        var recipeRepo = new RecipeRepository(factory);
         var testParameterRepo = new TestParameterRepository(factory);
         var taskRepo = new TaskRepository(factory);
         var audit = new SqliteAuditLog(factory);
@@ -73,7 +72,6 @@ public sealed class AppTestHarness : IDisposable
         var logger = new FileLogger(Path.Combine(dataRoot, "logs"));
 
         var auth = new AuthenticationService(userRepo, hasher, sessions, clock, audit);
-        var recipes = new RecipeService(recipeRepo, productRepo, definitionRepo, clock, audit);
         var tasks = new TaskService(taskRepo, productRepo, clock, audit);
         var testParameters = new TestParameterService(testParameterRepo, productRepo, clock, audit);
         var writePipeline = new DeviceWritePipeline(audit, logger);
@@ -85,9 +83,9 @@ public sealed class AppTestHarness : IDisposable
         var reports = new ReportService(taskRepo, productRepo, definitionRepo, userRepo, reportRepository, new ClosedXmlReportGenerator(), clock, audit);
 
         var services = new ShellServices(
-            auth, tasks, execution, recipes, new ProductService(productRepo, clock, audit),
-            new TestDefinitionService(definitionRepo, clock, audit), testParameters, reports, deviceModes, writePipeline,
-            taskRepo, recipeRepo, productRepo, definitionRepo, testParameterRepo, userRepo, reportRepository, audit,
+            auth, tasks, execution, new ProductService(productRepo, clock, audit),
+            testParameters, reports, deviceModes, writePipeline,
+            taskRepo, productRepo, definitionRepo, testParameterRepo, userRepo, reportRepository, audit,
             appConfig, deviceConfig, dbPath, "0.1.0");
 
         return new AppTestHarness(root, services, dbPath, dataRoot);
