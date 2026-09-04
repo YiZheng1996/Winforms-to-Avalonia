@@ -20,21 +20,37 @@ public sealed class SimulationDeviceRuntime : IDeviceRuntime
     private DateTime _startedUtc;
     private bool _started;
 
+    /// <summary>
+    /// 创建仿真运行时并载入初始值。
+    /// </summary>
     public SimulationDeviceRuntime(string name, IReadOnlyList<DevicePoint> points, SimulationConfig config, IClock clock)
     {
         Name = name;
         _config = config;
         _clock = clock;
         _pointsByAddress = points.Where(p => p.Protocol.Equals("Simulation", StringComparison.OrdinalIgnoreCase))
+            .Where(p => p.IsEnabled)
             .ToDictionary(p => p.Address, StringComparer.Ordinal);
         foreach (var kv in config.InitialValues)
             _values[kv.Key] = Normalize(kv.Value);
     }
 
+    /// <summary>
+    /// 设备名称。
+    /// </summary>
     public string Name { get; }
+    /// <summary>
+    /// 运行模式，固定为模拟。
+    /// </summary>
     public DeviceMode Mode => DeviceMode.Simulation;
+    /// <summary>
+    /// 是否为模拟运行。
+    /// </summary>
     public bool IsSimulation => true;
 
+    /// <summary>
+    /// 当前运行状态。
+    /// </summary>
     public DeviceRuntimeInfo Status => new(
         Name,
         "Simulation",
@@ -44,6 +60,9 @@ public sealed class SimulationDeviceRuntime : IDeviceRuntime
         IsConnected: _started,
         LastError: null);
 
+    /// <summary>
+    /// 启动仿真运行。
+    /// </summary>
     public Task StartAsync(CancellationToken ct = default)
     {
         lock (_gate)
@@ -54,17 +73,29 @@ public sealed class SimulationDeviceRuntime : IDeviceRuntime
         return Task.CompletedTask;
     }
 
+    /// <summary>
+    /// 停止仿真运行。
+    /// </summary>
     public Task StopAsync(CancellationToken ct = default)
     {
         lock (_gate) _started = false;
         return Task.CompletedTask;
     }
 
+    /// <summary>
+    /// 释放资源，仿真运行无需额外清理。
+    /// </summary>
     public ValueTask DisposeAsync() => ValueTask.CompletedTask;
 
+    /// <summary>
+    /// 列出仿真运行时支持的点位。
+    /// </summary>
     public Task<IReadOnlyList<DevicePoint>> ListPointsAsync(CancellationToken ct = default)
         => Task.FromResult<IReadOnlyList<DevicePoint>>(_pointsByAddress.Values.ToList());
 
+    /// <summary>
+    /// 读取点位当前值并应用变化规则与故障注入。
+    /// </summary>
     public Task<PointValue> ReadAsync(DevicePoint point, CancellationToken ct = default)
     {
         if (!_pointsByAddress.TryGetValue(point.Address, out _))
@@ -75,6 +106,9 @@ public sealed class SimulationDeviceRuntime : IDeviceRuntime
         return Task.FromResult(new PointValue(point.Code, point.Address, quality, value, _clock.UtcNow));
     }
 
+    /// <summary>
+    /// 写入仿真点位值。
+    /// </summary>
     public Task<PointValue> WriteAsync(DevicePoint point, object? value, CancellationToken ct = default)
     {
         if (!point.IsWritable)
@@ -86,6 +120,9 @@ public sealed class SimulationDeviceRuntime : IDeviceRuntime
     }
 
 
+    /// <summary>
+    /// 把配置中的初始值转换为常用类型。
+    /// </summary>
     private static object? Normalize(object? value)
     {
         if (value is not System.Text.Json.JsonElement element) return value;
@@ -98,6 +135,9 @@ public sealed class SimulationDeviceRuntime : IDeviceRuntime
             _ => element.GetRawText()
         };
     }
+    /// <summary>
+    /// 计算点位质量，故障注入可使质量变为陈旧。
+    /// </summary>
     private PointQuality GetQuality(string address)
     {
         lock (_gate)
@@ -111,6 +151,9 @@ public sealed class SimulationDeviceRuntime : IDeviceRuntime
         }
     }
 
+    /// <summary>
+    /// 按变化规则计算点位当前值。
+    /// </summary>
     private object? ComputeValue(string address)
     {
         if (_values.TryGetValue(address, out var initial))

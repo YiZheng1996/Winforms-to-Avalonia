@@ -16,9 +16,9 @@ public class TestParameterServiceTests
         var audit = new FakeAuditLog();
         var service = new TestParameterService(repository, products, clock, audit);
 
-        var type = new Domain.Products.ProductType { Id = 1, Code = "PT", Name = "压力试验", CreatedAtUtc = clock.UtcNow };
+        var type = new Domain.Products.ProductType { Id = 1, Name = "压力试验", CreatedAtUtc = clock.UtcNow };
         products.AddTypeAsync(type).Wait();
-        var model = new Domain.Products.ProductModel { Id = 1, ProductTypeId = type.Id, Code = "M1", Name = "型号1", CreatedAtUtc = clock.UtcNow };
+        var model = new Domain.Products.ProductModel { Id = 1, ProductTypeId = type.Id, Name = "型号1", CreatedAtUtc = clock.UtcNow };
         products.AddModelAsync(model).Wait();
         return (service, repository, products, audit);
     }

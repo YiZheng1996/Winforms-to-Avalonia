@@ -9,23 +9,36 @@ namespace XXX.TestBench.Infrastructure.Reports;
 /// </summary>
 public sealed class ClosedXmlReportGenerator : IReportGenerator
 {
+    /// <summary>
+    /// 报表工作表名称。
+    /// </summary>
     private const string SheetName = "报表";
+    /// <summary>
+    /// 项点表表头所在行。
+    /// </summary>
     private const int TableHeaderRow = 8;
+    /// <summary>
+    /// 项点表首行数据所在行。
+    /// </summary>
     private const int TableFirstDataRow = 9;
 
+    /// <summary>
+    /// 生成报表文件并返回输出路径。
+    /// </summary>
     public async Task<string> GenerateAsync(ReportData data, string templatePath, string outputDirectory, CancellationToken ct = default)
     {
         Directory.CreateDirectory(outputDirectory);
-        var outputPath = Path.Combine(outputDirectory, $"报表_{data.TaskNumber}_{data.RecordId}_{DateTime.Now:yyyyMMdd_HHmmss}.xlsx");
+        var outputPath = Path.Combine(outputDirectory, $"报表_{data.RecordNumber}_{data.RecordId}_{DateTime.Now:yyyyMMdd_HHmmss}.xlsx");
 
         await Task.Run(() =>
         {
             using var workbook = File.Exists(templatePath) ? new XLWorkbook(templatePath) : CreateStandardWorkbook(data);
             var sheet = workbook.Worksheets.Contains(SheetName) ? workbook.Worksheet(SheetName) : workbook.AddWorksheet(SheetName);
 
-            sheet.Cell("C2").Value = data.TaskNumber;
+            sheet.Cell("C2").Value = data.RecordNumber;
             sheet.Cell("C3").Value = data.ProductNumber;
-            sheet.Cell("C4").Value = data.ProductModelCode;
+            sheet.Cell("B4").Value = "型号编号";
+            sheet.Cell("C4").Value = data.ProductModelId;
             sheet.Cell("C5").Value = data.FlowText;
             sheet.Cell("E2").Value = data.DeviceMode;
             sheet.Cell("E3").Value = data.OperatorName;
@@ -54,7 +67,7 @@ public sealed class ClosedXmlReportGenerator : IReportGenerator
     }
 
     /// <summary>
-    /// 生成标准模板（固定版式，无数据），供管理员准备阶段使用。
+    /// 生成不含数据的标准模板，供管理员准备阶段使用。
     /// </summary>
     public static void CreateStandardTemplate(string templatePath)
     {
@@ -63,17 +76,20 @@ public sealed class ClosedXmlReportGenerator : IReportGenerator
         workbook.SaveAs(templatePath);
     }
 
+    /// <summary>
+    /// 创建标准版式工作簿。
+    /// </summary>
     private static XLWorkbook CreateStandardWorkbook(ReportData? data)
     {
         var workbook = new XLWorkbook();
         var sheet = workbook.AddWorksheet(SheetName);
         sheet.Cell("A1").Value = "试验报表";
-        sheet.Cell("B2").Value = "任务编号";
-        sheet.Cell("C2").Value = data?.TaskNumber ?? string.Empty;
+        sheet.Cell("B2").Value = "记录编号";
+        sheet.Cell("C2").Value = data?.RecordNumber ?? string.Empty;
         sheet.Cell("B3").Value = "产品编号";
         sheet.Cell("C3").Value = data?.ProductNumber ?? string.Empty;
-        sheet.Cell("B4").Value = "产品型号";
-        sheet.Cell("C4").Value = data?.ProductModelCode ?? string.Empty;
+        sheet.Cell("B4").Value = "型号编号";
+        sheet.Cell("C4").Value = data?.ProductModelId ?? string.Empty;
         sheet.Cell("B5").Value = "试验流程";
         sheet.Cell("C5").Value = data?.FlowText ?? string.Empty;
         sheet.Cell("D2").Value = "设备模式";

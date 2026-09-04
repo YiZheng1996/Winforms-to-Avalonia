@@ -15,8 +15,9 @@
         <TextBlock DockPanel.Dock="Top" Text="试验记录" FontWeight="Bold" />
         <DataGrid ItemsSource="{Binding Records}" SelectedItem="{Binding SelectedRecord}" AutoGenerateColumns="False" IsReadOnly="True" RowHeight="42" HeadersVisibility="Column">
           <DataGrid.Columns>
-            <DataGridTextColumn Header="记录编号" Binding="{Binding Id}" Width="90" />
-            <DataGridTextColumn Header="任务编号" Binding="{Binding TaskNumber}" Width="1.4*" />
+            <DataGridTextColumn Header="记录编号" Binding="{Binding RecordNumber}" Width="1.4*" />
+            <DataGridTextColumn Header="产品编号" Binding="{Binding ProductNumber}" Width="1*" />
+            <DataGridTextColumn Header="型号编号" Binding="{Binding ModelId}" Width="1*" />
             <DataGridTextColumn Header="记录状态" Binding="{Binding StateText}" Width="110" />
             <DataGridTextColumn Header="设备模式" Binding="{Binding DeviceModeText}" Width="110" />
             <DataGridTextColumn Header="开始时间" Binding="{Binding StartedAt}" Width="1.4*" />

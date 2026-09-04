@@ -19,7 +19,7 @@
             <Border Width="64" Height="4" CornerRadius="2" Background="#9FC2FF" HorizontalAlignment="Left" />
             <StackPanel Spacing="12" Margin="0,12,0,0">
               <TextBlock Text="✓  设备连接、急停与模式状态集中展示" Foreground="White" FontSize="15" />
-              <TextBlock Text="✓  任务、配方、执行、报表完整闭环" Foreground="White" FontSize="15" />
+              <TextBlock Text="✓  产品、项点配置、执行、报表完整闭环" Foreground="White" FontSize="15" />
               <TextBlock Text="✓  Simulation 与 Hardware 安全边界隔离" Foreground="White" FontSize="15" />
             </StackPanel>
           </StackPanel>
@@ -42,8 +42,9 @@
           </StackPanel>
           <StackPanel Spacing="7">
             <TextBlock Text="密码" FontWeight="SemiBold" />
-            <TextBox Text="{Binding Password}" PasswordChar="●" Watermark="请输入密码" Height="46"
-                     HorizontalContentAlignment="Left" VerticalContentAlignment="Center" />
+            <TextBox x:Name="PasswordBox" Text="{Binding Password}" PasswordChar="●" Watermark="请输入密码" Height="46"
+                     HorizontalContentAlignment="Left" VerticalContentAlignment="Center"
+                     KeyDown="OnPasswordKeyDown" />
           </StackPanel>
 
           <StackPanel IsVisible="{Binding MustChangePassword}" Spacing="9">
@@ -57,10 +58,15 @@
                     HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" />
           </StackPanel>
 
-          <Button Content="登录" Command="{Binding LoginCommand}" Height="50"
-                  Background="#0868F7" Foreground="White" BorderThickness="0"
-                  HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
-                  IsVisible="{Binding !MustChangePassword}" />
+          <StackPanel Spacing="12">
+            <Button Content="登录" Command="{Binding LoginCommand}" Height="50"
+                    Background="#0868F7" Foreground="White" BorderThickness="0"
+                    HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
+                    IsVisible="{Binding !MustChangePassword}" />
+            <Button Content="取消登录" Click="OnCancelLoginClick" Height="50"
+                    Background="White" Foreground="#242B36" BorderBrush="#D7DFEA" BorderThickness="1"
+                    HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" />
+          </StackPanel>
           <Border Background="#FFF3F2" CornerRadius="4" Padding="12,9" IsVisible="{Binding HasLoginError}">
             <TextBlock Text="{Binding LoginError}" Foreground="#C9362B" TextWrapping="Wrap" />
           </Border>

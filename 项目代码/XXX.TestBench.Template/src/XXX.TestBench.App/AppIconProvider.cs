@@ -8,8 +8,14 @@ namespace XXX.TestBench.App;
 /// </summary>
 internal static class AppIconProvider
 {
+    /// <summary>
+    /// 应用图标资源地址。
+    /// </summary>
     private static readonly Uri IconUri = new("avares://XXX.TestBench.App/Assets/app-icon.ico");
 
+    /// <summary>
+    /// 加载并返回应用图标；加载失败时返回空。
+    /// </summary>
     public static WindowIcon? Create()
     {
         try

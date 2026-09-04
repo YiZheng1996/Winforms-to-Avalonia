@@ -5,6 +5,9 @@ using XXX.TestBench.Core.Ports;
 
 namespace XXX.TestBench.Core.Application;
 
+/// <summary>
+/// 一次写入请求所需的安全上下文。
+/// </summary>
 public sealed record WriteCommand(
     UserContext Actor,
     DevicePoint Point,
@@ -22,17 +25,30 @@ public sealed record WriteCommand(
 /// </summary>
 public sealed class DeviceWritePipeline
 {
+    /// <summary>
+    /// 审计日志。
+    /// </summary>
     private readonly IAuditLog _audit;
+    /// <summary>
+    /// 日志记录器。
+    /// </summary>
     private readonly IAppLogger _logger;
 
+    /// <summary>
+    /// 创建写入安全管道。
+    /// </summary>
     public DeviceWritePipeline(IAuditLog audit, IAppLogger logger)
     {
         _audit = audit;
         _logger = logger;
     }
 
+    /// <summary>
+    /// 按安全链校验并执行一次点位写入。
+    /// </summary>
     public async Task<PointValue> ExecuteAsync(WriteCommand command, CancellationToken ct = default)
     {
+        // 高风险点位需要校准权限，普通点位需要手动控制权限。
         var requiredPermission = command.Point.RiskLevel == WriteRiskLevel.HighRisk
             ? PermissionCode.CalibrateDevices
             : PermissionCode.ManualControl;
@@ -46,6 +62,7 @@ public sealed class DeviceWritePipeline
             throw;
         }
 
+        // 硬件与模拟运行时不混写。
         if (command.Mode == DeviceMode.Hardware)
         {
             if (command.Runtime.IsSimulation)
@@ -56,6 +73,7 @@ public sealed class DeviceWritePipeline
             throw new DomainException("Simulation 模式不得写入真实设备运行时");
         }
 
+        // 设备必须已连接且健康。
         var status = command.Runtime.Status;
         if (status.Health is not (DeviceHealth.Healthy or DeviceHealth.Degraded) || !status.IsConnected)
             throw new DomainException($"设备 {command.Runtime.Name} 未连接或状态异常（{status.Health}）");
@@ -63,15 +81,19 @@ public sealed class DeviceWritePipeline
         if (!command.Point.IsWritable)
             throw new DomainException($"点位 {command.Point.Code} 不可写");
 
+        // 没有活动运行状态时拒绝写入。
         if (!command.ActiveRunOk)
             throw new DomainException("当前没有活动任务/运行状态，拒绝写入");
 
+        // 执行业务联锁检查。
         if (command.InterlockCheck is not null)
             await command.InterlockCheck(ct);
 
+        // 高风险写入必须二次确认。
         if (command.Point.RiskLevel == WriteRiskLevel.HighRisk && !command.RiskConfirmed)
             throw new DomainException($"高风险写入 {command.Point.Code} 需要二次确认");
 
+        // 写入后仅硬件模式回读校验。
         var written = await command.Runtime.WriteAsync(command.Point, command.Value, ct);
 
         if (command.Mode == DeviceMode.Hardware)
@@ -91,6 +113,9 @@ public sealed class DeviceWritePipeline
         return written;
     }
 
+    /// <summary>
+    /// 比较写入值与回读值是否一致。
+    /// </summary>
     private static bool ValuesEqual(object? expected, object? actual)
     {
         if (expected is null || actual is null) return Equals(expected, actual);

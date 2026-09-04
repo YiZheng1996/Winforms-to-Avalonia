@@ -5,9 +5,9 @@ using XXX.TestBench.Core.Domain.Identity;
 using XXX.TestBench.Core.Domain.Products;
 
 using XXX.TestBench.Core.Domain.Reports;
-using XXX.TestBench.Core.Domain.Tasks;
+using XXX.TestBench.Core.Domain.Records;
 using XXX.TestBench.Core.Domain.TestParameters;
-using XXX.TestBench.Core.Domain.TestDefinitions;
+using XXX.TestBench.Core.Domain.TestPoints;
 using XXX.TestBench.Core.Ports;
 
 namespace XXX.TestBench.Core.Tests;
@@ -98,19 +98,15 @@ public sealed class FakeProductRepository : IProductRepository
 {
     public List<ProductType> Types { get; } = new();
     public List<ProductModel> Models { get; } = new();
+    public HashSet<int> TestPointTypeReferences { get; } = new();
+    public HashSet<int> RecordModelReferences { get; } = new();
     private int _nextTypeId = 1;
     private int _nextModelId = 1;
-    public Task<ProductType?> GetTypeByCodeAsync(string code, CancellationToken ct = default)
-        => Task.FromResult(Types.FirstOrDefault(t => t.Code == code));
-
     public Task<ProductType?> GetTypeAsync(int id, CancellationToken ct = default)
         => Task.FromResult(Types.FirstOrDefault(t => t.Id == id));
 
     public Task<ProductModel?> GetModelAsync(int id, CancellationToken ct = default)
         => Task.FromResult(Models.FirstOrDefault(m => m.Id == id));
-
-    public Task<ProductModel?> GetModelByCodeAsync(int productTypeId, string code, CancellationToken ct = default)
-        => Task.FromResult(Models.FirstOrDefault(m => m.ProductTypeId == productTypeId && m.Code == code));
 
     public Task<IReadOnlyList<ProductType>> ListTypesAsync(bool includeDisabled, CancellationToken ct = default)
         => Task.FromResult<IReadOnlyList<ProductType>>(includeDisabled ? Types : Types.Where(t => t.IsEnabled).ToList());
@@ -136,57 +132,103 @@ public sealed class FakeProductRepository : IProductRepository
         Models.Add(model);
         return Task.CompletedTask;
     }
-    public Task UpdateTypeAsync(ProductType type, CancellationToken ct = default) => Task.CompletedTask;
-    public Task UpdateModelAsync(ProductModel model, CancellationToken ct = default) => Task.CompletedTask;
-}
-
-public sealed class FakeTestDefinitionRepository : ITestDefinitionRepository
-{
-    public List<TestItemDefinition> Items { get; } = new();
-        private int _nextId = 1;
-
-    public Task<TestItemDefinition?> GetItemAsync(int id, CancellationToken ct = default)
-        => Task.FromResult(Items.FirstOrDefault(i => i.Id == id));
-
-    public Task<IReadOnlyList<TestItemDefinition>> ListItemsAsync(bool includeDisabled, CancellationToken ct = default)
-        => Task.FromResult<IReadOnlyList<TestItemDefinition>>(includeDisabled ? Items : Items.Where(i => i.IsEnabled).ToList());
-
-    public Task AddItemAsync(TestItemDefinition item, CancellationToken ct = default)
+    public Task UpdateTypeAsync(ProductType type, CancellationToken ct = default)
     {
-        if (item.Id == 0) item.Id = NextId();
-        Items.Add(item);
+        var index = Types.FindIndex(t => t.Id == type.Id);
+        if (index >= 0) Types[index] = type;
         return Task.CompletedTask;
     }
 
-    public int NextId() => _nextId++;
+    public Task UpdateModelAsync(ProductModel model, CancellationToken ct = default)
+    {
+        var index = Models.FindIndex(m => m.Id == model.Id);
+        if (index >= 0) Models[index] = model;
+        return Task.CompletedTask;
+    }
+    public Task<int> CountModelsByTypeAsync(int productTypeId, CancellationToken ct = default)
+        => Task.FromResult(Models.Count(m => m.ProductTypeId == productTypeId));
 
-    public Task UpdateItemAsync(TestItemDefinition item, CancellationToken ct = default) => Task.CompletedTask;
+    public Task<int> CountTestPointsByTypeAsync(int productTypeId, CancellationToken ct = default)
+        => Task.FromResult(TestPointTypeReferences.Contains(productTypeId) ? 1 : 0);
+
+    public Task<int> CountRecordsByModelAsync(int productModelId, CancellationToken ct = default)
+        => Task.FromResult(RecordModelReferences.Contains(productModelId) ? 1 : 0);
+
+    public Task DeleteTypeAsync(int productTypeId, CancellationToken ct = default)
+    {
+        Types.RemoveAll(t => t.Id == productTypeId);
+        return Task.CompletedTask;
+    }
+
+    public Task DeleteModelAsync(int productModelId, CancellationToken ct = default)
+    {
+        Models.RemoveAll(m => m.Id == productModelId);
+        return Task.CompletedTask;
+    }
 }
 
-public sealed class FakeTaskRepository : ITaskRepository
+public sealed class FakeTestPointRepository : ITestPointRepository
 {
-    public List<TestTask> Tasks { get; } = new();
+    public List<TestItemPoint> Items { get; } = new();
+    private int _nextId = 1;
+
+    public Task<TestItemPoint?> GetAsync(int id, CancellationToken ct = default)
+        => Task.FromResult(Items.FirstOrDefault(i => i.Id == id));
+
+    public Task<IReadOnlyList<TestItemPoint>> ListByTypeAsync(int productTypeId, bool includeDisabled, CancellationToken ct = default)
+    {
+        var q = Items.Where(i => i.ProductTypeId == productTypeId);
+        if (!includeDisabled) q = q.Where(i => i.IsEnabled);
+        return Task.FromResult<IReadOnlyList<TestItemPoint>>(q.OrderBy(i => i.SortOrder).ThenBy(i => i.Id).ToList());
+    }
+
+    public Task AddAsync(TestItemPoint point, CancellationToken ct = default)
+    {
+        if (point.Id == 0) point.Id = _nextId++;
+        Items.Add(point);
+        return Task.CompletedTask;
+    }
+
+    public Task UpdateAsync(TestItemPoint point, CancellationToken ct = default) => Task.CompletedTask;
+
+    public Task DeleteAsync(int id, CancellationToken ct = default)
+    {
+        Items.RemoveAll(i => i.Id == id);
+        return Task.CompletedTask;
+    }
+
+    public Task<int> CountModelReferencesAsync(int pointId, CancellationToken ct = default)
+        => Task.FromResult(ModelReferences.Count(r => r.TestItemPointId == pointId));
+
+    public Task<int> CountResultReferencesAsync(int pointId, CancellationToken ct = default)
+        => Task.FromResult(ResultReferences.Count(r => r.TestItemPointId == pointId));
+
+    public List<ModelPointConfig> ModelReferences { get; } = new();
+    public List<TestItemResult> ResultReferences { get; } = new();
+}
+
+public sealed class FakeModelPointConfigRepository : IModelPointConfigRepository
+{
+    public Dictionary<int, List<ModelPointConfig>> ByModel { get; } = new();
+
+    public Task<IReadOnlyList<ModelPointConfig>> ListByModelAsync(int productModelId, CancellationToken ct = default)
+        => Task.FromResult<IReadOnlyList<ModelPointConfig>>(ByModel.TryGetValue(productModelId, out var list) ? list.OrderBy(c => c.SortOrder).ToList() : new List<ModelPointConfig>());
+
+    public Task ReplaceAsync(int productModelId, IReadOnlyList<ModelPointConfig> configs, CancellationToken ct = default)
+    {
+        ByModel[productModelId] = configs.ToList();
+        return Task.CompletedTask;
+    }
+}
+
+public sealed class FakeRecordRepository : IRecordRepository
+{
     public List<TestRecord> Records { get; } = new();
     public List<TestItemResult> Results { get; } = new();
     private int _nextId = 1;
 
-    public Task<TestTask?> GetAsync(int id, CancellationToken ct = default)
-        => Task.FromResult(Tasks.FirstOrDefault(t => t.Id == id));
-
-    public Task<bool> ExistsTaskNumberAsync(string taskNumber, CancellationToken ct = default)
-        => Task.FromResult(Tasks.Any(t => t.TaskNumber == taskNumber));
-
-    public Task<TestTask?> GetActiveRunningAsync(CancellationToken ct = default)
-        => Task.FromResult(Tasks.FirstOrDefault(t => t.State == TaskState.Running));
-
-    public Task AddAsync(TestTask task, CancellationToken ct = default)
-    {
-        if (task.Id == 0) task.Id = _nextId++;
-        Tasks.Add(task);
-        return Task.CompletedTask;
-    }
-
-    public Task UpdateAsync(TestTask task, CancellationToken ct = default) => Task.CompletedTask;
+    public Task<bool> ExistsRecordNumberAsync(string recordNumber, CancellationToken ct = default)
+        => Task.FromResult(Records.Any(r => r.RecordNumber == recordNumber));
 
     public Task AddRecordAsync(TestRecord record, CancellationToken ct = default)
     {
@@ -201,8 +243,12 @@ public sealed class FakeTaskRepository : ITaskRepository
         Results.Add(result);
         return Task.CompletedTask;
     }
+
     public Task<TestRecord?> GetRecordAsync(int recordId, CancellationToken ct = default)
         => Task.FromResult(Records.FirstOrDefault(r => r.Id == recordId));
+
+    public Task<TestRecord?> GetActiveRunningRecordAsync(CancellationToken ct = default)
+        => Task.FromResult(Records.FirstOrDefault(r => r.State == RecordState.Running));
 
     public Task UpdateRecordAsync(TestRecord record, CancellationToken ct = default) => Task.CompletedTask;
 
@@ -211,12 +257,10 @@ public sealed class FakeTaskRepository : ITaskRepository
 
     public Task UpdateItemResultAsync(TestItemResult result, CancellationToken ct = default) => Task.CompletedTask;
 
-    public Task<IReadOnlyList<TestTask>> ListTasksAsync(int? state, CancellationToken ct = default)
-        => Task.FromResult<IReadOnlyList<TestTask>>(state is null ? Tasks.ToList() : Tasks.Where(t => (int)t.State == state).ToList());
-
     public Task<IReadOnlyList<TestRecord>> ListRecordsAsync(int? state, CancellationToken ct = default)
         => Task.FromResult<IReadOnlyList<TestRecord>>(state is null ? Records.ToList() : Records.Where(r => (int)r.State == state).ToList());
 }
+
 public sealed class FakeRuntime : IDeviceRuntime
 {
     private readonly DeviceRuntimeInfo _status;
@@ -249,6 +293,7 @@ public sealed class FakeRuntime : IDeviceRuntime
         return Task.FromResult(new PointValue(point.Code, point.Address, PointQuality.Good, value, DateTime.UtcNow));
     }
 }
+
 public sealed class FakeRuntimeFactory : IDeviceRuntimeFactory
 {
     public Task<IDeviceRuntime> CreateAsync(DeviceMode mode, CancellationToken ct = default)

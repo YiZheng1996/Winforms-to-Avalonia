@@ -4,20 +4,42 @@
              x:Class="XXX.TestBench.App.Views.TestExecutionView"
              x:DataType="vm:TestExecutionViewModel">
   <DockPanel Margin="16" LastChildFill="True">
-    <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Spacing="8" Margin="0,0,0,8">
-      <TextBlock Text="任务：" VerticalAlignment="Center" />
-      <ComboBox ItemsSource="{Binding Tasks}" SelectedItem="{Binding SelectedTask}" Width="260" DisplayMemberBinding="{Binding TaskNumber}" />
-      <Button Content="刷新" Command="{Binding LoadCommand}" />
-      <Button Content="预检并启动" Command="{Binding StartCommand}" />
-      <Button Content="结束试验" Command="{Binding FinishCommand}" />
-      <TextBlock Text="记录状态：" VerticalAlignment="Center" />
-      <TextBlock Text="{Binding RecordStateText}" VerticalAlignment="Center" FontWeight="Bold" />
-      <TextBlock Text="{Binding StatusMessage}" Foreground="#1F618D" VerticalAlignment="Center" />
-    </StackPanel>
+    <Border DockPanel.Dock="Top" Padding="14" Margin="0,0,0,10" Background="White" BorderBrush="#D6DEEA" BorderThickness="1" CornerRadius="4">
+      <Grid RowDefinitions="Auto,Auto,Auto" ColumnDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,*">
+        <TextBlock Grid.Column="0" Grid.Row="0" Text="产品类型：" VerticalAlignment="Center" Margin="0,0,8,6" />
+        <ComboBox Grid.Column="1" Grid.Row="0" ItemsSource="{Binding ProductTypes}" SelectedItem="{Binding SelectedType, Mode=TwoWay}"
+                  DisplayMemberBinding="{Binding Name}" Width="200" Margin="0,0,16,6" />
+        <TextBlock Grid.Column="2" Grid.Row="0" Text="产品型号：" VerticalAlignment="Center" Margin="0,0,8,6" />
+        <ComboBox Grid.Column="3" Grid.Row="0" ItemsSource="{Binding ProductModels}" SelectedItem="{Binding SelectedModel, Mode=TwoWay}"
+                  DisplayMemberBinding="{Binding Id}" Width="200" Margin="0,0,16,6" />
+        <TextBlock Grid.Column="4" Grid.Row="0" Text="记录状态：" VerticalAlignment="Center" Margin="0,0,8,6" />
+        <TextBlock Grid.Column="5" Grid.Row="0" Text="{Binding RecordStateText}" FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,0,6" />
+
+        <TextBlock Grid.Column="0" Grid.Row="1" Text="产品编号：" VerticalAlignment="Center" Margin="0,0,8,6" />
+        <TextBox Grid.Column="1" Grid.Row="1" Text="{Binding ProductNumberInput, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,16,6" />
+        <TextBlock Grid.Column="2" Grid.Row="1" Text="批次号：" VerticalAlignment="Center" Margin="0,0,8,6" />
+        <TextBox Grid.Column="3" Grid.Row="1" Text="{Binding BatchNumberInput, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,16,6" />
+        <TextBlock Grid.Column="4" Grid.Row="1" Text="工位号：" VerticalAlignment="Center" Margin="0,0,8,6" />
+        <TextBox Grid.Column="5" Grid.Row="1" Text="{Binding StationNumberInput, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,6" />
+
+        <TextBlock Grid.Column="0" Grid.Row="2" Text="备注：" VerticalAlignment="Center" Margin="0,0,8,0" />
+        <TextBox Grid.Column="1" Grid.ColumnSpan="5" Grid.Row="2" Text="{Binding RemarkInput, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+        <StackPanel Grid.Column="6" Grid.RowSpan="3" Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right" VerticalAlignment="Center">
+          <Button Content="刷新" Command="{Binding LoadCommand}" />
+          <Button Content="预检并启动" Command="{Binding StartCommand}" />
+          <Button Content="结束试验" Command="{Binding FinishCommand}" />
+        </StackPanel>
+      </Grid>
+    </Border>
+
     <TextBlock DockPanel.Dock="Top" Text="{Binding Conclusion}" Foreground="#C0392B" TextWrapping="Wrap" />
+    <TextBlock DockPanel.Dock="Bottom" Text="{Binding StatusMessage}" Foreground="#1F618D" TextWrapping="Wrap" Margin="0,8,0,0" />
+
     <DataGrid ItemsSource="{Binding Items}" IsReadOnly="True" AutoGenerateColumns="False">
       <DataGrid.Columns>
+        <DataGridTextColumn Header="序号" Binding="{Binding SortOrder}" Width="70" />
         <DataGridTextColumn Header="项点" Binding="{Binding Name}" Width="*" />
+        <DataGridTextColumn Header="关联逻辑类" Binding="{Binding ExecutorCode}" Width="1.2*" />
         <DataGridTextColumn Header="状态" Binding="{Binding StateText}" Width="120" />
         <DataGridTextColumn Header="摘要值" Binding="{Binding Summary}" Width="120" />
         <DataGridTextColumn Header="结果说明" Binding="{Binding ResultText}" Width="*" />

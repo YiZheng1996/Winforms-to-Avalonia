@@ -64,28 +64,34 @@ public sealed class AppTestHarness : IDisposable
 
         var userRepo = new UserRepository(factory);
         var productRepo = new ProductRepository(factory);
-        var definitionRepo = new TestDefinitionRepository(factory);
+        var recordRepo = new RecordRepository(factory);
+        var pointRepo = new TestPointRepository(factory);
+        var configRepo = new ModelPointConfigRepository(factory);
         var testParameterRepo = new TestParameterRepository(factory);
-        var taskRepo = new TaskRepository(factory);
         var audit = new SqliteAuditLog(factory);
         var sessions = new InMemorySessionManager();
         var logger = new FileLogger(Path.Combine(dataRoot, "logs"));
+        var devicePoints = new DevicePointCatalogService(store, pointsConfig, audit);
+        var devicePointImporter = new DevicePointImporter();
+        var devicePointTemplateExporter = new DevicePointTemplateExporter();
 
         var auth = new AuthenticationService(userRepo, hasher, sessions, clock, audit);
-        var tasks = new TaskService(taskRepo, productRepo, clock, audit);
+        var executorFactory = new ExecutorFactory();
+        var testPoints = new TestPointService(pointRepo, configRepo, productRepo, executorFactory, clock, audit);
         var testParameters = new TestParameterService(testParameterRepo, productRepo, clock, audit);
         var writePipeline = new DeviceWritePipeline(audit, logger);
         var runtimeFactory = new DeviceRuntimeFactory(deviceConfig, pointsConfig, simulationConfig, clock);
         var deviceModes = new DeviceModeController(runtimeFactory, logger, audit);
         deviceModes.InitializeAsync(deviceConfig.DeviceMode).GetAwaiter().GetResult();
         var reportRepository = new ReportRepository(factory);
-        var execution = new TestExecutionService(taskRepo, definitionRepo, new ExecutorFactory(), tasks, testParameters, clock, audit);
-        var reports = new ReportService(taskRepo, productRepo, definitionRepo, userRepo, reportRepository, new ClosedXmlReportGenerator(), clock, audit);
+        var execution = new TestExecutionService(recordRepo, productRepo, executorFactory, testPoints, testParameters, clock, audit);
+        var reports = new ReportService(recordRepo, productRepo, userRepo, reportRepository, new ClosedXmlReportGenerator(), clock, audit);
 
         var services = new ShellServices(
-            auth, tasks, execution, new ProductService(productRepo, clock, audit),
+            auth, testPoints, execution, new ProductService(productRepo, clock, audit),
             testParameters, reports, deviceModes, writePipeline,
-            taskRepo, productRepo, definitionRepo, testParameterRepo, userRepo, reportRepository, audit,
+            recordRepo, pointRepo, configRepo, productRepo, testParameterRepo, userRepo, reportRepository, audit, executorFactory,
+            devicePoints, devicePointImporter, devicePointTemplateExporter,
             appConfig, deviceConfig, dbPath, "0.1.0");
 
         return new AppTestHarness(root, services, dbPath, dataRoot);

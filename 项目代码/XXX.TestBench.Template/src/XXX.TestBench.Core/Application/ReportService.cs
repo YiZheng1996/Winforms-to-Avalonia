@@ -1,32 +1,55 @@
 using XXX.TestBench.Core.Common;
 using XXX.TestBench.Core.Domain.Identity;
+using XXX.TestBench.Core.Domain.Records;
 using XXX.TestBench.Core.Domain.Reports;
+using XXX.TestBench.Core.Domain.TestPoints;
 using XXX.TestBench.Core.Ports;
 
 namespace XXX.TestBench.Core.Application;
 
 /// <summary>
-/// 报表生成：从已保存的 TestRecord/TestItemResult/参数快照生成报表数据并调用 IReportGenerator。
-/// Excel 不参与任务或运行参数输入；生成失败不回滚试验记录，可重试。
+/// 报表生成：从已保存的试验记录/项点结果/参数快照生成报表数据并调用 IReportGenerator。
+/// Excel 不参与执行或运行参数输入；生成失败不回滚试验记录，可重试。
 /// </summary>
 public sealed class ReportService
 {
-    private readonly ITaskRepository _tasks;
+    /// <summary>
+    /// 试验记录仓库。
+    /// </summary>
+    private readonly IRecordRepository _records;
+    /// <summary>
+    /// 产品数据仓库。
+    /// </summary>
     private readonly IProductRepository _products;
-    private readonly ITestDefinitionRepository _definitions;
+    /// <summary>
+    /// 用户仓库。
+    /// </summary>
     private readonly IUserRepository _users;
+    /// <summary>
+    /// 报表记录仓库。
+    /// </summary>
     private readonly IReportRepository _reports;
+    /// <summary>
+    /// 报表生成器。
+    /// </summary>
     private readonly IReportGenerator _generator;
+    /// <summary>
+    /// 时间来源。
+    /// </summary>
     private readonly IClock _clock;
+    /// <summary>
+    /// 审计日志。
+    /// </summary>
     private readonly IAuditLog _audit;
 
-    public ReportService(ITaskRepository tasks, IProductRepository products,
-        ITestDefinitionRepository definitions, IUserRepository users, IReportRepository reports,
-        IReportGenerator generator, IClock clock, IAuditLog audit)
+    /// <summary>
+    /// 创建报表服务。
+    /// </summary>
+    public ReportService(IRecordRepository records, IProductRepository products, IUserRepository users,
+        IReportRepository reports, IReportGenerator generator, IClock clock, IAuditLog audit)
     {
-        _tasks = tasks;
+        _records = records;
         _products = products;
-        _definitions = definitions;
         _users = users;
         _reports = reports;
         _generator = generator;
@@ -34,31 +57,37 @@ public sealed class ReportService
         _audit = audit;
     }
 
+    /// <summary>
+    /// 为已完成的试验记录生成报表，失败时保留记录并可重试。
+    /// </summary>
     public async Task<ReportRecord> GenerateAsync(UserContext actor, int recordId, string templatePath, string outputDirectory, CancellationToken ct = default)
     {
         Ensure(actor, PermissionCode.GenerateReports);
-        var record = await _tasks.GetRecordAsync(recordId, ct) ?? throw new DomainException("试验记录不存在");
-        if (record.State != Domain.Tasks.RecordState.Completed)
+        // 只有已完成的记录才允许生成报表。
+        var record = await _records.GetRecordAsync(recordId, ct) ?? throw new DomainException("试验记录不存在");
+        if (record.State != RecordState.Completed)
             throw new DomainException("只有已完成的试验记录可以生成报表");
-        var task = await _tasks.GetAsync(record.TaskId, ct) ?? throw new DomainException("任务不存在");
-        var model = await _products.GetModelAsync(task.ProductModelId, ct);
         var operatorUser = await _users.GetByIdAsync(record.OperatorUserId, ct);
-        var results = await _tasks.ListItemResultsAsync(recordId, ct);
+        var results = await _records.ListItemResultsAsync(recordId, ct);
 
+        // 按固化序列逐项汇总结果，保证报表行与执行时一致。
+        var sequence = SequenceSnapshot.FromJson(record.SequenceSnapshot) ?? new List<SequenceItem>();
         var rows = new List<ReportItemRow>();
-        foreach (var result in results.OrderBy(r => r.Id))
+        foreach (var item in sequence)
         {
-            var definition = await _definitions.GetItemAsync(result.TestItemDefinitionId, ct);
-            rows.Add(new ReportItemRow(rows.Count + 1, definition?.Name ?? result.TestItemDefinitionId.ToString(),
-                result.SummaryValue ?? string.Empty, result.ResultText ?? string.Empty, result.State.ToString()));
+            var result = results.FirstOrDefault(r => r.TestItemPointId == item.PointId);
+            rows.Add(new ReportItemRow(item.SortOrder, item.Name,
+                result?.SummaryValue ?? string.Empty,
+                result?.ResultText ?? string.Empty,
+                result?.State.ToString() ?? "未执行"));
         }
 
         var data = new ReportData(
             record.Id,
-            task.TaskNumber,
-            task.ProductIdentity.ProductNumber ?? string.Empty,
-            model?.Code ?? string.Empty,
-            record.ParameterSnapshot is null ? "未固化" : "固定流程",
+            record.RecordNumber,
+            record.ProductIdentity.ProductNumber ?? string.Empty,
+            record.ProductModelId.ToString(),
+            sequence.Count == 0 ? "未固化" : string.Join(" → ", sequence.Select(i => i.Name)),
             record.DeviceMode.ToString(),
             operatorUser?.DisplayName ?? record.OperatorUserId.ToString(),
             record.StartedAtUtc,
@@ -94,6 +123,9 @@ public sealed class ReportService
         return report;
     }
 
+    /// <summary>
+    /// 校验报表权限，越权时写入审计并抛出异常。
+    /// </summary>
     private void Ensure(UserContext actor, Core.Domain.Identity.PermissionCode permission)
     {
         try { actor.EnsurePermission(permission); }

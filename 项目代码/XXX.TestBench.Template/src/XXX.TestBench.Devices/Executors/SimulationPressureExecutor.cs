@@ -1,6 +1,6 @@
 using XXX.TestBench.Core.Common;
 using XXX.TestBench.Core.Domain.Devices;
-using XXX.TestBench.Core.Domain.Tasks;
+using XXX.TestBench.Core.Domain.Records;
 using XXX.TestBench.Core.Execution;
 
 namespace XXX.TestBench.Devices.Executors;
@@ -12,8 +12,14 @@ namespace XXX.TestBench.Devices.Executors;
 /// </summary>
 public sealed class SimulationPressureExecutor : ITestItemExecutor
 {
+    /// <summary>
+    /// 执行器代码。
+    /// </summary>
     public string ExecutorCode => "PressureExecutor";
 
+    /// <summary>
+    /// 校验参数快照并读取仿真压力点位，演示一次完整执行。
+    /// </summary>
     public async Task<ItemExecutionOutcome> ExecuteAsync(ItemExecutionContext context, CancellationToken ct = default)
     {
         var effective = context.EffectiveParameters;

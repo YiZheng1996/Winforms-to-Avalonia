@@ -1,162 +1,496 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:XXX.TestBench.App.ViewModels"
+             xmlns:views="using:XXX.TestBench.App.Views"
              x:Class="XXX.TestBench.App.Views.ParameterManagementView"
-             x:DataType="vm:ParameterManagementViewModel">
-  <UserControl.Styles>
-    <Style Selector="Border.recipe-card">
-      <Setter Property="Background" Value="White" />
-      <Setter Property="BorderBrush" Value="#D6DEEA" />
-      <Setter Property="BorderThickness" Value="1" />
-      <Setter Property="CornerRadius" Value="4" />
-    </Style>
-    <Style Selector="TextBlock.recipe-title">
-      <Setter Property="FontSize" Value="18" />
-      <Setter Property="FontWeight" Value="SemiBold" />
-      <Setter Property="Foreground" Value="#151A24" />
-    </Style>
-    <Style Selector="TextBlock.recipe-caption">
-      <Setter Property="FontSize" Value="13" />
-      <Setter Property="Foreground" Value="#667085" />
-    </Style>
-  </UserControl.Styles>
+             x:DataType="vm:ParameterManagementViewModel"
+             UseLayoutRounding="True">
 
-  <Grid Background="#F5F8FC" RowDefinitions="Auto,*,Auto" Margin="16">
-    <Border Grid.Row="0" Classes="recipe-card" Padding="18,14">
-      <Grid ColumnDefinitions="*,Auto">
-        <StackPanel Spacing="4">
-          <TextBlock Text="参数管理" Classes="recipe-title" />
-          <TextBlock Text="产品类型、产品型号与代码固定的试验参数" Classes="recipe-caption" />
+  <Grid Background="{DynamicResource WorkspaceBrush}"
+        RowDefinitions="Auto,*,Auto"
+        RowSpacing="12"
+        Margin="16,14,16,8">
+    <!-- 页面标题：与主外壳保持同一套蓝白、轻边框视觉语言。 -->
+    <Border Grid.Row="0" Classes="parameter-surface" Padding="18,14">
+      <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="14">
+        <Border Width="4" Height="48" Background="{DynamicResource BrandBlueBrush}"
+                CornerRadius="2" VerticalAlignment="Center" />
+        <StackPanel Grid.Column="1" Spacing="3" VerticalAlignment="Center">
+          <TextBlock Text="参数管理" FontSize="24" FontWeight="SemiBold"
+                     Foreground="{DynamicResource TextPrimaryBrush}" />
+          <TextBlock Text="维护产品主数据、试验项点及自动执行参数"
+                     Classes="parameter-hint" />
         </StackPanel>
-        <Button Grid.Column="1" Content="刷新数据" Command="{Binding LoadCommand}" VerticalAlignment="Center" />
+        <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+          <Border Classes="parameter-count" Background="#F0F7FF" BorderBrush="#CFE0FF">
+            <StackPanel Orientation="Horizontal" Spacing="6">
+              <Ellipse Width="8" Height="8" Fill="{DynamicResource BrandBlueBrush}"
+                       VerticalAlignment="Center" />
+              <TextBlock Text="固定参数字段" Foreground="#0758D7" FontSize="13"
+                         VerticalAlignment="Center" />
+            </StackPanel>
+          </Border>
+          <Button Classes="parameter-secondary" Content="↻  刷新数据"
+                  Command="{Binding LoadCommand}" />
+        </StackPanel>
       </Grid>
     </Border>
 
-    <TabControl Grid.Row="1" Margin="0,12,0,0" SelectedIndex="{Binding SelectedTabIndex}">
-      <TabItem Header="产品类型">
-        <DockPanel Margin="8" LastChildFill="True">
-          <Border DockPanel.Dock="Top" Classes="recipe-card" Padding="14" Margin="0,0,0,10">
-            <Grid ColumnDefinitions="*,Auto">
-              <StackPanel Spacing="4">
-                <TextBlock Text="产品类型列表" Classes="recipe-title" />
-                <StackPanel Orientation="Horizontal" Spacing="6">
-                  <TextBlock Text="当前数量：" Classes="recipe-caption" />
-                  <TextBlock Text="{Binding Types.Count}" Foreground="#0868F7" FontWeight="SemiBold" />
-                  <TextBlock Text="个" Classes="recipe-caption" />
-                </StackPanel>
+    <TabControl Grid.Row="1" Classes="parameter-tabs"
+                SelectedIndex="{Binding SelectedTabIndex, Mode=TwoWay}"
+                TabStripPlacement="Top">
+      <!-- 产品类型 -->
+      <TabItem Classes="parameter-tab">
+        <TabItem.Header>
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <TextBlock Text="▦" FontSize="16" Foreground="{DynamicResource BrandBlueBrush}" />
+            <TextBlock Text="产品类型" />
+          </StackPanel>
+        </TabItem.Header>
+        <Grid RowDefinitions="Auto,*" RowSpacing="12" Margin="0,12,0,0">
+          <Border Classes="parameter-surface" Padding="16,14">
+            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="14">
+              <Border Classes="parameter-icon">
+                <TextBlock Text="▦" FontSize="20" Foreground="{DynamicResource BrandBlueBrush}"
+                           HorizontalAlignment="Center" VerticalAlignment="Center" />
+              </Border>
+              <StackPanel Grid.Column="1" Spacing="3" VerticalAlignment="Center">
+                <TextBlock Text="产品类型" Classes="parameter-section-title" />
+                <TextBlock Text="定义产品分类，作为产品型号与试验项点的组织入口"
+                           Classes="parameter-hint" />
               </StackPanel>
-              <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                <Button Content="停用/启用选中" Command="{Binding DisableSelectedTypeCommand}" />
-                <Button Content="新增产品类型" Click="OnAddTypeClick" />
+              <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8"
+                          VerticalAlignment="Center">
+                <Border Classes="parameter-count">
+                  <StackPanel Orientation="Horizontal" Spacing="5">
+                    <TextBlock Text="{Binding Types.Count}" Foreground="{DynamicResource BrandBlueBrush}"
+                               FontSize="15" FontWeight="SemiBold" />
+                    <TextBlock Text="个类型" Classes="parameter-label" />
+                  </StackPanel>
+                </Border>
+                <Button Classes="parameter-ghost" Content="启用 / 停用"
+                        Command="{Binding DisableSelectedTypeCommand}" />
+                <Button Classes="parameter-secondary" Content="编辑"
+                        Click="OnEditTypeClick" />
+                <Button Classes="parameter-danger" Content="删除"
+                        Command="{Binding DeleteSelectedTypeCommand}" />
+                <Button Classes="parameter-primary" Content="＋ 新增产品类型"
+                        Click="OnAddTypeClick" />
               </StackPanel>
             </Grid>
           </Border>
-          <Grid>
-            <DataGrid ItemsSource="{Binding Types}" SelectedItem="{Binding SelectedType}" AutoGenerateColumns="False" IsReadOnly="True" RowHeight="42" MinHeight="240">
-              <DataGrid.Columns>
-                <DataGridTextColumn Header="类型代码" Binding="{Binding Code}" Width="1*" />
-                <DataGridTextColumn Header="类型名称" Binding="{Binding Name}" Width="1.5*" />
-                <DataGridTextColumn Header="启用状态" Binding="{Binding IsEnabled}" Width="120" />
-                <DataGridTextColumn Header="创建时间" Binding="{Binding CreatedAtUtc}" Width="2*" />
-              </DataGrid.Columns>
-            </DataGrid>
-            <TextBlock Text="暂无产品类型，请点击“新增产品类型”创建。"
-                       HorizontalAlignment="Center" VerticalAlignment="Center"
-                       Foreground="#98A2B3" IsVisible="{Binding !HasTypes}" />
-          </Grid>
-        </DockPanel>
+
+          <Border Grid.Row="1" Classes="parameter-surface" Padding="1">
+            <Grid RowDefinitions="Auto,*">
+              <Border Grid.Row="0" Background="#F8FAFD" Padding="16,11"
+                      BorderBrush="#E2E8F0" BorderThickness="0,0,0,1">
+                <Grid ColumnDefinitions="*,Auto">
+                  <TextBlock Text="类型清单" FontWeight="SemiBold" Foreground="#344054" />
+                  <TextBlock Grid.Column="1" Text="选择一行后可进行状态或删除操作"
+                             Classes="parameter-hint" HorizontalAlignment="Right" />
+                </Grid>
+              </Border>
+              <Grid Grid.Row="1">
+                <DataGrid Classes="parameter-grid"
+                          ItemsSource="{Binding Types}"
+                          SelectedItem="{Binding SelectedType, Mode=TwoWay}"
+                          AutoGenerateColumns="False"
+                          IsReadOnly="True"
+                          HeadersVisibility="Column"
+                          SelectionMode="Single">
+                  <DataGrid.Columns>
+                    <DataGridTextColumn Header="类型编号" Binding="{Binding Id}" Width="1.1*" />
+                    <DataGridTextColumn Header="类型名称" Binding="{Binding Name}" Width="1.4*" />
+                    <DataGridTemplateColumn Header="状态" Width="120">
+                      <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                          <Grid HorizontalAlignment="Left">
+                            <Border Background="#ECFDF3" CornerRadius="12" Padding="9,4"
+                                    IsVisible="{Binding IsEnabled}">
+                              <StackPanel Orientation="Horizontal" Spacing="5">
+                                <Ellipse Width="7" Height="7" Fill="#18A654" />
+                                <TextBlock Text="启用" Foreground="#087443" FontSize="12" />
+                              </StackPanel>
+                            </Border>
+                            <Border Background="#F2F4F7" CornerRadius="12" Padding="9,4"
+                                    IsVisible="{Binding !IsEnabled}">
+                              <StackPanel Orientation="Horizontal" Spacing="5">
+                                <Ellipse Width="7" Height="7" Fill="#98A2B3" />
+                                <TextBlock Text="停用" Foreground="#667085" FontSize="12" />
+                              </StackPanel>
+                            </Border>
+                          </Grid>
+                        </DataTemplate>
+                      </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                    <DataGridTextColumn Header="创建时间" Binding="{Binding CreatedAtUtc}" Width="1.8*" />
+                  </DataGrid.Columns>
+                </DataGrid>
+                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="6"
+                            IsVisible="{Binding !HasTypes}">
+                  <TextBlock Text="暂无产品类型" FontSize="16" FontWeight="SemiBold"
+                             Foreground="#526071" HorizontalAlignment="Center" />
+                  <TextBlock Text="点击右上角“新增产品类型”开始配置" Classes="parameter-hint" />
+                </StackPanel>
+              </Grid>
+            </Grid>
+          </Border>
+        </Grid>
       </TabItem>
 
-      <TabItem Header="产品型号">
-        <DockPanel Margin="8" LastChildFill="True">
-          <Border DockPanel.Dock="Top" Classes="recipe-card" Padding="14" Margin="0,0,0,10">
-            <Grid ColumnDefinitions="*,Auto">
-              <StackPanel Spacing="8">
-                <TextBlock Text="产品型号列表" Classes="recipe-title" />
-                <StackPanel Orientation="Horizontal" Spacing="8">
-                  <TextBlock Text="所属类型：" Classes="recipe-caption" VerticalAlignment="Center" />
-                  <ComboBox ItemsSource="{Binding ModelTypeOptions}"
+      <!-- 产品型号 -->
+      <TabItem Classes="parameter-tab">
+        <TabItem.Header>
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <TextBlock Text="◫" FontSize="16" Foreground="{DynamicResource BrandBlueBrush}" />
+            <TextBlock Text="产品型号" />
+          </StackPanel>
+        </TabItem.Header>
+        <Grid RowDefinitions="Auto,*" RowSpacing="12" Margin="0,12,0,0">
+          <Border Classes="parameter-surface" Padding="16,14">
+            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="14">
+              <Border Classes="parameter-icon">
+                <TextBlock Text="◫" FontSize="20" Foreground="{DynamicResource BrandBlueBrush}"
+                           HorizontalAlignment="Center" VerticalAlignment="Center" />
+              </Border>
+              <StackPanel Grid.Column="1" Spacing="10" VerticalAlignment="Center">
+                <StackPanel Spacing="3">
+                  <TextBlock Text="产品型号" Classes="parameter-section-title" />
+                  <TextBlock Text="按产品类型查看和维护具体型号"
+                             Classes="parameter-hint" />
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Spacing="9">
+                  <TextBlock Text="查看类型" Classes="parameter-label" VerticalAlignment="Center" />
+                  <ComboBox Classes="parameter-input" Width="220"
+                            ItemsSource="{Binding ModelTypeOptions}"
                             SelectedItem="{Binding SelectedModelType, Mode=TwoWay}"
                             DisplayMemberBinding="{Binding Name}"
-                            PlaceholderText="全部产品类型" Width="220" />
-                  <TextBlock Text="当前数量：" Classes="recipe-caption" VerticalAlignment="Center" />
-                  <TextBlock Text="{Binding Models.Count}" Foreground="#0868F7" FontWeight="SemiBold" VerticalAlignment="Center" />
-                  <TextBlock Text="个" Classes="recipe-caption" VerticalAlignment="Center" />
+                            PlaceholderText="全部产品类型" />
+                  <TextBlock Text="列表中的型号会随筛选实时更新" Classes="parameter-hint"
+                             VerticalAlignment="Center" />
                 </StackPanel>
               </StackPanel>
-              <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                <Button Content="停用/启用选中" Command="{Binding DisableSelectedModelCommand}" />
-                <Button Content="新增产品型号" Click="OnAddModelClick" />
+              <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8"
+                          VerticalAlignment="Center">
+                <Border Classes="parameter-count">
+                  <StackPanel Orientation="Horizontal" Spacing="5">
+                    <TextBlock Text="{Binding Models.Count}" Foreground="{DynamicResource BrandBlueBrush}"
+                               FontSize="15" FontWeight="SemiBold" />
+                    <TextBlock Text="个型号" Classes="parameter-label" />
+                  </StackPanel>
+                </Border>
+                <Button Classes="parameter-ghost" Content="启用 / 停用"
+                        Command="{Binding DisableSelectedModelCommand}" />
+                <Button Classes="parameter-secondary" Content="编辑"
+                        Click="OnEditModelClick" />
+                <Button Classes="parameter-danger" Content="删除"
+                        Command="{Binding DeleteSelectedModelCommand}" />
+                <Button Classes="parameter-primary" Content="＋ 新增产品型号"
+                        Click="OnAddModelClick" />
               </StackPanel>
             </Grid>
           </Border>
-          <Grid>
-            <DataGrid ItemsSource="{Binding Models}" SelectedItem="{Binding SelectedModel}" AutoGenerateColumns="False" IsReadOnly="True" RowHeight="42" MinHeight="240">
-              <DataGrid.Columns>
-                <DataGridTextColumn Header="类型编号" Binding="{Binding ProductTypeId}" Width="100" />
-                <DataGridTextColumn Header="型号代码" Binding="{Binding Code}" Width="1.2*" />
-                <DataGridTextColumn Header="型号名称" Binding="{Binding Name}" Width="1.5*" />
-                <DataGridTextColumn Header="启用状态" Binding="{Binding IsEnabled}" Width="120" />
-                <DataGridTextColumn Header="创建时间" Binding="{Binding CreatedAtUtc}" Width="2*" />
-              </DataGrid.Columns>
-            </DataGrid>
-            <TextBlock Text="暂无产品型号，请先创建产品类型，再点击“新增产品型号”。"
-                       HorizontalAlignment="Center" VerticalAlignment="Center"
-                       Foreground="#98A2B3" IsVisible="{Binding !HasModels}" />
-          </Grid>
-        </DockPanel>
+
+          <Border Grid.Row="1" Classes="parameter-surface" Padding="1">
+            <Grid RowDefinitions="Auto,*">
+              <Border Grid.Row="0" Background="#F8FAFD" Padding="16,11"
+                      BorderBrush="#E2E8F0" BorderThickness="0,0,0,1">
+                <Grid ColumnDefinitions="*,Auto">
+                  <TextBlock Text="型号清单" FontWeight="SemiBold" Foreground="#344054" />
+                  <TextBlock Grid.Column="1" Text="产品型号是试验记录与参数配置的最小业务单元"
+                             Classes="parameter-hint" HorizontalAlignment="Right" />
+                </Grid>
+              </Border>
+              <Grid Grid.Row="1">
+                <DataGrid Classes="parameter-grid"
+                          ItemsSource="{Binding Models}"
+                          SelectedItem="{Binding SelectedModel, Mode=TwoWay}"
+                          AutoGenerateColumns="False"
+                          IsReadOnly="True"
+                          HeadersVisibility="Column"
+                          SelectionMode="Single">
+                  <DataGrid.Columns>
+                    <DataGridTextColumn Header="类型编号" Binding="{Binding ProductTypeId}" Width="100" />
+                    <DataGridTextColumn Header="型号编号" Binding="{Binding Id}" Width="1.2*" />
+                    <DataGridTextColumn Header="型号名称" Binding="{Binding Name}" Width="1.4*" />
+                    <DataGridTemplateColumn Header="状态" Width="120">
+                      <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                          <Grid HorizontalAlignment="Left">
+                            <Border Background="#ECFDF3" CornerRadius="12" Padding="9,4"
+                                    IsVisible="{Binding IsEnabled}">
+                              <StackPanel Orientation="Horizontal" Spacing="5">
+                                <Ellipse Width="7" Height="7" Fill="#18A654" />
+                                <TextBlock Text="启用" Foreground="#087443" FontSize="12" />
+                              </StackPanel>
+                            </Border>
+                            <Border Background="#F2F4F7" CornerRadius="12" Padding="9,4"
+                                    IsVisible="{Binding !IsEnabled}">
+                              <StackPanel Orientation="Horizontal" Spacing="5">
+                                <Ellipse Width="7" Height="7" Fill="#98A2B3" />
+                                <TextBlock Text="停用" Foreground="#667085" FontSize="12" />
+                              </StackPanel>
+                            </Border>
+                          </Grid>
+                        </DataTemplate>
+                      </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                    <DataGridTextColumn Header="创建时间" Binding="{Binding CreatedAtUtc}" Width="1.8*" />
+                  </DataGrid.Columns>
+                </DataGrid>
+                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="6"
+                            IsVisible="{Binding !HasModels}">
+                  <TextBlock Text="暂无产品型号" FontSize="16" FontWeight="SemiBold"
+                             Foreground="#526071" HorizontalAlignment="Center" />
+                  <TextBlock Text="先创建产品类型，再点击右上角“新增产品型号”" Classes="parameter-hint" />
+                </StackPanel>
+              </Grid>
+            </Grid>
+          </Border>
+        </Grid>
       </TabItem>
 
-      <TabItem Header="试验参数">
-        <DockPanel Margin="8" LastChildFill="True">
-          <Border DockPanel.Dock="Top" Classes="recipe-card" Padding="14" Margin="0,0,0,10">
-            <StackPanel Spacing="4">
-              <TextBlock Text="试验参数（代码固定字段）" Classes="recipe-title" />
-              <TextBlock Text="参数按 项目 / 产品类型 / 产品型号 三级保存，自动试验读取合并后的强类型参数。" Classes="recipe-caption" />
-            </StackPanel>
-          </Border>
-          <StackPanel Spacing="10">
-            <Border Classes="recipe-card" Padding="14">
-              <Grid ColumnDefinitions="Auto,200,*,Auto">
-                <TextBlock Text="项目参数" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,12,0" />
-                <TextBlock Text="试验时间 (s)：" VerticalAlignment="Center" />
-                <TextBox Grid.Column="2" Text="{Binding TestTimeInput, Mode=TwoWay}" Watermark="1～3600" VerticalAlignment="Center" />
-                <Button Grid.Column="3" Content="保存项目参数" Command="{Binding SaveProjectParameterCommand}" Margin="12,0,0,0" />
-              </Grid>
-            </Border>
-            <Border Classes="recipe-card" Padding="14">
-              <Grid ColumnDefinitions="Auto,180,200,*,Auto" RowDefinitions="Auto,Auto">
-                <TextBlock Grid.RowSpan="2" Text="类型参数" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,12,0" />
-                <TextBlock Grid.Column="1" Grid.Row="0" Text="产品类型：" VerticalAlignment="Center" Margin="0,0,0,6" />
-                <ComboBox Grid.Column="2" Grid.Row="0" ItemsSource="{Binding ParamTypeOptions}"
-                          SelectedItem="{Binding SelectedParamType, Mode=TwoWay}"
-                          DisplayMemberBinding="{Binding Name}" PlaceholderText="选择产品类型" Margin="0,0,0,6" />
-                <TextBlock Grid.Column="1" Grid.Row="1" Text="试验电压 (V)：" VerticalAlignment="Center" />
-                <TextBox Grid.Column="3" Grid.Row="1" Text="{Binding TestVoltageInput, Mode=TwoWay}" Watermark="0～5000" VerticalAlignment="Center" />
-                <Button Grid.Column="4" Grid.RowSpan="2" Content="保存类型参数" Command="{Binding SaveTypeParameterCommand}" Margin="12,0,0,0" />
-              </Grid>
-            </Border>
-            <Border Classes="recipe-card" Padding="14">
-              <Grid ColumnDefinitions="Auto,180,220,Auto,*" RowDefinitions="Auto,Auto,Auto">
-                <TextBlock Grid.RowSpan="3" Text="型号参数" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,12,0" />
-                <TextBlock Grid.Column="1" Grid.Row="0" Text="产品类型：" VerticalAlignment="Center" Margin="0,0,0,6" />
-                <ComboBox Grid.Column="2" Grid.Row="0" ItemsSource="{Binding ParamTypeOptions}"
-                          SelectedItem="{Binding SelectedParamType, Mode=TwoWay}"
-                          DisplayMemberBinding="{Binding Name}" PlaceholderText="选择产品类型" Margin="0,0,0,6" />
-                <TextBlock Grid.Column="1" Grid.Row="1" Text="产品型号：" VerticalAlignment="Center" Margin="0,0,0,6" />
-                <ComboBox Grid.Column="2" Grid.Row="1" ItemsSource="{Binding ParamModelOptions}"
-                          SelectedItem="{Binding SelectedParamModel, Mode=TwoWay}"
-                          DisplayMemberBinding="{Binding Name}" PlaceholderText="选择产品型号" Margin="0,0,0,6" />
-                <TextBlock Grid.Column="1" Grid.Row="2" Text="保护电流 (mA)：" VerticalAlignment="Center" />
-                <TextBox Grid.Column="2" Grid.Row="2" Text="{Binding ProtectCurrentInput, Mode=TwoWay}" Watermark="0～1000" VerticalAlignment="Center" />
-                <Button Grid.Column="3" Grid.Row="2" Content="保存型号参数" Command="{Binding SaveModelParameterCommand}" Margin="12,0,0,0" />
-              </Grid>
-            </Border>
+      <!-- 试验项点 -->
+      <TabItem Classes="parameter-tab">
+        <TabItem.Header>
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <TextBlock Text="⌁" FontSize="17" Foreground="{DynamicResource BrandBlueBrush}" />
+            <TextBlock Text="试验项点" />
           </StackPanel>
-        </DockPanel>
+        </TabItem.Header>
+        <views:TestPointManagementView DataContext="{Binding TestPointTab}" />
+      </TabItem>
+
+      <!-- 项点配置 -->
+      <TabItem Classes="parameter-tab">
+        <TabItem.Header>
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <TextBlock Text="⇄" FontSize="17" Foreground="{DynamicResource BrandBlueBrush}" />
+            <TextBlock Text="项点配置" />
+          </StackPanel>
+        </TabItem.Header>
+        <views:PointConfigurationView DataContext="{Binding PointConfigTab}" />
+      </TabItem>
+
+      <!-- 试验参数 -->
+      <TabItem Classes="parameter-tab">
+        <TabItem.Header>
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <TextBlock Text="⚙" FontSize="16" Foreground="{DynamicResource BrandBlueBrush}" />
+            <TextBlock Text="试验参数" />
+          </StackPanel>
+        </TabItem.Header>
+        <Grid RowDefinitions="Auto,*" RowSpacing="12" Margin="0,12,0,0">
+          <Border Classes="parameter-soft-surface" Padding="10">
+            <Grid ColumnDefinitions="*,*,*" ColumnSpacing="10">
+              <Border Background="#F0F7FF" BorderBrush="#CFE0FF" BorderThickness="1"
+                      CornerRadius="7" Padding="14,10">
+                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+                  <Border Classes="parameter-index">
+                    <TextBlock Text="01" Foreground="{DynamicResource BrandBlueDarkBrush}"
+                               FontWeight="SemiBold" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                  </Border>
+                  <StackPanel Grid.Column="1" Spacing="2" VerticalAlignment="Center">
+                    <TextBlock Text="项目级" FontWeight="SemiBold" Foreground="#164B95" />
+                    <TextBlock Text="全局基础试验参数" Classes="parameter-hint" />
+                  </StackPanel>
+                </Grid>
+              </Border>
+              <Border Grid.Column="1" Classes="parameter-soft-surface" Padding="14,10">
+                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+                  <Border Classes="parameter-index" Background="#F4F6F9">
+                    <TextBlock Text="02" Foreground="#526071" FontWeight="SemiBold"
+                               HorizontalAlignment="Center" VerticalAlignment="Center" />
+                  </Border>
+                  <StackPanel Grid.Column="1" Spacing="2" VerticalAlignment="Center">
+                    <TextBlock Text="产品类型级" FontWeight="SemiBold" Foreground="#344054" />
+                    <TextBlock Text="同类型产品共用参数" Classes="parameter-hint" />
+                  </StackPanel>
+                </Grid>
+              </Border>
+              <Border Grid.Column="2" Classes="parameter-soft-surface" Padding="14,10">
+                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+                  <Border Classes="parameter-index" Background="#F4F6F9">
+                    <TextBlock Text="03" Foreground="#526071" FontWeight="SemiBold"
+                               HorizontalAlignment="Center" VerticalAlignment="Center" />
+                  </Border>
+                  <StackPanel Grid.Column="1" Spacing="2" VerticalAlignment="Center">
+                    <TextBlock Text="产品型号级" FontWeight="SemiBold" Foreground="#344054" />
+                    <TextBlock Text="型号专属保护参数" Classes="parameter-hint" />
+                  </StackPanel>
+                </Grid>
+              </Border>
+            </Grid>
+          </Border>
+
+          <Grid Grid.Row="1" ColumnDefinitions="0.82*,1.45*" ColumnSpacing="12">
+            <Border Classes="parameter-surface" Padding="18">
+              <StackPanel Spacing="14">
+                <StackPanel Spacing="4">
+                  <TextBlock Text="参数作用域" Classes="parameter-section-title" />
+                  <TextBlock Text="自动试验读取合并后的强类型参数，页面只负责录入与保存。"
+                             Classes="parameter-hint" TextWrapping="Wrap" />
+                </StackPanel>
+
+                <StackPanel Spacing="12">
+                  <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+                    <Border Classes="parameter-index" Background="#F0F7FF">
+                      <TextBlock Text="01" Foreground="{DynamicResource BrandBlueDarkBrush}"
+                                 FontWeight="SemiBold" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <StackPanel Grid.Column="1" Spacing="2" VerticalAlignment="Center">
+                      <TextBlock Text="项目级参数" FontWeight="SemiBold" />
+                      <TextBlock Text="所有产品默认使用" Classes="parameter-hint" />
+                    </StackPanel>
+                  </Grid>
+                  <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+                    <Border Classes="parameter-index" Background="#F4F6F9">
+                      <TextBlock Text="02" Foreground="#526071" FontWeight="SemiBold"
+                                 HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <StackPanel Grid.Column="1" Spacing="2" VerticalAlignment="Center">
+                      <TextBlock Text="产品类型级参数" FontWeight="SemiBold" />
+                      <TextBlock Text="由产品类型统一维护" Classes="parameter-hint" />
+                    </StackPanel>
+                  </Grid>
+                  <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+                    <Border Classes="parameter-index" Background="#F4F6F9">
+                      <TextBlock Text="03" Foreground="#526071" FontWeight="SemiBold"
+                                 HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <StackPanel Grid.Column="1" Spacing="2" VerticalAlignment="Center">
+                      <TextBlock Text="产品型号级参数" FontWeight="SemiBold" />
+                      <TextBlock Text="覆盖型号的专属要求" Classes="parameter-hint" />
+                    </StackPanel>
+                  </Grid>
+                </StackPanel>
+
+                <Border Classes="parameter-note" Padding="12">
+                  <StackPanel Spacing="5">
+                    <TextBlock Text="编辑提示" Foreground="#164B95" FontWeight="SemiBold" />
+                    <TextBlock Text="每个层级独立保存；输入框中的单位仅作提示，保存时按数值校验。"
+                               Foreground="#526071" FontSize="12" TextWrapping="Wrap" />
+                  </StackPanel>
+                </Border>
+              </StackPanel>
+            </Border>
+
+            <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto"
+                          HorizontalScrollBarVisibility="Disabled">
+              <StackPanel Spacing="10" Margin="0,0,4,0">
+                <Border Classes="parameter-editor" Padding="12">
+                  <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
+                    <Border Classes="parameter-index">
+                      <TextBlock Text="01" Foreground="{DynamicResource BrandBlueDarkBrush}"
+                                 FontWeight="SemiBold" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <StackPanel Grid.Column="1" Spacing="7">
+                      <StackPanel Spacing="2">
+                        <TextBlock Text="项目级参数" FontWeight="SemiBold" FontSize="16" />
+                        <TextBlock Text="试验时间对所有产品生效" Classes="parameter-hint" />
+                      </StackPanel>
+                      <Grid ColumnDefinitions="Auto,190,Auto" ColumnSpacing="8">
+                        <TextBlock Text="试验时间" Classes="parameter-label" VerticalAlignment="Center" />
+                        <TextBox Grid.Column="1" Classes="parameter-input"
+                                 Text="{Binding TestTimeInput, Mode=TwoWay}"
+                                 Watermark="1～3600" />
+                        <TextBlock Grid.Column="2" Text="s" Classes="parameter-unit" />
+                      </Grid>
+                    </StackPanel>
+                    <Button Grid.Column="2" Classes="parameter-primary" Content="保存"
+                            Command="{Binding SaveProjectParameterCommand}"
+                            VerticalAlignment="Bottom" />
+                  </Grid>
+                </Border>
+
+                <Border Classes="parameter-editor" Padding="12">
+                  <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
+                    <Border Classes="parameter-index">
+                      <TextBlock Text="02" Foreground="#526071" FontWeight="SemiBold"
+                                 HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <StackPanel Grid.Column="1" Spacing="7">
+                      <StackPanel Spacing="2">
+                        <TextBlock Text="产品类型级参数" FontWeight="SemiBold" FontSize="16" />
+                        <TextBlock Text="先选择产品类型，再维护该类型的试验电压" Classes="parameter-hint" />
+                      </StackPanel>
+                      <Grid ColumnDefinitions="Auto,200,Auto,170" ColumnSpacing="8">
+                        <TextBlock Text="产品类型" Classes="parameter-label" VerticalAlignment="Center" />
+                        <ComboBox Grid.Column="1" Classes="parameter-input"
+                                  ItemsSource="{Binding ParamTypeOptions}"
+                                  SelectedItem="{Binding SelectedParamType, Mode=TwoWay}"
+                                  DisplayMemberBinding="{Binding Name}"
+                                  PlaceholderText="选择产品类型" />
+                        <TextBlock Grid.Column="2" Text="试验电压" Classes="parameter-label"
+                                   VerticalAlignment="Center" />
+                        <TextBox Grid.Column="3" Classes="parameter-input"
+                                 Text="{Binding TestVoltageInput, Mode=TwoWay}"
+                                 Watermark="0～5000" />
+                      </Grid>
+                    </StackPanel>
+                    <Button Grid.Column="2" Classes="parameter-primary" Content="保存"
+                            Command="{Binding SaveTypeParameterCommand}"
+                            VerticalAlignment="Bottom" />
+                  </Grid>
+                </Border>
+
+                <Border Classes="parameter-editor" Padding="12">
+                  <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
+                    <Border Classes="parameter-index">
+                      <TextBlock Text="03" Foreground="#526071" FontWeight="SemiBold"
+                                 HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <StackPanel Grid.Column="1" Spacing="7">
+                      <StackPanel Spacing="2">
+                        <TextBlock Text="产品型号级参数" FontWeight="SemiBold" FontSize="16" />
+                        <TextBlock Text="选择具体型号，维护其保护电流上限" Classes="parameter-hint" />
+                      </StackPanel>
+                      <Grid ColumnDefinitions="Auto,200,Auto,170" RowDefinitions="Auto,Auto"
+                            ColumnSpacing="8" RowSpacing="8">
+                        <TextBlock Text="产品类型" Classes="parameter-label" VerticalAlignment="Center" />
+                        <ComboBox Grid.Column="1" Classes="parameter-input"
+                                  ItemsSource="{Binding ParamTypeOptions}"
+                                  SelectedItem="{Binding SelectedParamType, Mode=TwoWay}"
+                                  DisplayMemberBinding="{Binding Name}"
+                                  PlaceholderText="选择产品类型" />
+                        <TextBlock Grid.Column="2" Text="产品型号" Classes="parameter-label"
+                                   VerticalAlignment="Center" />
+                        <ComboBox Grid.Column="3" Classes="parameter-input"
+                                  ItemsSource="{Binding ParamModelOptions}"
+                                  SelectedItem="{Binding SelectedParamModel, Mode=TwoWay}"
+                                  DisplayMemberBinding="{Binding Name}"
+                                  PlaceholderText="选择产品型号" />
+                        <TextBlock Grid.Row="1" Text="保护电流" Classes="parameter-label" VerticalAlignment="Center" />
+                        <TextBox Grid.Row="1" Grid.Column="1" Classes="parameter-input"
+                                 Text="{Binding ProtectCurrentInput, Mode=TwoWay}"
+                                 Watermark="0～1000" />
+                        <TextBlock Grid.Row="1" Grid.Column="2" Text="mA" Classes="parameter-unit" />
+                      </Grid>
+                    </StackPanel>
+                    <Button Grid.Column="2" Classes="parameter-primary" Content="保存"
+                            Command="{Binding SaveModelParameterCommand}"
+                            VerticalAlignment="Bottom" />
+                  </Grid>
+                </Border>
+              </StackPanel>
+            </ScrollViewer>
+          </Grid>
+        </Grid>
       </TabItem>
     </TabControl>
 
-    <TextBlock Grid.Row="2" Text="{Binding Status}" Foreground="#1F618D" Margin="4,8,4,0" TextWrapping="Wrap" />
+    <Border Grid.Row="2" Classes="parameter-soft-surface" Padding="12,7">
+      <Grid ColumnDefinitions="Auto,*,Auto">
+        <Ellipse Width="7" Height="7" Fill="{DynamicResource BrandBlueBrush}"
+                 VerticalAlignment="Center" Margin="2,0,8,0" />
+        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+          <TextBlock Text="提示" Foreground="#526071" FontSize="13" FontWeight="SemiBold" />
+          <TextBlock Text="{Binding Status}" Foreground="#1F618D"
+                     FontSize="13" TextWrapping="Wrap" VerticalAlignment="Center" />
+        </StackPanel>
+        <TextBlock Grid.Column="2" Text="保存后数据立即写入本地数据库"
+                   Classes="parameter-hint" VerticalAlignment="Center" />
+      </Grid>
+    </Border>
   </Grid>
 </UserControl>

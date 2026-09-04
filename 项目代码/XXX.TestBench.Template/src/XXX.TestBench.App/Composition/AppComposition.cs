@@ -22,18 +22,51 @@ namespace XXX.TestBench.App.Composition;
 /// </summary>
 public sealed class AppComposition
 {
+    /// <summary>
+    /// 私有构造，防止外部直接创建。
+    /// </summary>
     private AppComposition() { }
 
+    /// <summary>
+    /// 应用日志。
+    /// </summary>
     public IAppLogger Logger { get; private set; } = null!;
+    /// <summary>
+    /// 主界面视图模型。
+    /// </summary>
     public ShellViewModel? Shell { get; private set; }
+    /// <summary>
+    /// 启动失败时的错误信息。
+    /// </summary>
     public string? StartupError { get; private set; }
+    /// <summary>
+    /// 登录服务。
+    /// </summary>
     public AuthenticationService? Authentication { get; private set; }
+    /// <summary>
+    /// 设备模式控制器。
+    /// </summary>
     public DeviceModeController? DeviceModes { get; private set; }
+    /// <summary>
+    /// 数据库初始化器。
+    /// </summary>
     public SqliteDatabase? Database { get; private set; }
+    /// <summary>
+    /// 数据库连接工厂。
+    /// </summary>
     public ISqliteConnectionFactory? ConnectionFactory { get; private set; }
+    /// <summary>
+    /// 试验执行服务。
+    /// </summary>
     public TestExecutionService? TestExecution { get; private set; }
+    /// <summary>
+    /// 报表服务。
+    /// </summary>
     public ReportService? Reports { get; private set; }
 
+    /// <summary>
+    /// 创建并完成全部依赖装配。
+    /// </summary>
     public static AppComposition Create(string configRoot, string dataRoot)
     {
         var composition = new AppComposition();
@@ -41,6 +74,9 @@ public sealed class AppComposition
         return composition;
     }
 
+    /// <summary>
+    /// 装配配置、数据库、仓库与服务并创建主视图模型。
+    /// </summary>
     private void Initialize(string configRoot, string dataRoot)
     {
         var logDir = Path.Combine(dataRoot, "logs");
@@ -48,6 +84,7 @@ public sealed class AppComposition
 
         try
         {
+            // 加载并校验四份配置。
             var store = new JsonConfigStore(configRoot);
             var appConfig = store.LoadAsync<AppConfig>("app.json").GetAwaiter().GetResult();
             var deviceConfig = store.LoadAsync<DeviceConfig>("device.json").GetAwaiter().GetResult();
@@ -55,6 +92,7 @@ public sealed class AppComposition
             var simulationConfig = store.LoadAsync<SimulationConfig>("simulation.json").GetAwaiter().GetResult();
             ConfigurationValidator.ValidateAll(appConfig, deviceConfig, pointsConfig, simulationConfig);
 
+            // 创建数据库并执行初始化。
             var clock = new SystemClock();
             var hasher = new Pbkdf2PasswordHasher();
             var dbPath = Path.GetFullPath(Path.Combine(dataRoot, appConfig.DefaultPaths.Database));
@@ -62,45 +100,57 @@ public sealed class AppComposition
             var database = new SqliteDatabase(factory, hasher);
             database.InitializeAsync().GetAwaiter().GetResult();
 
+            // 创建仓储与基础设施服务。
             var userRepo = new UserRepository(factory);
             var productRepo = new ProductRepository(factory);
-            var definitionRepo = new TestDefinitionRepository(factory);
+            var recordRepo = new RecordRepository(factory);
+            var pointRepo = new TestPointRepository(factory);
+            var configRepo = new ModelPointConfigRepository(factory);
             var testParameterRepo = new TestParameterRepository(factory);
-            var taskRepo = new TaskRepository(factory);
             var audit = new SqliteAuditLog(factory);
             var sessions = new InMemorySessionManager();
             var unitOfWork = new SqliteUnitOfWork(factory);
+            var devicePoints = new DevicePointCatalogService(store, pointsConfig, audit);
+            var devicePointImporter = new DevicePointImporter();
+            var devicePointTemplateExporter = new DevicePointTemplateExporter();
 
+            // 创建业务服务并组装主视图模型。
             Authentication = new AuthenticationService(userRepo, hasher, sessions, clock, audit);
             var uowFactory = new SqliteUnitOfWorkFactory(factory);
             var testParameters = new TestParameterService(testParameterRepo, productRepo, clock, audit);
-            var tasks = new TaskService(taskRepo, productRepo, clock, audit, uowFactory);
+            var executorFactory = new ExecutorFactory();
+            var testPoints = new TestPointService(pointRepo, configRepo, productRepo, executorFactory, clock, audit);
             var writePipeline = new DeviceWritePipeline(audit, Logger);
             var runtimeFactory = new DeviceRuntimeFactory(deviceConfig, pointsConfig, simulationConfig, clock);
             DeviceModes = new DeviceModeController(runtimeFactory, Logger, audit);
             DeviceModes.InitializeAsync(deviceConfig.DeviceMode).GetAwaiter().GetResult();
-            var executorFactory = new ExecutorFactory();
+
             var reportRepository = new ReportRepository(factory);
             var reportGenerator = new ClosedXmlReportGenerator();
-            TestExecution = new TestExecutionService(taskRepo, definitionRepo, executorFactory, tasks, testParameters, clock, audit, uowFactory);
-            Reports = new ReportService(taskRepo, productRepo, definitionRepo, userRepo, reportRepository, reportGenerator, clock, audit);
+            TestExecution = new TestExecutionService(recordRepo, productRepo, executorFactory, testPoints, testParameters, clock, audit, uowFactory);
+            Reports = new ReportService(recordRepo, productRepo, userRepo, reportRepository, reportGenerator, clock, audit);
 
             var services = new ShellServices(
                 Authentication,
-                tasks,
+                testPoints,
                 TestExecution,
                 new ProductService(productRepo, clock, audit),
                 testParameters,
                 Reports,
                 DeviceModes,
                 writePipeline,
-                taskRepo,
+                recordRepo,
+                pointRepo,
+                configRepo,
                 productRepo,
-                definitionRepo,
                 testParameterRepo,
                 userRepo,
                 reportRepository,
                 audit,
+                executorFactory,
+                devicePoints,
+                devicePointImporter,
+                devicePointTemplateExporter,
                 appConfig,
                 deviceConfig,
                 dbPath,
@@ -108,6 +158,7 @@ public sealed class AppComposition
 
             Shell = new ShellViewModel(services);
         }
+        // 启动失败进入故障页，不静默回退。
         catch (Exception ex)
         {
             StartupError = ex is ConfigValidationException or DomainException ? ex.Message : ex.ToString();

@@ -1,0 +1,89 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:XXX.TestBench.App.ViewModels"
+             x:Class="XXX.TestBench.App.Views.DevicePointManagementView"
+             x:DataType="vm:DevicePointManagementViewModel"
+             UseLayoutRounding="True">
+  <Grid RowDefinitions="Auto,*,Auto" RowSpacing="12" Margin="16,14,16,8">
+    <Border Grid.Row="0" Classes="parameter-surface" Padding="16,14">
+      <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="14">
+        <Border Classes="parameter-icon">
+          <TextBlock Text="⌁" FontSize="22" Foreground="{DynamicResource BrandBlueBrush}"
+                     HorizontalAlignment="Center" VerticalAlignment="Center" />
+        </Border>
+        <StackPanel Grid.Column="1" Spacing="4" VerticalAlignment="Center">
+          <TextBlock Text="设备点位管理" Classes="parameter-section-title" />
+          <TextBlock Text="维护 PLC/仿真点位的协议地址、数据类型、量程和写入安全属性"
+                     Classes="parameter-hint" />
+          <TextBlock Text="{Binding SourceText}" Classes="parameter-hint" />
+        </StackPanel>
+        <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8"
+                    VerticalAlignment="Center">
+          <Border Classes="parameter-count">
+            <StackPanel Orientation="Horizontal" Spacing="5">
+              <TextBlock Text="{Binding Points.Count}" Foreground="{DynamicResource BrandBlueBrush}"
+                         FontSize="15" FontWeight="SemiBold" />
+              <TextBlock Text="个点位" Classes="parameter-label" />
+            </StackPanel>
+          </Border>
+          <Button Classes="parameter-secondary" Content="编辑"
+                  IsEnabled="{Binding CanEdit}" Click="OnEditPointClick" />
+          <Button Classes="parameter-danger" Content="删除"
+                  IsEnabled="{Binding CanEdit}" Command="{Binding DeletePointCommand}" />
+          <Button Classes="parameter-secondary" Content="下载导入模板"
+                  IsEnabled="{Binding !IsBusy}" Click="OnDownloadTemplateClick" />
+          <Button Classes="parameter-secondary" Content="按模板导入"
+                  IsEnabled="{Binding CanEdit}" Click="OnImportClick" />
+          <Button Classes="parameter-primary" Content="＋ 新增点位"
+                  IsEnabled="{Binding CanEdit}" Click="OnAddPointClick" />
+        </StackPanel>
+      </Grid>
+    </Border>
+
+    <Border Grid.Row="1" Classes="parameter-surface" Padding="1">
+      <Grid RowDefinitions="Auto,*">
+        <Border Grid.Row="0" Background="#F8FAFD" Padding="16,11"
+                BorderBrush="#E2E8F0" BorderThickness="0,0,0,1">
+          <Grid ColumnDefinitions="*,Auto">
+            <TextBlock Text="设备点位清单" FontWeight="SemiBold" Foreground="#344054" />
+            <TextBlock Grid.Column="1"
+                       Text="导入必须使用固定中文表头；成功后替换当前点位目录，保存前校验重复编码、协议地址和量程"
+                       Classes="parameter-hint" HorizontalAlignment="Right" />
+          </Grid>
+        </Border>
+        <Grid Grid.Row="1">
+          <DataGrid Classes="parameter-grid"
+                    ItemsSource="{Binding Points}"
+                    SelectedItem="{Binding SelectedPoint, Mode=TwoWay}"
+                    AutoGenerateColumns="False"
+                    IsReadOnly="True"
+                    HeadersVisibility="Column"
+                    SelectionMode="Single">
+            <DataGrid.Columns>
+              <DataGridTextColumn Header="点位编码" Binding="{Binding Code}" Width="1.15*" />
+              <DataGridTextColumn Header="名称" Binding="{Binding Name}" Width="1.25*" />
+              <DataGridTextColumn Header="协议" Binding="{Binding Protocol}" Width="100" />
+              <DataGridTextColumn Header="地址" Binding="{Binding Address}" Width="1.45*" />
+              <DataGridTextColumn Header="数据类型" Binding="{Binding DataType}" Width="110" />
+              <DataGridTextColumn Header="单位" Binding="{Binding Unit}" Width="80" />
+              <DataGridTextColumn Header="量程" Binding="{Binding ScaleText}" Width="1.55*" />
+              <DataGridTextColumn Header="访问" Binding="{Binding WritableText}" Width="80" />
+              <DataGridTextColumn Header="风险" Binding="{Binding RiskText}" Width="80" />
+              <DataGridTextColumn Header="状态" Binding="{Binding EnabledText}" Width="80" />
+            </DataGrid.Columns>
+          </DataGrid>
+          <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="6"
+                      IsVisible="{Binding !HasPoints}">
+            <TextBlock Text="暂无设备点位" FontSize="16" FontWeight="SemiBold"
+                       Foreground="#526071" HorizontalAlignment="Center" />
+            <TextBlock Text="先下载导入模板，按固定中文列名填写后再导入"
+                       Classes="parameter-hint" />
+          </StackPanel>
+        </Grid>
+      </Grid>
+    </Border>
+
+    <TextBlock Grid.Row="2" Text="{Binding StatusMessage}" Foreground="#1F618D" FontSize="13"
+               TextWrapping="Wrap" />
+  </Grid>
+</UserControl>

@@ -12,7 +12,7 @@ namespace XXX.TestBench.App.ViewModels;
 public sealed record MeasurementRowViewModel(string Name, string Unit, string Value, bool IsHealthy = true);
 
 /// <summary>
-/// 运行总览页面：展示设备模式、设备健康、活动任务与快捷测量信息。
+/// 运行总览页面：展示设备模式、设备健康、活动试验记录与快捷测量信息。
 /// </summary>
 public sealed partial class OverviewViewModel : PageViewModel
 {
@@ -62,12 +62,12 @@ public sealed partial class OverviewViewModel : PageViewModel
     /// </summary>
     public string HealthText { get => _healthText; private set => SetProperty(ref _healthText, value); }
 
-    private string _activeTaskText = "无";
+    private string _activeRecordText = "无";
 
     /// <summary>
-    /// 当前活动任务的显示文字，无任务时显示“无”。
+    /// 当前活动试验记录的显示文字，无记录时显示“无”。
     /// </summary>
-    public string ActiveTaskText { get => _activeTaskText; private set => SetProperty(ref _activeTaskText, value); }
+    public string ActiveRecordText { get => _activeRecordText; private set => SetProperty(ref _activeRecordText, value); }
 
     /// <summary>
     /// 页面加载命令：调用下方加载方法刷新数据。
@@ -80,8 +80,8 @@ public sealed partial class OverviewViewModel : PageViewModel
         {
             DeviceModeText = _services.DeviceConfig.DeviceMode == DeviceMode.Simulation ? "Simulation（仿真）" : "Hardware（硬件）";
             HealthText = _services.DeviceModes.Health.ToString();
-            var running = await _services.TaskRepository.GetActiveRunningAsync(ct);
-            ActiveTaskText = running is null ? "无" : $"{running.TaskNumber}（{running.State}）";
+            var running = await _services.RecordRepository.GetActiveRunningRecordAsync(ct);
+            ActiveRecordText = running is null ? "无" : $"{running.RecordNumber}（{running.State}）";
         }
         finally { IsBusy = false; }
     }

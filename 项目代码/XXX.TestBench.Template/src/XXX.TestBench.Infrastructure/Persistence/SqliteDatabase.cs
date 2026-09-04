@@ -5,21 +5,36 @@ using XXX.TestBench.Core.Ports;
 namespace XXX.TestBench.Infrastructure.Persistence;
 
 /// <summary>
-/// FreeSql SQLite database initializer: integrity check, versioned schema and seed data.
+/// 负责创建数据库结构、执行版本迁移并写入初始角色。
 /// </summary>
 public sealed class SqliteDatabase
 {
-    public const int CurrentSchemaVersion = 3;
+    /// <summary>
+    /// 当前数据库结构版本号。
+    /// </summary>
+    public const int CurrentSchemaVersion = 4;
 
+    /// <summary>
+    /// 数据库连接工厂。
+    /// </summary>
     private readonly ISqliteConnectionFactory _factory;
+    /// <summary>
+    /// 密码散列器，用于写入初始账号。
+    /// </summary>
     private readonly IPasswordHasher _hasher;
 
+    /// <summary>
+    /// 创建数据库初始化器。
+    /// </summary>
     public SqliteDatabase(ISqliteConnectionFactory factory, IPasswordHasher hasher)
     {
         _factory = factory;
         _hasher = hasher;
     }
 
+    /// <summary>
+    /// 初始化数据库：执行全部未完成的迁移并写入初始数据。
+    /// </summary>
     public async Task InitializeAsync(CancellationToken ct = default)
     {
         await using var lease = await _factory.OpenLeaseAsync(ct);
@@ -54,6 +69,9 @@ public sealed class SqliteDatabase
         await SeedAsync(ct);
     }
 
+    /// <summary>
+    /// 写入初始角色与权限。
+    /// </summary>
     private async Task SeedAsync(CancellationToken ct)
     {
         await using var lease = await _factory.OpenLeaseAsync(ct);
@@ -70,7 +88,7 @@ public sealed class SqliteDatabase
                 await InsertRoleAsync(conn, txn, "Administrator", all, ct);
                 await InsertRoleAsync(conn, txn, "Operator", new[]
                 {
-                    PermissionCode.ViewOverview, PermissionCode.ManageTasks, PermissionCode.ExecuteTests,
+                    PermissionCode.ViewOverview, PermissionCode.ExecuteTests,
                     PermissionCode.ViewRecords, PermissionCode.ViewLogs
                 }, ct);
                 await InsertRoleAsync(conn, txn, "Maintenance", new[]
@@ -92,7 +110,6 @@ public sealed class SqliteDatabase
                 }, ct);
             }
 
-            await EnsureBuiltInDefinitionsAsync(conn, txn, ct);
             await txn.CommitAsync(ct);
         }
         catch
@@ -103,31 +120,9 @@ public sealed class SqliteDatabase
     }
 
     /// <summary>
-    /// 按代码把固定试验项序列种子化到试验项定义表（幂等）；模板执行流程由代码固定。
+    /// <summary>
+    /// 插入一个角色及其权限。
     /// </summary>
-    private async Task EnsureBuiltInDefinitionsAsync(
-        DbConnection conn,
-        DbTransaction txn,
-        CancellationToken ct)
-    {
-        var db = _factory.Db;
-        foreach (var item in XXX.TestBench.Core.Domain.TestDefinitions.BuiltInTestSequence.Items)
-        {
-            await db.Ado.ExecuteNonQueryAsync(conn, txn, """
-                INSERT INTO test_item_definitions (code, name, executor_code, result_kind, is_enabled, sort_order, created_at_utc)
-                SELECT @code, @name, @executor, @resultKind, 1, @sortOrder, @now
-                WHERE NOT EXISTS (SELECT 1 FROM test_item_definitions WHERE code = @code)
-                """, new
-            {
-                code = item.Code,
-                name = item.Name,
-                executor = item.ExecutorCode,
-                resultKind = item.ResultKind,
-                sortOrder = item.SortOrder,
-                now = DateTime.UtcNow.ToString("O")
-            }, ct);
-        }
-    }
     private async Task InsertRoleAsync(
         DbConnection conn,
         DbTransaction txn,
@@ -150,7 +145,7 @@ public sealed class SqliteDatabase
                 ct);
     }
 
-    private static (int Version, string[] Statements)[] Migrations => new[] { (1, SchemaStatements), (2, Version2Statements), (3, Version3Statements) };
+    private static (int Version, string[] Statements)[] Migrations => new[] { (1, SchemaStatements), (2, Version2Statements), (3, Version3Statements), (4, Version4Statements) };
 
     private static readonly string[] SchemaStatements =
     {
@@ -193,6 +188,7 @@ public sealed class SqliteDatabase
         """
         CREATE TABLE IF NOT EXISTS product_types (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
+            -- 保留旧版列，业务层使用 id；后续迁移可删除
             code TEXT NOT NULL UNIQUE,
             name TEXT NOT NULL,
             is_enabled INTEGER NOT NULL DEFAULT 1,
@@ -203,6 +199,7 @@ public sealed class SqliteDatabase
         CREATE TABLE IF NOT EXISTS product_models (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             product_type_id INTEGER NOT NULL,
+            -- 保留旧版列，业务层使用 id；后续迁移可删除
             code TEXT NOT NULL,
             name TEXT NOT NULL,
             is_enabled INTEGER NOT NULL DEFAULT 1,
@@ -401,4 +398,83 @@ public sealed class SqliteDatabase
         "DROP TABLE IF EXISTS parameter_definitions",
         "ALTER TABLE test_item_results DROP COLUMN recipe_item_id"
     };
+
+    private static readonly string[] Version4Statements =
+    {
+        """
+        CREATE TABLE IF NOT EXISTS test_item_points (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            product_type_id INTEGER NOT NULL,
+            -- 保留旧版列，业务层使用 id；后续迁移可删除
+            code TEXT NOT NULL,
+            name TEXT NOT NULL,
+            executor_code TEXT NOT NULL,
+            result_kind TEXT NOT NULL DEFAULT 'PassFail',
+            is_enabled INTEGER NOT NULL DEFAULT 1,
+            sort_order INTEGER NOT NULL DEFAULT 0,
+            created_at_utc TEXT NOT NULL,
+            updated_at_utc TEXT NOT NULL,
+            UNIQUE (product_type_id, code),
+            FOREIGN KEY (product_type_id) REFERENCES product_types(id)
+        )
+        """,
+        """
+        CREATE TABLE IF NOT EXISTS model_point_configs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            product_model_id INTEGER NOT NULL,
+            test_item_point_id INTEGER NOT NULL,
+            sort_order INTEGER NOT NULL,
+            configured_at_utc TEXT NOT NULL,
+            UNIQUE (product_model_id, test_item_point_id),
+            FOREIGN KEY (product_model_id) REFERENCES product_models(id),
+            FOREIGN KEY (test_item_point_id) REFERENCES test_item_points(id)
+        )
+        """,
+        """
+        CREATE TABLE test_records_v4 (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            record_number TEXT NOT NULL UNIQUE,
+            product_model_id INTEGER NOT NULL,
+            product_number TEXT NULL,
+            batch_number TEXT NULL,
+            station_number TEXT NULL,
+            remark TEXT NULL,
+            parameter_snapshot TEXT NULL,
+            sequence_snapshot TEXT NULL,
+            device_mode INTEGER NOT NULL,
+            operator_user_id INTEGER NOT NULL,
+            state INTEGER NOT NULL DEFAULT 0,
+            conclusion TEXT NULL,
+            started_at_utc TEXT NOT NULL,
+            finished_at_utc TEXT NULL,
+            FOREIGN KEY (product_model_id) REFERENCES product_models(id),
+            FOREIGN KEY (operator_user_id) REFERENCES users(id)
+        )
+        """,
+        """
+        INSERT INTO test_records_v4 (id, record_number, product_model_id, product_number, batch_number, station_number, remark, parameter_snapshot, sequence_snapshot, device_mode, operator_user_id, state, conclusion, started_at_utc, finished_at_utc)
+        SELECT r.id, COALESCE(t.task_number, 'R-' || r.id), t.product_model_id, t.product_number, t.batch_number, t.station_number, t.remark, r.parameter_snapshot, NULL, r.device_mode, r.operator_user_id, r.state, r.conclusion, r.started_at_utc, r.finished_at_utc
+        FROM test_records r LEFT JOIN test_tasks t ON t.id = r.task_id
+        """,
+        "DROP TABLE test_records",
+        "ALTER TABLE test_records_v4 RENAME TO test_records",
+        "DROP TABLE IF EXISTS test_item_results",
+        """
+        CREATE TABLE test_item_results (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            record_id INTEGER NOT NULL,
+            test_item_point_id INTEGER NOT NULL,
+            state INTEGER NOT NULL DEFAULT 0,
+            summary_value TEXT NULL,
+            result_text TEXT NULL,
+            started_at_utc TEXT NULL,
+            finished_at_utc TEXT NULL,
+            FOREIGN KEY (record_id) REFERENCES test_records(id)
+        )
+        """,
+        "DROP TABLE IF EXISTS test_tasks",
+        "DROP TABLE IF EXISTS test_item_definitions",
+        "DELETE FROM role_permissions WHERE permission_code=2 AND role_id IN (SELECT id FROM roles WHERE name <> 'Administrator')"
+    };
+
 }

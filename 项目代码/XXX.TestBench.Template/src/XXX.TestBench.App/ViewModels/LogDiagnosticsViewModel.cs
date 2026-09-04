@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.Input;
 using XXX.TestBench.App.Composition;
+using XXX.TestBench.App.Localization;
 using XXX.TestBench.Core.Application;
 using XXX.TestBench.Core.Domain.Identity;
 using XXX.TestBench.Core.Ports;
@@ -12,10 +13,25 @@ namespace XXX.TestBench.App.ViewModels;
 /// </summary>
 public sealed class LogRow
 {
+    /// <summary>
+    /// 时间文字。
+    /// </summary>
     public required string Time { get; init; }
+    /// <summary>
+    /// 操作者。
+    /// </summary>
     public required string Actor { get; init; }
+    /// <summary>
+    /// 动作名称。
+    /// </summary>
     public required string Action { get; init; }
+    /// <summary>
+    /// 操作目标。
+    /// </summary>
     public required string Target { get; init; }
+    /// <summary>
+    /// 操作详情。
+    /// </summary>
     public required string Detail { get; init; }
 }
 
@@ -52,7 +68,16 @@ public sealed partial class LogDiagnosticsViewModel : PageViewModel
             Logs.Clear();
             var entries = await ((IAuditLog)_services.AuditLog).ListRecentAsync(200, ct);
             foreach (var e in entries)
-                Logs.Add(new LogRow { Time = e.CreatedAtUtc.ToString("yyyy-MM-dd HH:mm:ss"), Actor = e.Actor, Action = e.Action, Target = e.Target ?? string.Empty, Detail = e.Detail ?? string.Empty });
+            {
+                Logs.Add(new LogRow
+                {
+                    Time = e.CreatedAtUtc.ToString("yyyy-MM-dd HH:mm:ss"),
+                    Actor = LogTextLocalizer.Actor(e.Actor),
+                    Action = LogTextLocalizer.Action(e.Action),
+                    Target = LogTextLocalizer.Target(e.Action, e.Target),
+                    Detail = LogTextLocalizer.Detail(e.Action, e.Detail)
+                });
+            }
         }
         finally { IsBusy = false; }
     }

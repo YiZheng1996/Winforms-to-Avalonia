@@ -5,7 +5,7 @@ using XXX.TestBench.App.Composition;
 using XXX.TestBench.Core.Application;
 using XXX.TestBench.Core.Domain.Identity;
 using XXX.TestBench.Core.Domain.Reports;
-using XXX.TestBench.Core.Domain.Tasks;
+using XXX.TestBench.Core.Domain.Records;
 
 namespace XXX.TestBench.App.ViewModels;
 
@@ -14,11 +14,33 @@ namespace XXX.TestBench.App.ViewModels;
 /// </summary>
 public sealed partial class RecordRow : ObservableObject
 {
+    /// <summary>
+    /// 记录编号。
+    /// </summary>
     public required int Id { get; init; }
-    public required int TaskId { get; init; }
-    public required string TaskNumber { get; init; }
+    /// <summary>
+    /// 记录流水号。
+    /// </summary>
+    public required string RecordNumber { get; init; }
+    /// <summary>
+    /// 产品编号。
+    /// </summary>
+    public required string ProductNumber { get; init; }
+    /// <summary>
+    /// 产品型号编号。
+    /// </summary>
+    public required string ModelId { get; init; }
+    /// <summary>
+    /// 记录状态文字。
+    /// </summary>
     public required string StateText { get; init; }
+    /// <summary>
+    /// 设备模式文字。
+    /// </summary>
     public required string DeviceModeText { get; init; }
+    /// <summary>
+    /// 开始时间文字。
+    /// </summary>
     public required string StartedAt { get; init; }
 
     /// <summary>
@@ -33,14 +55,26 @@ public sealed partial class RecordRow : ObservableObject
 /// </summary>
 public sealed class ReportRow
 {
+    /// <summary>
+    /// 报表编号。
+    /// </summary>
     public required int Id { get; init; }
+    /// <summary>
+    /// 报表状态文字。
+    /// </summary>
     public required string StatusText { get; init; }
+    /// <summary>
+    /// 输出文件路径。
+    /// </summary>
     public required string OutputPath { get; init; }
+    /// <summary>
+    /// 创建时间文字。
+    /// </summary>
     public required string CreatedAt { get; init; }
 }
 
 /// <summary>
-/// 数据与报表页面：记录查询、为已完成记录生成报表、展示报表记录列表。
+/// 数据与报表页面：试验记录查询、为已完成记录生成报表、展示报表记录列表。
 /// </summary>
 public sealed partial class DataReportsViewModel : PageViewModel
 {
@@ -74,7 +108,7 @@ public sealed partial class DataReportsViewModel : PageViewModel
     partial void OnSelectedRecordChanged(RecordRow? value) => _ = LoadReportsAsync();
 
     /// <summary>
-    /// 页面加载命令：读取记录与任务并刷新记录列表。
+    /// 页面加载命令：读取试验记录并刷新记录列表。
     /// </summary>
     [RelayCommand]
     public override async Task LoadAsync(CancellationToken ct = default)
@@ -83,16 +117,15 @@ public sealed partial class DataReportsViewModel : PageViewModel
         try
         {
             Records.Clear();
-            var records = await _services.TaskRepository.ListRecordsAsync(null, ct);
-            var tasks = await _services.TaskRepository.ListTasksAsync(null, ct);
+            var records = await _services.RecordRepository.ListRecordsAsync(null, ct);
             foreach (var record in records)
             {
-                var task = tasks.FirstOrDefault(t => t.Id == record.TaskId);
                 Records.Add(new RecordRow
                 {
                     Id = record.Id,
-                    TaskId = record.TaskId,
-                    TaskNumber = task?.TaskNumber ?? record.TaskId.ToString(),
+                    RecordNumber = record.RecordNumber,
+                    ProductNumber = record.ProductIdentity.ProductNumber ?? string.Empty,
+                    ModelId = record.ProductModelId.ToString(),
                     StateText = record.State.ToString(),
                     DeviceModeText = record.DeviceMode.ToString(),
                     StartedAt = record.StartedAtUtc.ToString("yyyy-MM-dd HH:mm"),
@@ -109,6 +142,9 @@ public sealed partial class DataReportsViewModel : PageViewModel
     [RelayCommand]
     public async Task GenerateReportAsync() => await GenerateReportForSelectedRowAsync(SelectedRecord);
 
+    /// <summary>
+    /// 加载当前记录对应的报表列表。
+    /// </summary>
     private async Task LoadReportsAsync()
     {
         Reports.Clear();
@@ -118,16 +154,16 @@ public sealed partial class DataReportsViewModel : PageViewModel
             Reports.Add(new ReportRow { Id = r.Id, StatusText = r.Status.ToString(), OutputPath = r.OutputPath ?? string.Empty, CreatedAt = r.CreatedAtUtc.ToString("yyyy-MM-dd HH:mm") });
     }
 
+    /// <summary>
+    /// 为指定记录生成报表并刷新列表。
+    /// </summary>
     private async Task GenerateReportForSelectedRowAsync(RecordRow? row)
     {
         StatusMessage = string.Empty;
         try
         {
             if (row is null) return;
-            var record = await _services.TaskRepository.GetRecordAsync(row.Id) ?? throw new Core.Common.DomainException("记录不存在");
-            var task = await _services.TaskRepository.GetAsync(record.TaskId) ?? throw new Core.Common.DomainException("任务不存在");
-
-
+            var record = await _services.RecordRepository.GetRecordAsync(row.Id) ?? throw new Core.Common.DomainException("记录不存在");
             var outputDir = Path.Combine(_services.DatabasePath is { Length: > 0 } db ? Path.GetDirectoryName(db) ?? "." : ".", "reports");
             var report = await _services.Reports.GenerateAsync(_actor, row.Id, "assets/report-templates/标准报表.xlsx", outputDir);
             StatusMessage = $"报表已生成：{report.OutputPath}";

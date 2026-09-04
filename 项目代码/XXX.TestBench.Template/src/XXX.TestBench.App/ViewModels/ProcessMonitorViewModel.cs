@@ -5,7 +5,6 @@ using XXX.TestBench.App.Composition;
 using XXX.TestBench.Core.Application;
 using XXX.TestBench.Core.Domain.Devices;
 using XXX.TestBench.Core.Domain.Identity;
-using XXX.TestBench.Core.Domain.Tasks;
 
 namespace XXX.TestBench.App.ViewModels;
 
@@ -125,7 +124,7 @@ public sealed partial class ProcessMonitorViewModel : PageViewModel
             var runtime = _services.DeviceModes.Runtime ?? throw new Core.Common.DomainException("设备运行时未初始化");
             var point = (await runtime.ListPointsAsync()).FirstOrDefault(p => p.Code == row.Code) ?? throw new Core.Common.DomainException("点位不存在");
             object? value = bool.TryParse(WriteValue, out var b) ? b : (decimal.TryParse(WriteValue, out var d) ? d : WriteValue);
-            var activeRun = await _services.TaskRepository.GetActiveRunningAsync() is not null;
+            var activeRun = await _services.RecordRepository.GetActiveRunningRecordAsync() is not null;
             await _services.WritePipeline.ExecuteAsync(new WriteCommand(_actor, point, value, _services.DeviceConfig.DeviceMode, runtime, activeRun, RiskConfirmed));
             StatusMessage = $"已写入 {row.Code}={value}";
             await RefreshAsync();

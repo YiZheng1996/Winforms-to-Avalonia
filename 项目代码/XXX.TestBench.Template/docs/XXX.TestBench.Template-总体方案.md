@@ -35,7 +35,7 @@ XXX.TestBench.Template 是后续唯一产品主线。XXX.TestBench.Uos 冻结为
 
 | 代码线 | 角色 | 允许用途 | 禁止用途 |
 | --- | --- | --- | --- |
-| XXX.TestBench.Template | 新产品主线 | 新领域模型、任务闭环、设备模式、UI、报表和发布 | 引入旧迁移专用兼容层 |
+| XXX.TestBench.Template | 新产品主线 | 新领域模型、项点闭环、设备模式、UI、报表和发布 | 引入旧迁移专用兼容层 |
 | XXX.TestBench.Uos | 迁移参考 | 样式、认证、SQLite 安全模式、协议适配、测试基架的候选来源 | 原地继续扩展新业务 |
 | XXX试验台模板 | Legacy 行为证据 | 核对真实操作、联锁、设备点位和报表语义 | 控件对控件复制、直接引用 WinForms |
 | PressureTestApp | 未完成的数据交互参考 | 观察任务、数据、仪器和报表交互方式 | 项目引用、源码复制、在线/离线业务模式、EPE/API、远程任务 |

@@ -4,14 +4,23 @@ using XXX.TestBench.Core.Ports;
 namespace XXX.TestBench.Infrastructure.Persistence.Repositories;
 
 /// <summary>
-/// 直编试验参数 SQLite 仓储：项目/产品类型/产品型号三级，主键即作用域标识，保存用 UPSERT。
+/// 三级直编试验参数的数据库实现；保存按作用域键更新或新增。
 /// </summary>
 public sealed class TestParameterRepository : SqliteRepositoryBase, ITestParameterRepository
 {
+    /// <summary>
+    /// 项目级参数固定键。
+    /// </summary>
     private const string ProjectKey = "PROJECT";
 
+    /// <summary>
+    /// 创建参数仓库。
+    /// </summary>
     public TestParameterRepository(ISqliteConnectionFactory factory) : base(factory) { }
 
+    /// <summary>
+    /// 读取项目级参数。
+    /// </summary>
     public async Task<ProjectTestParameter?> GetProjectAsync(CancellationToken ct = default)
     {
         var row = await QuerySingleAsync<ProjectRow>(
@@ -25,6 +34,9 @@ public sealed class TestParameterRepository : SqliteRepositoryBase, ITestParamet
         };
     }
 
+    /// <summary>
+    /// 保存项目级参数。
+    /// </summary>
     public Task SaveProjectAsync(ProjectTestParameter value, CancellationToken ct = default) => ExecuteAsync("""
         INSERT INTO project_test_parameters (scope_key, test_time_seconds, updated_by, updated_at_utc)
         VALUES (@key, @testTimeSeconds, @updatedBy, @updatedAtUtc)
@@ -37,6 +49,9 @@ public sealed class TestParameterRepository : SqliteRepositoryBase, ITestParamet
         updatedAtUtc = value.UpdatedAtUtc.ToString("O")
     }, ct);
 
+    /// <summary>
+    /// 读取产品类型级参数。
+    /// </summary>
     public async Task<ProductTypeTestParameter?> GetTypeAsync(int productTypeId, CancellationToken ct = default)
     {
         var row = await QuerySingleAsync<TypeRow>(
@@ -51,6 +66,9 @@ public sealed class TestParameterRepository : SqliteRepositoryBase, ITestParamet
         };
     }
 
+    /// <summary>
+    /// 保存产品类型级参数。
+    /// </summary>
     public Task SaveTypeAsync(ProductTypeTestParameter value, CancellationToken ct = default) => ExecuteAsync("""
         INSERT INTO product_type_test_parameters (product_type_id, test_voltage_v, updated_by, updated_at_utc)
         VALUES (@id, @testVoltageV, @updatedBy, @updatedAtUtc)
@@ -63,6 +81,9 @@ public sealed class TestParameterRepository : SqliteRepositoryBase, ITestParamet
         updatedAtUtc = value.UpdatedAtUtc.ToString("O")
     }, ct);
 
+    /// <summary>
+    /// 读取产品型号级参数。
+    /// </summary>
     public async Task<ProductModelTestParameter?> GetModelAsync(int productModelId, CancellationToken ct = default)
     {
         var row = await QuerySingleAsync<ModelRow>(
@@ -77,6 +98,9 @@ public sealed class TestParameterRepository : SqliteRepositoryBase, ITestParamet
         };
     }
 
+    /// <summary>
+    /// 保存产品型号级参数。
+    /// </summary>
     public Task SaveModelAsync(ProductModelTestParameter value, CancellationToken ct = default) => ExecuteAsync("""
         INSERT INTO product_model_test_parameters (product_model_id, protect_current_ma, updated_by, updated_at_utc)
         VALUES (@id, @protectCurrentMa, @updatedBy, @updatedAtUtc)

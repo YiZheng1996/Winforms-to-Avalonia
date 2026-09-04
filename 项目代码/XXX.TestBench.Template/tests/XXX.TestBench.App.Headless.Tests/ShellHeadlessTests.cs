@@ -70,13 +70,16 @@ public class ShellHeadlessTests
     public async Task Shell_EndToEnd_FaultBanner_ModeBadge_LoginAndNavigate()
     {
         var faulted = new ShellViewModel(null, isFaulted: true, faultMessage: "配置无效");
+
         var faultWindow = new MainWindow { DataContext = faulted };
         faultWindow.Show();
         Assert.True(faultWindow.FindControl<Border>("FaultBanner")?.IsVisible);
         faultWindow.Close();
 
         var (configRoot, dataRoot) = CreateTempConfig();
+
         var composition = AppComposition.Create(configRoot, dataRoot);
+
         Assert.Null(composition.StartupError);
         var shell = composition.Shell!;
         var window = new MainWindow { DataContext = shell };
@@ -87,6 +90,7 @@ public class ShellHeadlessTests
         Assert.False(window.FindControl<Border>("FaultBanner")?.IsVisible);
 
         shell.LoginName = "admin";
+
         shell.Password = "admin123";
         await shell.LoginAsync();
         Assert.True(shell.MustChangePassword);
@@ -95,15 +99,18 @@ public class ShellHeadlessTests
         await shell.ChangePasswordAsync();
 
         Assert.True(shell.IsAuthenticated);
+
         Assert.Equal(9, shell.NavItems.Count);
         Assert.NotNull(shell.CurrentPage);
         Assert.Equal("运行总览", shell.CurrentPage!.Title);
 
         VerifyResponsiveLayout(window, 1440, 900, "main-1440x900.png");
+
         VerifyResponsiveLayout(window, 1680, 945, "main-1680x945.png");
         VerifyResponsiveLayout(window, 1920, 1080, "main-1920x1080.png");
         VerifyResponsiveLayout(window, 1152, 720, "main-1440x900-at-125dpi.png");
         await VerifyStatusBarOnEveryPage(window, shell);
+
         window.Close();
     }
 
@@ -125,7 +132,7 @@ public class ShellHeadlessTests
         var statusBar = window.FindControl<Border>("StatusBar");
         var overview = window.GetVisualDescendants().OfType<OverviewView>().Single();
         var schematic = overview.FindControl<Border>("PipeSchematicHost");
-        var taskPanel = overview.FindControl<Border>("TaskPanel");
+        var taskPanel = overview.FindControl<Border>("PointPanel");
         var measurementPanel = overview.FindControl<Border>("MeasurementPanel");
 
         Assert.NotNull(shellRoot);

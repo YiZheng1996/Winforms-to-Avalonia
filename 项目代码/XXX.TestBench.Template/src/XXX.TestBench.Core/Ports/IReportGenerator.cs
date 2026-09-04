@@ -1,5 +1,8 @@
 namespace XXX.TestBench.Core.Ports;
 
+/// <summary>
+/// 报表中的单行试验项数据。
+/// </summary>
 public sealed record ReportItemRow(int SortOrder, string ItemName, string SummaryValue, string ResultText, string State);
 
 /// <summary>
@@ -7,9 +10,9 @@ public sealed record ReportItemRow(int SortOrder, string ItemName, string Summar
 /// </summary>
 public sealed record ReportData(
     int RecordId,
-    string TaskNumber,
+    string RecordNumber,
     string ProductNumber,
-    string ProductModelCode,
+    string ProductModelId,
     string FlowText,
     string DeviceMode,
     string OperatorName,
@@ -17,6 +20,9 @@ public sealed record ReportData(
     string Conclusion,
     IReadOnlyList<ReportItemRow> Items);
 
+/// <summary>
+/// 报表生成边界。
+/// </summary>
 public interface IReportGenerator
 {
     /// <summary>

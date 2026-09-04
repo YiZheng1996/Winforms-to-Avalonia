@@ -8,10 +8,22 @@ namespace XXX.TestBench.Infrastructure.Identity;
 /// </summary>
 public sealed class Pbkdf2PasswordHasher : IPasswordHasher
 {
+    /// <summary>
+    /// 散列迭代次数。
+    /// </summary>
     private const int Iterations = 100_000;
+    /// <summary>
+    /// 随机盐长度。
+    /// </summary>
     private const int SaltSize = 16;
+    /// <summary>
+    /// 散列输出长度。
+    /// </summary>
     private const int HashSize = 32;
 
+    /// <summary>
+    /// 生成带随机盐的密码散列。
+    /// </summary>
     public string Hash(string password)
     {
         var salt = RandomNumberGenerator.GetBytes(SaltSize);
@@ -19,6 +31,9 @@ public sealed class Pbkdf2PasswordHasher : IPasswordHasher
         return $"{Iterations}.{Convert.ToBase64String(salt)}.{Convert.ToBase64String(hash)}";
     }
 
+    /// <summary>
+    /// 校验密码与存储散列是否一致。
+    /// </summary>
     public bool Verify(string password, string stored)
     {
         var parts = stored.Split('.');

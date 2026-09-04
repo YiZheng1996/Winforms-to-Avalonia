@@ -13,6 +13,10 @@
     <SolidColorBrush x:Key="TextSecondaryBrush" Color="#5F6878" />
     <SolidColorBrush x:Key="PanelBorderBrush" Color="#D6DEEA" />
     <SolidColorBrush x:Key="WorkspaceBrush" Color="#F5F8FC" />
+    <SolidColorBrush x:Key="ParameterSurfaceBrush" Color="#FFFFFF" />
+    <SolidColorBrush x:Key="ParameterSoftSurfaceBrush" Color="#F8FAFD" />
+    <SolidColorBrush x:Key="ParameterSoftBlueBrush" Color="#EAF2FF" />
+    <SolidColorBrush x:Key="ParameterMutedBrush" Color="#667085" />
   </Application.Resources>
 
   <Application.Styles>
@@ -59,9 +63,20 @@
       <Setter Property="Foreground" Value="#153B72" />
       <Setter Property="FontWeight" Value="SemiBold" />
       <Setter Property="FontSize" Value="13" />
-      <Setter Property="Padding" Value="12,0" />
-      <Setter Property="MinHeight" Value="42" />
+      <Setter Property="Padding" Value="8,4" />
+      <Setter Property="MinHeight" Value="56" />
+      <Setter Property="HorizontalContentAlignment" Value="Stretch" />
       <Setter Property="VerticalContentAlignment" Value="Center" />
+      <Setter Property="ContentTemplate">
+        <DataTemplate>
+          <TextBlock Text="{Binding}"
+                     TextWrapping="Wrap"
+                     TextTrimming="None"
+                     TextAlignment="Center"
+                     HorizontalAlignment="Stretch"
+                     VerticalAlignment="Center" />
+        </DataTemplate>
+      </Setter>
       <Setter Property="BorderBrush" Value="#D6DEEA" />
       <Setter Property="BorderThickness" Value="0,0,1,1" />
     </Style>
@@ -73,20 +88,193 @@
       <Setter Property="HorizontalGridLinesBrush" Value="#E7ECF3" />
       <Setter Property="VerticalGridLinesBrush" Value="#E7ECF3" />
       <Setter Property="RowBackground" Value="White" />
+      <Setter Property="CanUserSortColumns" Value="False" />
+      <Setter Property="SelectionMode" Value="Single" />
+      <Setter Property="ColumnHeaderHeight" Value="56" />
     </Style>
     <Style Selector="DataGridRow">
       <Setter Property="MinHeight" Value="42" />
+    </Style>
+    <!-- DataGrid 默认会给当前单元格绘制焦点框和当前单元格边框；表格只保留整行选中反馈。 -->
+    <Style Selector="DataGridCell:current /template/ Rectangle#CurrencyVisual">
+      <Setter Property="IsVisible" Value="False" />
+    </Style>
+    <Style Selector="DataGridCell:focus /template/ Grid#FocusVisual">
+      <Setter Property="IsVisible" Value="False" />
+    </Style>
+    <Style Selector="DataGridRow:selected DataGridCell">
+      <Setter Property="Background" Value="Transparent" />
+    </Style>
+
+    <!-- 参数管理页共享视觉语言：白色工作面、轻边框、蓝色主操作。 -->
+    <Style Selector="Border.parameter-surface">
+      <Setter Property="Background" Value="{DynamicResource ParameterSurfaceBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource PanelBorderBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="8" />
+    </Style>
+    <Style Selector="Border.parameter-soft-surface">
+      <Setter Property="Background" Value="{DynamicResource ParameterSoftSurfaceBrush}" />
+      <Setter Property="BorderBrush" Value="#E2E8F0" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="8" />
+    </Style>
+    <Style Selector="Border.parameter-icon">
+      <Setter Property="Width" Value="40" />
+      <Setter Property="Height" Value="40" />
+      <Setter Property="CornerRadius" Value="11" />
+      <Setter Property="Background" Value="{DynamicResource ParameterSoftBlueBrush}" />
+      <Setter Property="HorizontalAlignment" Value="Left" />
+      <Setter Property="VerticalAlignment" Value="Top" />
+    </Style>
+    <Style Selector="Border.parameter-count">
+      <Setter Property="Background" Value="#EFF6FF" />
+      <Setter Property="BorderBrush" Value="#CFE0FF" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="14" />
+      <Setter Property="Padding" Value="12,6" />
+    </Style>
+    <Style Selector="Border.parameter-index">
+      <Setter Property="Width" Value="34" />
+      <Setter Property="Height" Value="34" />
+      <Setter Property="CornerRadius" Value="10" />
+      <Setter Property="Background" Value="{DynamicResource ParameterSoftBlueBrush}" />
+      <Setter Property="HorizontalAlignment" Value="Left" />
+      <Setter Property="VerticalAlignment" Value="Top" />
+    </Style>
+    <Style Selector="Border.parameter-note">
+      <Setter Property="Background" Value="#F0F7FF" />
+      <Setter Property="BorderBrush" Value="#CFE0FF" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="8" />
+    </Style>
+    <Style Selector="Border.parameter-editor">
+      <Setter Property="Background" Value="White" />
+      <Setter Property="BorderBrush" Value="#DCE5F0" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="8" />
+    </Style>
+    <Style Selector="TextBlock.parameter-section-title">
+      <Setter Property="FontSize" Value="18" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+    </Style>
+    <Style Selector="TextBlock.parameter-label">
+      <Setter Property="FontSize" Value="13" />
+      <Setter Property="Foreground" Value="{DynamicResource ParameterMutedBrush}" />
+    </Style>
+    <Style Selector="TextBlock.parameter-hint">
+      <Setter Property="FontSize" Value="13" />
+      <Setter Property="Foreground" Value="#7A8492" />
+    </Style>
+    <Style Selector="TextBlock.parameter-unit">
+      <Setter Property="FontSize" Value="13" />
+      <Setter Property="Foreground" Value="#7A8492" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+    <Style Selector="Button.parameter-primary">
+      <Setter Property="MinHeight" Value="38" />
+      <Setter Property="Padding" Value="14,0" />
+      <Setter Property="Background" Value="{DynamicResource BrandBlueBrush}" />
+      <Setter Property="Foreground" Value="White" />
+      <Setter Property="BorderBrush" Value="{DynamicResource BrandBlueBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="6" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+    <Style Selector="Button.parameter-primary:pointerover">
+      <Setter Property="Background" Value="{DynamicResource BrandBlueDarkBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource BrandBlueDarkBrush}" />
+    </Style>
+    <Style Selector="Button.parameter-secondary">
+      <Setter Property="MinHeight" Value="38" />
+      <Setter Property="Padding" Value="14,0" />
+      <Setter Property="Background" Value="White" />
+      <Setter Property="Foreground" Value="#344054" />
+      <Setter Property="BorderBrush" Value="#C9D3E0" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="6" />
+    </Style>
+    <Style Selector="Button.parameter-secondary:pointerover">
+      <Setter Property="Background" Value="#F5F8FC" />
+      <Setter Property="BorderBrush" Value="#AAB8CB" />
+    </Style>
+    <Style Selector="Button.parameter-ghost">
+      <Setter Property="MinHeight" Value="38" />
+      <Setter Property="Padding" Value="12,0" />
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="Foreground" Value="{DynamicResource BrandBlueDarkBrush}" />
+      <Setter Property="BorderBrush" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="6" />
+    </Style>
+    <Style Selector="Button.parameter-ghost:pointerover">
+      <Setter Property="Background" Value="#EDF4FF" />
+    </Style>
+    <Style Selector="Button.parameter-danger">
+      <Setter Property="MinHeight" Value="38" />
+      <Setter Property="Padding" Value="12,0" />
+      <Setter Property="Background" Value="#FFF4F2" />
+      <Setter Property="Foreground" Value="#C9362B" />
+      <Setter Property="BorderBrush" Value="#F2C5BF" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="6" />
+    </Style>
+    <Style Selector="TextBox.parameter-input">
+      <Setter Property="MinHeight" Value="40" />
+      <Setter Property="Padding" Value="11,0" />
+      <Setter Property="CornerRadius" Value="6" />
+    </Style>
+    <Style Selector="ComboBox.parameter-input">
+      <Setter Property="MinHeight" Value="40" />
+      <Setter Property="Padding" Value="11,0" />
+      <Setter Property="CornerRadius" Value="6" />
+    </Style>
+    <Style Selector="DataGrid.parameter-grid">
+      <Setter Property="Background" Value="White" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="GridLinesVisibility" Value="Horizontal" />
+      <Setter Property="HorizontalGridLinesBrush" Value="#EDF1F7" />
+      <Setter Property="VerticalGridLinesBrush" Value="Transparent" />
+      <Setter Property="RowBackground" Value="White" />
+      <Setter Property="RowHeight" Value="48" />
+    </Style>
+    <Style Selector="DataGrid.parameter-grid DataGridColumnHeader">
+      <Setter Property="Background" Value="#F5F8FC" />
+      <Setter Property="Foreground" Value="#526071" />
+      <Setter Property="BorderBrush" Value="#E2E8F0" />
+      <Setter Property="BorderThickness" Value="0,0,0,1" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="FontSize" Value="13" />
+      <Setter Property="Padding" Value="14,0" />
+      <Setter Property="MinHeight" Value="44" />
+    </Style>
+    <Style Selector="ListBox.parameter-list">
+      <Setter Property="Background" Value="White" />
+      <Setter Property="BorderBrush" Value="#DCE5F0" />
+      <Setter Property="BorderThickness" Value="1" />
+    </Style>
+    <Style Selector="ListBox.parameter-list ListBoxItem">
+      <Setter Property="Padding" Value="12,10" />
+      <Setter Property="MinHeight" Value="52" />
+      <Setter Property="BorderBrush" Value="#EDF1F7" />
+      <Setter Property="BorderThickness" Value="0,0,0,1" />
+    </Style>
+    <Style Selector="ListBox.parameter-list ListBoxItem:selected">
+      <Setter Property="Background" Value="#EAF2FF" />
+      <Setter Property="Foreground" Value="#0758D7" />
+      <Setter Property="BorderBrush" Value="#CFE0FF" />
     </Style>
   </Application.Styles>
 
   <Application.DataTemplates>
     <DataTemplate DataType="{x:Type vm:OverviewViewModel}"><views:OverviewView /></DataTemplate>
-    <DataTemplate DataType="{x:Type vm:TaskManagementViewModel}"><views:TaskManagementView /></DataTemplate>
     <DataTemplate DataType="{x:Type vm:TestExecutionViewModel}"><views:TestExecutionView /></DataTemplate>
     <DataTemplate DataType="{x:Type vm:ParameterManagementViewModel}"><views:ParameterManagementView /></DataTemplate>
     <DataTemplate DataType="{x:Type vm:DataReportsViewModel}"><views:DataReportsView /></DataTemplate>
     <DataTemplate DataType="{x:Type vm:ProcessMonitorViewModel}"><views:ProcessMonitorView /></DataTemplate>
     <DataTemplate DataType="{x:Type vm:DeviceCalibrationViewModel}"><views:DeviceCalibrationView /></DataTemplate>
+    <DataTemplate DataType="{x:Type vm:DevicePointManagementViewModel}"><views:DevicePointManagementView /></DataTemplate>
     <DataTemplate DataType="{x:Type vm:SystemManagementViewModel}"><views:SystemManagementView /></DataTemplate>
     <DataTemplate DataType="{x:Type vm:LogDiagnosticsViewModel}"><views:LogDiagnosticsView /></DataTemplate>
   </Application.DataTemplates>

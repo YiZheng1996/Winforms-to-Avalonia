@@ -216,7 +216,7 @@ public sealed partial class ShellViewModel : ObservableObject
         {
             if (SetProperty(ref _selectedProductModel, value))
             {
-                OnPropertyChanged(nameof(CurrentProductModelCodeText));
+                OnPropertyChanged(nameof(CurrentProductModelIdText));
                 OnPropertyChanged(nameof(CurrentProductTypeText));
                 OnPropertyChanged(nameof(CurrentProductModelText));
                 OnPropertyChanged(nameof(CurrentProductNumberText));
@@ -225,9 +225,9 @@ public sealed partial class ShellViewModel : ObservableObject
     }
 
     /// <summary>
-    /// 当前产品型号代码的显示文字。
+    /// 当前产品型号 ID 的显示文字。
     /// </summary>
-    public string CurrentProductModelCodeText => SelectedProductModel?.ProductModelCode ?? "未选择";
+    public string CurrentProductModelIdText => SelectedProductModel?.ProductModelId.ToString() ?? "未选择";
 
     /// <summary>
     /// 当前产品类型名称的显示文字。
@@ -239,12 +239,12 @@ public sealed partial class ShellViewModel : ObservableObject
     /// </summary>
     public string CurrentProductModelText => SelectedProductModel is null
         ? "未选择"
-        : $"{SelectedProductModel.ProductModelCode}  {SelectedProductModel.ProductModelName}";
+        : $"{SelectedProductModel.ProductModelId}  {SelectedProductModel.ProductModelName}";
 
     /// <summary>
     /// 当前产品编号的显示文字。
     /// </summary>
-    public string CurrentProductNumberText => SelectedProductModel?.ProductModelCode ?? "未录入";
+    public string CurrentProductNumberText => SelectedProductModel?.ProductModelId.ToString() ?? "未录入";
 
     /// <summary>
     /// 读取可选产品型号列表，供型号选择弹窗使用。
@@ -258,19 +258,18 @@ public sealed partial class ShellViewModel : ObservableObject
         var models = await _services.ProductRepository.ListModelsAsync(null, includeDisabled: false, ct);
         return models
             .Where(model => typeLookup.ContainsKey(model.ProductTypeId))
-            .OrderBy(model => typeLookup[model.ProductTypeId].Name, StringComparer.CurrentCulture)
-            .ThenBy(model => model.Code, StringComparer.OrdinalIgnoreCase)
+            .OrderByDescending(model => model.CreatedAtUtc)
+            .ThenByDescending(model => model.Id)
             .Select(model =>
             {
                 var type = typeLookup[model.ProductTypeId];
                 return new ProductModelSelectionOption(
                     type.Id,
-                    type.Code,
                     type.Name,
                     model.Id,
-                    model.Code,
                     model.Name,
-                    model.IsEnabled);
+                    model.IsEnabled,
+                    model.CreatedAtUtc);
             })
             .ToArray();
     }
@@ -393,10 +392,10 @@ public sealed partial class ShellViewModel : ObservableObject
             ( "运行总览", "工艺界面", "⌂", PermissionCode.ViewOverview, () => new OverviewViewModel(_services, user) ),
             ( "数据与报表", "报表界面", "▤", PermissionCode.ViewRecords, () => new DataReportsViewModel(_services, user) ),
             ( "参数管理", "参数管理", "☷", PermissionCode.ManageTestDefinitions, () => new ParameterManagementViewModel(_services, user) ),
-            ( "任务管理", "数据查询", "⌕", PermissionCode.ManageTasks, () => new TaskManagementViewModel(_services, user) ),
             ( "试验执行", "试验执行", "▷", PermissionCode.ExecuteTests, () => new TestExecutionViewModel(_services, user) ),
             ( "工艺监控", "工艺监控", "⌁", PermissionCode.ManualControl, () => new ProcessMonitorViewModel(_services, user) ),
             ( "设备与校准", "硬件校准", "⚒", PermissionCode.ManageDevices, () => new DeviceCalibrationViewModel(_services, user) ),
+            ( "设备点位", "设备点位", "⌁", PermissionCode.ManageDevices, () => new DevicePointManagementViewModel(_services, user) ),
             ( "日志诊断", "日志管理", "≡", PermissionCode.ViewLogs, () => new LogDiagnosticsViewModel(_services, user) ),
             ( "系统管理", "系统管理", "▣", PermissionCode.ManageUsers, () => new SystemManagementViewModel(_services, user) )
         };

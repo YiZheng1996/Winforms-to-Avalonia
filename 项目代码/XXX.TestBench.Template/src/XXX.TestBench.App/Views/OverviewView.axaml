@@ -7,7 +7,7 @@
              UseLayoutRounding="True">
 
   <UserControl.Resources>
-    <local:ResponsivePanelWidthConverter x:Key="TaskPanelWidth" Ratio="0.22" MinWidth="190" MaxWidth="248" />
+    <local:ResponsivePanelWidthConverter x:Key="PointPanelWidth" Ratio="0.22" MinWidth="190" MaxWidth="248" />
     <local:ResponsivePanelWidthConverter x:Key="MeasurementPanelWidth" Ratio="0.24" MinWidth="210" MaxWidth="280" />
   </UserControl.Resources>
 
@@ -27,8 +27,8 @@
 
   <Grid x:Name="ReferenceDashboard" ColumnDefinitions="Auto,12,*,12,Auto">
     <!-- 左侧试验节点 -->
-    <Border x:Name="TaskPanel" Grid.Column="0" Classes="dashboard-panel"
-            Width="{Binding $parent[Grid].Bounds.Width, Converter={StaticResource TaskPanelWidth}}">
+    <Border x:Name="PointPanel" Grid.Column="0" Classes="dashboard-panel"
+            Width="{Binding $parent[Grid].Bounds.Width, Converter={StaticResource PointPanelWidth}}">
       <Grid RowDefinitions="50,*">
         <Border Grid.Row="0" BorderBrush="#D7DFEA" BorderThickness="0,0,0,1" Padding="14,0">
           <Grid ColumnDefinitions="*,Auto">
@@ -244,7 +244,7 @@
           <!-- 右侧电气回路 -->
           <Polyline Points="720,42 720,430 742,430" Stroke="#1670F8" StrokeThickness="1.4" StrokeDashArray="6,4" />
           <Polyline Points="744,42 744,430" Stroke="#1670F8" StrokeThickness="1.4" StrokeDashArray="6,4" />
-          <TextBlock Canvas.Left="858" Canvas.Top="15" Text="36V" FontSize="13" FontWeight="SemiBold" />
+          <TextBlock Canvas.Left="858" Canvas.Top="11" Text="36V" FontSize="13" FontWeight="SemiBold" />
           <TextBlock Canvas.Left="850" Canvas.Top="473" Text="160V" FontSize="13" FontWeight="SemiBold" />
           <Line StartPoint="868,32" EndPoint="868,468" Stroke="#15181D" StrokeThickness="1.4" />
           <Ellipse Canvas.Left="862" Canvas.Top="26" Width="12" Height="12" Fill="White" Stroke="#15181D" />

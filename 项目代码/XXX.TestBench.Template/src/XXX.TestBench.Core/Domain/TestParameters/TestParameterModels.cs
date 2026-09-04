@@ -28,19 +28,27 @@ public sealed record TestParameterValidationResult(bool IsValid, string Error)
 /// </summary>
 public static class TestParameterValidator
 {
-    /// <summary>校验试验时间（秒）。合法返回 null，否则返回错误原因。</summary>
+    /// <summary>
+    /// 校验试验时间（秒）。合法返回 null，否则返回错误原因。
+    /// </summary>
     public static string? ValidateTestTime(int seconds)
         => seconds is < 1 or > 3600 ? "试验时间必须在 1～3600 s 之间。" : null;
 
-    /// <summary>校验试验电压（V）。合法返回 null，否则返回错误原因。</summary>
+    /// <summary>
+    /// 校验试验电压（V）。合法返回 null，否则返回错误原因。
+    /// </summary>
     public static string? ValidateTestVoltage(double voltage)
         => voltage is <= 0 or > 5000 ? "试验电压必须大于 0 且不超过 5000 V。" : null;
 
-    /// <summary>校验保护电流（mA）。合法返回 null，否则返回错误原因。</summary>
+    /// <summary>
+    /// 校验保护电流（mA）。合法返回 null，否则返回错误原因。
+    /// </summary>
     public static string? ValidateProtectCurrent(double current)
         => current is <= 0 or > 1000 ? "保护电流必须大于 0 且不超过 1000 mA。" : null;
 
-    /// <summary>校验合并后的全部有效参数。</summary>
+    /// <summary>
+    /// 校验合并后的全部有效参数。
+    /// </summary>
     public static TestParameterValidationResult Validate(EffectiveTestParameters value)
     {
         if (value.ProductTypeId <= 0) return TestParameterValidationResult.Fail("未选择有效的产品类型。");
@@ -59,10 +67,14 @@ public static class TestParameterSnapshot
 {
     private static readonly JsonSerializerOptions Options = new() { WriteIndented = false };
 
-    /// <summary>把有效参数序列化为快照文本。</summary>
+    /// <summary>
+    /// 把有效参数序列化为快照文本。
+    /// </summary>
     public static string ToJson(EffectiveTestParameters value) => JsonSerializer.Serialize(value, Options);
 
-    /// <summary>把快照文本反序列化为有效参数；空或格式错误返回 null。</summary>
+    /// <summary>
+    /// 把快照文本反序列化为有效参数；空或格式错误返回 null。
+    /// </summary>
     public static EffectiveTestParameters? FromJson(string? json)
     {
         if (string.IsNullOrWhiteSpace(json)) return null;

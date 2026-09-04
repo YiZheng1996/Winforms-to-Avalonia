@@ -11,7 +11,8 @@
         CanResize="False"
         WindowStartupLocation="CenterScreen"
         SystemDecorations="None"
-        Background="#F5F8FC"
+        TransparencyLevelHint="Transparent"
+        Background="Transparent"
         UseLayoutRounding="True">
   <Window.Styles>
     <Style Selector="Button.dialog-secondary">
@@ -30,20 +31,30 @@
     </Style>
   </Window.Styles>
 
-  <Border Margin="18" Padding="24" Background="White" BorderBrush="#D6DEEA" BorderThickness="1" CornerRadius="4">
+  <Border Margin="0" Padding="0" Background="White" BorderBrush="#C9D3E0" BorderThickness="1" CornerRadius="8">
     <Grid RowDefinitions="Auto,Auto,*,Auto">
-      <StackPanel Grid.Row="0" Spacing="4">
-        <TextBlock Text="选择产品型号" FontSize="22" FontWeight="Bold" Foreground="#151A24" />
-        <TextBlock Text="选择后将同步到工艺界面的产品信息栏" Foreground="#667085" FontSize="13" />
-      </StackPanel>
+      <Border Grid.Row="0"
+              Background="#F8FAFD"
+              BorderBrush="#E4EAF2"
+              BorderThickness="0,0,0,1"
+              CornerRadius="8,8,0,0"
+              Padding="24,12"
+              PointerPressed="OnTitleBarPointerPressed">
+        <Grid ColumnDefinitions="*">
+          <StackPanel Spacing="2">
+            <TextBlock Text="选择产品型号" FontSize="20" FontWeight="Bold" Foreground="#151A24" />
+            <TextBlock Text="选择后将同步到工艺界面的产品信息栏" Foreground="#667085" FontSize="12" />
+          </StackPanel>
+        </Grid>
+      </Border>
 
-      <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="8" Margin="0,22,0,10">
+      <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="8" Margin="24,18,24,10">
         <TextBlock Text="当前可选型号：" Foreground="#667085" VerticalAlignment="Center" />
         <TextBlock Text="{Binding OptionCount}" Foreground="#0868F7" FontWeight="SemiBold" VerticalAlignment="Center" />
         <TextBlock Text="个" Foreground="#667085" VerticalAlignment="Center" />
       </StackPanel>
 
-      <Grid Grid.Row="2">
+      <Grid Grid.Row="2" Margin="24,0,24,0">
         <DataGrid ItemsSource="{Binding Options}"
                   SelectedItem="{Binding SelectedOption, Mode=TwoWay}"
                   AutoGenerateColumns="False"
@@ -53,7 +64,7 @@
                   RowHeight="42">
           <DataGrid.Columns>
             <DataGridTextColumn Header="产品类型" Binding="{Binding TypeDisplay}" Width="1.2*" />
-            <DataGridTextColumn Header="型号代码" Binding="{Binding ProductModelCode}" Width="1*" />
+            <DataGridTextColumn Header="型号编号" Binding="{Binding ProductModelId}" Width="1*" />
             <DataGridTextColumn Header="型号名称" Binding="{Binding ProductModelName}" Width="1.3*" />
             <DataGridTextColumn Header="状态" Binding="{Binding StatusText}" Width="90" />
           </DataGrid.Columns>
@@ -65,7 +76,7 @@
                    IsVisible="{Binding !HasOptions}" />
       </Grid>
 
-      <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10" Margin="0,18,0,0">
+      <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10" Margin="24,18,24,20">
         <Button Classes="dialog-secondary" Content="取消" Click="OnCancelClick" />
         <Button Classes="dialog-primary" Content="确定" IsEnabled="{Binding CanConfirm}" Click="OnConfirmClick" />
       </StackPanel>

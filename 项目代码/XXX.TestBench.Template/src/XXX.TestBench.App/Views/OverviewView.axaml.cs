@@ -2,7 +2,13 @@ using Avalonia.Controls;
 
 namespace XXX.TestBench.App.Views;
 
+/// <summary>
+/// 总览页面 视图。
+/// </summary>
 public partial class OverviewView : UserControl
 {
-    public OverviewView() => InitializeComponent();
+    /// <summary>
+    /// 初始化页面。
+    /// </summary>
+        public OverviewView() => InitializeComponent();
 }

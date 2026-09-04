@@ -1,0 +1,146 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:XXX.TestBench.App.ViewModels"
+        x:Class="XXX.TestBench.App.Views.DevicePointDialogWindow"
+        x:DataType="vm:DevicePointDialogViewModel"
+        Title="{Binding DialogTitle}"
+        Width="760"
+        Height="720"
+        MinWidth="680"
+        MinHeight="600"
+        CanResize="False"
+        WindowStartupLocation="CenterScreen"
+        SystemDecorations="None"
+        TransparencyLevelHint="Transparent"
+        Background="Transparent"
+        UseLayoutRounding="True">
+  <Window.Styles>
+    <Style Selector="Button.dialog-secondary">
+      <Setter Property="Background" Value="White" />
+      <Setter Property="Foreground" Value="#344054" />
+      <Setter Property="BorderBrush" Value="#C9D3E0" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="MinWidth" Value="96" />
+    </Style>
+    <Style Selector="Button.dialog-primary">
+      <Setter Property="Background" Value="#0868F7" />
+      <Setter Property="Foreground" Value="White" />
+      <Setter Property="BorderBrush" Value="#0868F7" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="MinWidth" Value="96" />
+    </Style>
+    <Style Selector="TextBlock.field-label">
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="Foreground" Value="#344054" />
+    </Style>
+    <Style Selector="TextBox.field-input">
+      <Setter Property="MinHeight" Value="38" />
+      <Setter Property="Padding" Value="10,0" />
+    </Style>
+    <Style Selector="ComboBox.field-input">
+      <Setter Property="MinHeight" Value="38" />
+      <Setter Property="Padding" Value="10,0" />
+    </Style>
+  </Window.Styles>
+
+  <Border Background="White" BorderBrush="#C9D3E0" BorderThickness="1" CornerRadius="8">
+    <Grid RowDefinitions="Auto,*,Auto">
+      <Border Grid.Row="0"
+              Background="#F8FAFD"
+              BorderBrush="#E4EAF2"
+              BorderThickness="0,0,0,1"
+              CornerRadius="8,8,0,0"
+              Padding="24,14"
+              PointerPressed="OnTitleBarPointerPressed">
+        <StackPanel Spacing="2">
+          <TextBlock Text="{Binding DialogTitle}" FontSize="20" FontWeight="Bold" Foreground="#151A24" />
+          <TextBlock Text="{Binding DialogSubtitle}" Foreground="#667085" FontSize="12" />
+        </StackPanel>
+      </Border>
+
+      <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+        <StackPanel Spacing="12" Margin="24,20,24,18">
+          <Grid ColumnDefinitions="*,*" ColumnSpacing="14">
+            <StackPanel Spacing="5">
+              <TextBlock Text="点位编码 *" Classes="field-label" />
+              <TextBox Classes="field-input" Text="{Binding Code, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Watermark="如：AI_Pressure" />
+            </StackPanel>
+            <StackPanel Grid.Column="1" Spacing="5">
+              <TextBlock Text="显示名称" Classes="field-label" />
+              <TextBox Classes="field-input" Text="{Binding Name, Mode=TwoWay}" Watermark="如：试验压力" />
+            </StackPanel>
+          </Grid>
+
+          <Grid ColumnDefinitions="*,*" ColumnSpacing="14">
+            <StackPanel Spacing="5">
+              <TextBlock Text="协议 *" Classes="field-label" />
+              <TextBox Classes="field-input" Text="{Binding Protocol, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Watermark="Simulation / S7 / Modbus" />
+            </StackPanel>
+            <StackPanel Grid.Column="1" Spacing="5">
+              <TextBlock Text="地址 *" Classes="field-label" />
+              <TextBox Classes="field-input" Text="{Binding Address, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Watermark="如：sim.pressure 或 DB1.DBW0" />
+            </StackPanel>
+          </Grid>
+
+          <Grid ColumnDefinitions="*,*" ColumnSpacing="14">
+            <StackPanel Spacing="5">
+              <TextBlock Text="数据类型 *" Classes="field-label" />
+              <TextBox Classes="field-input" Text="{Binding DataType, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Watermark="Boolean / Decimal / Int32" />
+            </StackPanel>
+            <StackPanel Grid.Column="1" Spacing="5">
+              <TextBlock Text="工程单位" Classes="field-label" />
+              <TextBox Classes="field-input" Text="{Binding Unit, Mode=TwoWay}" Watermark="如：MPa、℃、A" />
+            </StackPanel>
+          </Grid>
+
+          <Border Background="#F8FAFD" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="6" Padding="12">
+            <StackPanel Spacing="9">
+              <TextBlock Text="量程换算（可选；填写时四项必须完整）" Classes="field-label" />
+              <Grid ColumnDefinitions="*,*,*,*" ColumnSpacing="10">
+                <StackPanel Spacing="4">
+                  <TextBlock Text="原始下限" Foreground="#667085" FontSize="12" />
+                  <TextBox Classes="field-input" Text="{Binding RawMinText, Mode=TwoWay}" Watermark="空" />
+                </StackPanel>
+                <StackPanel Grid.Column="1" Spacing="4">
+                  <TextBlock Text="原始上限" Foreground="#667085" FontSize="12" />
+                  <TextBox Classes="field-input" Text="{Binding RawMaxText, Mode=TwoWay}" Watermark="空" />
+                </StackPanel>
+                <StackPanel Grid.Column="2" Spacing="4">
+                  <TextBlock Text="工程下限" Foreground="#667085" FontSize="12" />
+                  <TextBox Classes="field-input" Text="{Binding EngMinText, Mode=TwoWay}" Watermark="空" />
+                </StackPanel>
+                <StackPanel Grid.Column="3" Spacing="4">
+                  <TextBlock Text="工程上限" Foreground="#667085" FontSize="12" />
+                  <TextBox Classes="field-input" Text="{Binding EngMaxText, Mode=TwoWay}" Watermark="空" />
+                </StackPanel>
+              </Grid>
+            </StackPanel>
+          </Border>
+
+          <Grid ColumnDefinitions="Auto,*,Auto,*" ColumnSpacing="12" VerticalAlignment="Center">
+            <CheckBox Content="允许写入" IsChecked="{Binding IsWritable, Mode=TwoWay}" VerticalAlignment="Center" />
+            <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+              <TextBlock Text="写入风险" Classes="field-label" VerticalAlignment="Center" />
+              <ComboBox Classes="field-input" Width="140" ItemsSource="{Binding RiskOptions}"
+                        SelectedItem="{Binding SelectedRiskLevel, Mode=TwoWay}" />
+            </StackPanel>
+            <CheckBox Grid.Column="3" Content="启用点位" IsChecked="{Binding IsEnabled, Mode=TwoWay}" VerticalAlignment="Center" />
+          </Grid>
+
+          <StackPanel Spacing="5">
+            <TextBlock Text="说明" Classes="field-label" />
+            <TextBox Text="{Binding Description, Mode=TwoWay}" AcceptsReturn="True" TextWrapping="Wrap"
+                     MinHeight="64" VerticalContentAlignment="Top" Watermark="填写点位用途、来源或现场备注" />
+          </StackPanel>
+
+          <TextBlock Text="{Binding ValidationMessage}" Foreground="#D92D20" FontSize="13" TextWrapping="Wrap" />
+        </StackPanel>
+      </ScrollViewer>
+
+      <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10" Margin="24,0,24,20">
+        <Button Classes="dialog-secondary" Content="取消" Click="OnCancelClick" />
+        <Button Classes="dialog-primary" Content="保存" IsEnabled="{Binding CanSave}" Click="OnConfirmClick" />
+      </StackPanel>
+    </Grid>
+  </Border>
+</Window>

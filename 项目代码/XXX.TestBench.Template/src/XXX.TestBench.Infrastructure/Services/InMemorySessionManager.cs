@@ -9,8 +9,14 @@ namespace XXX.TestBench.Infrastructure.Services;
 /// </summary>
 public sealed class InMemorySessionManager : ISessionManager
 {
+    /// <summary>
+    /// 会话字典，键为会话令牌。
+    /// </summary>
     private readonly ConcurrentDictionary<string, Session> _sessions = new();
 
+    /// <summary>
+    /// 为用户创建并保存一个会话。
+    /// </summary>
     public Task<Session> CreateAsync(User user, TimeSpan lifetime, CancellationToken ct = default)
     {
         var now = DateTime.UtcNow;
@@ -25,18 +31,27 @@ public sealed class InMemorySessionManager : ISessionManager
         return Task.FromResult(session);
     }
 
+    /// <summary>
+    /// 按令牌读取会话，由调用方判断是否有效。
+    /// </summary>
     public Task<Session?> GetActiveAsync(string token, CancellationToken ct = default)
     {
         _sessions.TryGetValue(token, out var session);
         return Task.FromResult(session);
     }
 
+    /// <summary>
+    /// 撤销指定会话。
+    /// </summary>
     public Task RevokeAsync(string token, CancellationToken ct = default)
     {
         _sessions.TryRemove(token, out _);
         return Task.CompletedTask;
     }
 
+    /// <summary>
+    /// 撤销某用户的全部会话。
+    /// </summary>
     public Task RevokeAllForUserAsync(int userId, CancellationToken ct = default)
     {
         foreach (var kv in _sessions.Where(kv => kv.Value.UserId == userId))

@@ -5,24 +5,33 @@ using FreeSql;
 namespace XXX.TestBench.Infrastructure.Persistence;
 
 /// <summary>
-/// FreeSql-backed SQLite connection factory.
-/// The database remains SQLite, while all application data access is exposed
-/// through the singleton <see cref="IFreeSql"/> instance.
+/// 数据库连接工厂接口。
 /// </summary>
 public interface ISqliteConnectionFactory : IDisposable
 {
+    /// <summary>
+    /// 数据库文件路径。
+    /// </summary>
     string DatabasePath { get; }
 
+    /// <summary>
+    /// 统一数据访问对象。
+    /// </summary>
     IFreeSql Db { get; }
 
+    /// <summary>
+    /// 异步租借一个已开启外键与日志模式的连接。
+    /// </summary>
     Task<FreeSqlConnectionLease> OpenLeaseAsync(CancellationToken ct = default);
 
+    /// <summary>
+    /// 同步租借一个连接，供事务边界使用。
+    /// </summary>
     FreeSqlConnectionLease OpenLease();
 }
 
 /// <summary>
-/// A leased connection from FreeSql's connection pool. It is used only when
-/// an explicit transaction must span several repository calls.
+/// 从连接池租借的连接；仅当显式事务需要跨多次仓储调用时使用。
 /// </summary>
 public sealed class FreeSqlConnectionLease : IDisposable, IAsyncDisposable
 {
@@ -34,8 +43,14 @@ public sealed class FreeSqlConnectionLease : IDisposable, IAsyncDisposable
         Connection = lease.Value;
     }
 
+    /// <summary>
+    /// 已租借的数据库连接。
+    /// </summary>
     public DbConnection Connection { get; }
 
+    /// <summary>
+    /// 归还连接并释放租约。
+    /// </summary>
     public void Dispose()
     {
         var lease = Interlocked.Exchange(ref _lease, null);
@@ -45,6 +60,9 @@ public sealed class FreeSqlConnectionLease : IDisposable, IAsyncDisposable
         lease.Dispose();
     }
 
+    /// <summary>
+    /// 异步归还连接并释放租约。
+    /// </summary>
     public async ValueTask DisposeAsync()
     {
         var lease = Interlocked.Exchange(ref _lease, null);
@@ -55,12 +73,27 @@ public sealed class FreeSqlConnectionLease : IDisposable, IAsyncDisposable
     }
 }
 
+/// <summary>
+/// 数据库连接工厂实现。
+/// </summary>
 public sealed class SqliteConnectionFactory : ISqliteConnectionFactory
 {
+    /// <summary>
+    /// 数据库文件完整路径。
+    /// </summary>
     private readonly string _databasePath;
+    /// <summary>
+    /// 统一数据访问对象。
+    /// </summary>
     private readonly IFreeSql _db;
+    /// <summary>
+    /// 释放标记。
+    /// </summary>
     private int _disposed;
 
+    /// <summary>
+    /// 创建连接工厂并初始化数据库访问对象。
+    /// </summary>
     public SqliteConnectionFactory(string databasePath)
     {
         Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(databasePath)) ?? ".");
@@ -75,10 +108,19 @@ public sealed class SqliteConnectionFactory : ISqliteConnectionFactory
             .Build();
     }
 
+    /// <summary>
+    /// 数据库文件路径。
+    /// </summary>
     public string DatabasePath => _databasePath;
 
+    /// <summary>
+    /// 统一数据访问对象。
+    /// </summary>
     public IFreeSql Db => _db;
 
+    /// <summary>
+    /// 异步租借连接并应用外键与日志模式。
+    /// </summary>
     public async Task<FreeSqlConnectionLease> OpenLeaseAsync(CancellationToken ct = default)
     {
         ObjectDisposedException.ThrowIf(_disposed != 0, this);
@@ -102,9 +144,7 @@ public sealed class SqliteConnectionFactory : ISqliteConnectionFactory
     }
 
     /// <summary>
-    /// Synchronous counterpart used by the ambient transaction boundary. It
-    /// deliberately completes without an await so AsyncLocal changes made by
-    /// the unit of work are visible to the caller after BeginTransactionAsync.
+    /// 事务边界使用的同步版本；不等待完成，以便调用方能看到事务上下文变化。
     /// </summary>
     public FreeSqlConnectionLease OpenLease()
     {

@@ -8,10 +8,19 @@ namespace XXX.TestBench.Infrastructure.Configuration;
 /// </summary>
 public sealed class JsonConfigStore : IConfigStore
 {
+    /// <summary>
+    /// 配置根目录。
+    /// </summary>
     private readonly string _configRoot;
 
+    /// <summary>
+    /// 创建配置存储。
+    /// </summary>
     public JsonConfigStore(string configRoot) => _configRoot = configRoot;
 
+    /// <summary>
+    /// 读取配置文件并反序列化。
+    /// </summary>
     public async Task<T> LoadAsync<T>(string relativePath, CancellationToken ct = default) where T : class
     {
         var path = Resolve(relativePath);
@@ -33,6 +42,9 @@ public sealed class JsonConfigStore : IConfigStore
         }
     }
 
+    /// <summary>
+    /// 保存配置：先写临时文件并校验，再原子替换。
+    /// </summary>
     public async Task SaveAsync<T>(string relativePath, T config, CancellationToken ct = default) where T : class
     {
         var path = Resolve(relativePath);
@@ -62,12 +74,18 @@ public sealed class JsonConfigStore : IConfigStore
         File.Move(temp, path, overwrite: true);
     }
 
+    /// <summary>
+    /// 把相对路径转换为配置根目录下的完整路径。
+    /// </summary>
     private string Resolve(string relativePath)
     {
         var full = Path.GetFullPath(Path.Combine(_configRoot, relativePath));
         return full;
     }
 
+    /// <summary>
+    /// 尝试删除临时文件，失败时忽略。
+    /// </summary>
     private static void TryDelete(string path)
     {
         try { if (File.Exists(path)) File.Delete(path); } catch { /* 忽略清理失败 */ }

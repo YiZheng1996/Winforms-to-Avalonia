@@ -5,6 +5,9 @@ using XXX.TestBench.Core.Ports;
 
 namespace XXX.TestBench.Core.Application;
 
+/// <summary>
+/// 设备模式切换或初始化结果。
+/// </summary>
 public sealed record DeviceModeResult(bool Ok, string? Error);
 
 /// <summary>
@@ -13,10 +16,22 @@ public sealed record DeviceModeResult(bool Ok, string? Error);
 /// </summary>
 public sealed class DeviceModeController
 {
+    /// <summary>
+    /// 运行时工厂。
+    /// </summary>
     private readonly IDeviceRuntimeFactory _factory;
+    /// <summary>
+    /// 日志记录器。
+    /// </summary>
     private readonly IAppLogger _logger;
+    /// <summary>
+    /// 审计日志。
+    /// </summary>
     private readonly IAuditLog _audit;
 
+    /// <summary>
+    /// 创建设备模式控制器。
+    /// </summary>
     public DeviceModeController(IDeviceRuntimeFactory factory, IAppLogger logger, IAuditLog audit)
     {
         _factory = factory;
@@ -24,11 +39,26 @@ public sealed class DeviceModeController
         _audit = audit;
     }
 
+    /// <summary>
+    /// 当前设备模式。
+    /// </summary>
     public DeviceMode CurrentMode { get; private set; } = DeviceMode.Simulation;
+    /// <summary>
+    /// 当前设备运行时。
+    /// </summary>
     public IDeviceRuntime? Runtime { get; private set; }
+    /// <summary>
+    /// 当前设备健康状态。
+    /// </summary>
     public DeviceHealth Health { get; private set; } = DeviceHealth.Unknown;
+    /// <summary>
+    /// 最近一次错误信息。
+    /// </summary>
     public string? LastError { get; private set; }
 
+    /// <summary>
+    /// 按指定模式创建并启动设备运行时。
+    /// </summary>
     public async Task<DeviceModeResult> InitializeAsync(DeviceMode mode, CancellationToken ct = default)
     {
         await DisposeRuntimeAsync();
@@ -53,6 +83,9 @@ public sealed class DeviceModeController
         }
     }
 
+    /// <summary>
+    /// 切换设备模式；无管理权限或有活动试验时拒绝。
+    /// </summary>
     public async Task<DeviceModeResult> SwitchModeAsync(UserContext actor, DeviceMode mode, bool hasActiveTask, CancellationToken ct = default)
     {
         Ensure(actor, PermissionCode.ManageDevices);
@@ -61,6 +94,9 @@ public sealed class DeviceModeController
         return await InitializeAsync(mode, ct);
     }
 
+    /// <summary>
+    /// 重新启动当前运行时以恢复连接。
+    /// </summary>
     public async Task<DeviceModeResult> ReconnectAsync(CancellationToken ct = default)
     {
         if (Runtime is null) return new DeviceModeResult(false, "设备运行时未初始化");
@@ -81,6 +117,9 @@ public sealed class DeviceModeController
         }
     }
 
+    /// <summary>
+    /// 停止并释放当前运行时。
+    /// </summary>
     private async Task DisposeRuntimeAsync()
     {
         if (Runtime is not null)
@@ -91,6 +130,9 @@ public sealed class DeviceModeController
         }
     }
 
+    /// <summary>
+    /// 校验权限，越权时写入审计并抛出异常。
+    /// </summary>
     private void Ensure(UserContext actor, Core.Domain.Identity.PermissionCode permission)
     {
         try { actor.EnsurePermission(permission); }

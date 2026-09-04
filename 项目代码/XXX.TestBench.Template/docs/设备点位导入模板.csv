@@ -1,0 +1,3 @@
+点位编码,点位名称,协议,地址,数据类型,单位,原始下限,原始上限,工程下限,工程上限,可写,风险等级,启用,说明
+AI_Pressure,试验压力,Simulation,sim.pressure,Decimal,MPa,0,10000,0,10,否,普通,是,仿真压力输入示例
+DO_Start,启动命令,Simulation,sim.start,Boolean,,,,,是,高风险,是,高风险写入示例

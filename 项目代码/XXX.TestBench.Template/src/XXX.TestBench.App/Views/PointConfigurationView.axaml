@@ -1,0 +1,138 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:XXX.TestBench.App.ViewModels"
+             xmlns:tp="using:XXX.TestBench.Core.Domain.TestPoints"
+             x:Class="XXX.TestBench.App.Views.PointConfigurationView"
+             x:DataType="vm:PointConfigurationViewModel"
+             UseLayoutRounding="True">
+  <Grid RowDefinitions="Auto,* ,Auto" RowSpacing="12" Margin="0,12,0,0">
+    <Border Grid.Row="0" Classes="parameter-surface" Padding="16,14">
+      <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="14">
+        <Border Classes="parameter-icon">
+          <TextBlock Text="⇄" FontSize="22" Foreground="{DynamicResource BrandBlueBrush}"
+                     HorizontalAlignment="Center" VerticalAlignment="Center" />
+        </Border>
+        <StackPanel Grid.Column="1" Spacing="10" VerticalAlignment="Center">
+          <StackPanel Spacing="3">
+            <TextBlock Text="项点配置" Classes="parameter-section-title" />
+            <TextBlock Text="为产品型号编排自动试验顺序，保存后供执行流程读取"
+                       Classes="parameter-hint" />
+          </StackPanel>
+          <StackPanel Orientation="Horizontal" Spacing="9">
+            <TextBlock Text="产品类型" Classes="parameter-label" VerticalAlignment="Center" />
+            <ComboBox Classes="parameter-input" Width="200"
+                      ItemsSource="{Binding TypeOptions}"
+                      SelectedItem="{Binding SelectedType, Mode=TwoWay}"
+                      DisplayMemberBinding="{Binding Name}"
+                      PlaceholderText="选择产品类型" />
+            <TextBlock Text="产品型号" Classes="parameter-label" VerticalAlignment="Center" />
+            <ComboBox Classes="parameter-input" Width="200"
+                      ItemsSource="{Binding ModelOptions}"
+                      SelectedItem="{Binding SelectedModel, Mode=TwoWay}"
+                      DisplayMemberBinding="{Binding Id}"
+                      PlaceholderText="选择产品型号" />
+          </StackPanel>
+        </StackPanel>
+        <Button Grid.Column="2" Classes="parameter-primary" Content="保存配置"
+                Command="{Binding SaveCommand}" VerticalAlignment="Center" />
+      </Grid>
+    </Border>
+
+    <Grid Grid.Row="1" ColumnDefinitions="*,82,*" ColumnSpacing="10">
+      <Border Grid.Column="0" Classes="parameter-surface" Padding="1">
+        <Grid RowDefinitions="Auto,*">
+          <Border Grid.Row="0" Background="#F8FAFD" Padding="16,11"
+                  BorderBrush="#E2E8F0" BorderThickness="0,0,0,1">
+            <Grid ColumnDefinitions="*,Auto">
+              <StackPanel Spacing="2">
+                <TextBlock Text="可选项点" FontWeight="SemiBold" Foreground="#344054" />
+                <TextBlock Text="当前类型下已启用的项点" Classes="parameter-hint" />
+              </StackPanel>
+              <TextBlock Grid.Column="1" Text="{Binding AvailablePoints.Count}"
+                         Foreground="{DynamicResource BrandBlueBrush}" FontWeight="SemiBold"
+                         VerticalAlignment="Center" />
+            </Grid>
+          </Border>
+          <ListBox Grid.Row="1" Classes="parameter-list"
+                   ItemsSource="{Binding AvailablePoints}"
+                   SelectedItem="{Binding SelectedAvailable, Mode=TwoWay}">
+            <ListBox.ItemTemplate>
+              <DataTemplate x:DataType="tp:TestItemPoint">
+                <Grid ColumnDefinitions="42,*,Auto" ColumnSpacing="8">
+                  <Border Width="30" Height="30" CornerRadius="9" Background="#F4F7FB"
+                          VerticalAlignment="Center">
+                    <TextBlock Text="{Binding SortOrder}" Foreground="#7A8492"
+                               HorizontalAlignment="Center" VerticalAlignment="Center" />
+                  </Border>
+                  <StackPanel Grid.Column="1" Spacing="2" VerticalAlignment="Center">
+                    <TextBlock Text="{Binding Name}" FontWeight="SemiBold" />
+                    <TextBlock Text="{Binding Id}" Classes="parameter-hint" FontFamily="Consolas" />
+                  </StackPanel>
+                  <Border Grid.Column="2" Background="#F5F8FC" CornerRadius="4"
+                          Padding="7,4" VerticalAlignment="Center">
+                    <TextBlock Text="{Binding ExecutorCode}" Foreground="#526071" FontSize="11" />
+                  </Border>
+                </Grid>
+              </DataTemplate>
+            </ListBox.ItemTemplate>
+          </ListBox>
+        </Grid>
+      </Border>
+
+      <StackPanel Grid.Column="1" VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="8">
+        <Button Classes="parameter-secondary" Content="添加  →" MinWidth="78"
+                Command="{Binding AddSelectedCommand}" />
+        <Button Classes="parameter-secondary" Content="←  移除" MinWidth="78"
+                Command="{Binding RemoveSelectedCommand}" />
+        <Border Height="1" Width="54" Background="#DCE5F0" Margin="0,3" />
+        <Button Classes="parameter-secondary" Content="上移  ↑" MinWidth="78"
+                Command="{Binding MoveUpCommand}" />
+        <Button Classes="parameter-secondary" Content="下移  ↓" MinWidth="78"
+                Command="{Binding MoveDownCommand}" />
+      </StackPanel>
+
+      <Border Grid.Column="2" Classes="parameter-surface" Padding="1">
+        <Grid RowDefinitions="Auto,*">
+          <Border Grid.Row="0" Background="#F0F7FF" Padding="16,11"
+                  BorderBrush="#CFE0FF" BorderThickness="0,0,0,1">
+            <Grid ColumnDefinitions="*,Auto">
+              <StackPanel Spacing="2">
+                <TextBlock Text="已配置序列" FontWeight="SemiBold" Foreground="#164B95" />
+                <TextBlock Text="按执行顺序运行" Classes="parameter-hint" />
+              </StackPanel>
+              <TextBlock Grid.Column="1" Text="{Binding ConfiguredPoints.Count}"
+                         Foreground="{DynamicResource BrandBlueBrush}" FontWeight="SemiBold"
+                         VerticalAlignment="Center" />
+            </Grid>
+          </Border>
+          <ListBox Grid.Row="1" Classes="parameter-list"
+                   ItemsSource="{Binding ConfiguredPoints}"
+                   SelectedItem="{Binding SelectedConfigured, Mode=TwoWay}">
+            <ListBox.ItemTemplate>
+              <DataTemplate x:DataType="tp:TestItemPoint">
+                <Grid ColumnDefinitions="42,*,Auto" ColumnSpacing="8">
+                  <Border Width="30" Height="30" CornerRadius="9" Background="#EAF2FF"
+                          VerticalAlignment="Center">
+                    <TextBlock Text="{Binding SortOrder}" Foreground="{DynamicResource BrandBlueDarkBrush}"
+                               FontWeight="SemiBold" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                  </Border>
+                  <StackPanel Grid.Column="1" Spacing="2" VerticalAlignment="Center">
+                    <TextBlock Text="{Binding Name}" FontWeight="SemiBold" />
+                    <TextBlock Text="{Binding Id}" Classes="parameter-hint" FontFamily="Consolas" />
+                  </StackPanel>
+                  <Border Grid.Column="2" Background="#EAF2FF" CornerRadius="4"
+                          Padding="7,4" VerticalAlignment="Center">
+                    <TextBlock Text="{Binding ExecutorCode}" Foreground="#164B95" FontSize="11" />
+                  </Border>
+                </Grid>
+              </DataTemplate>
+            </ListBox.ItemTemplate>
+          </ListBox>
+        </Grid>
+      </Border>
+    </Grid>
+
+    <TextBlock Grid.Row="2" Text="{Binding StatusMessage}" Foreground="#1F618D" FontSize="13"
+               TextWrapping="Wrap" />
+  </Grid>
+</UserControl>

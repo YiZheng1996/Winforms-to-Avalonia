@@ -12,11 +12,26 @@ namespace XXX.TestBench.Devices;
 /// </summary>
 public sealed class DeviceRuntimeFactory : IDeviceRuntimeFactory
 {
+    /// <summary>
+    /// 设备配置。
+    /// </summary>
     private readonly DeviceConfig _deviceConfig;
+    /// <summary>
+    /// 点位配置。
+    /// </summary>
     private readonly PointsConfig _pointsConfig;
+    /// <summary>
+    /// 模拟运行配置。
+    /// </summary>
     private readonly SimulationConfig _simulationConfig;
+    /// <summary>
+    /// 时间来源。
+    /// </summary>
     private readonly IClock _clock;
 
+    /// <summary>
+    /// 创建运行时工厂。
+    /// </summary>
     public DeviceRuntimeFactory(DeviceConfig deviceConfig, PointsConfig pointsConfig, SimulationConfig simulationConfig, IClock clock)
     {
         _deviceConfig = deviceConfig;
@@ -25,6 +40,9 @@ public sealed class DeviceRuntimeFactory : IDeviceRuntimeFactory
         _clock = clock;
     }
 
+    /// <summary>
+    /// 按模式创建设备运行时。
+    /// </summary>
     public Task<IDeviceRuntime> CreateAsync(DeviceMode mode, CancellationToken ct = default)
     {
         if (mode == DeviceMode.Simulation)

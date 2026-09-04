@@ -11,11 +11,26 @@ namespace XXX.TestBench.Core.Application;
 /// </summary>
 public sealed class TestParameterService
 {
+    /// <summary>
+    /// 参数仓库。
+    /// </summary>
     private readonly ITestParameterRepository _parameters;
+    /// <summary>
+    /// 产品数据仓库。
+    /// </summary>
     private readonly IProductRepository _products;
+    /// <summary>
+    /// 时间来源。
+    /// </summary>
     private readonly IClock _clock;
+    /// <summary>
+    /// 审计日志。
+    /// </summary>
     private readonly IAuditLog _audit;
 
+    /// <summary>
+    /// 创建试验参数服务。
+    /// </summary>
     public TestParameterService(ITestParameterRepository parameters, IProductRepository products, IClock clock, IAuditLog audit)
     {
         _parameters = parameters;
@@ -50,7 +65,9 @@ public sealed class TestParameterService
         return value;
     }
 
-    /// <summary>保存项目级参数（试验时间）。</summary>
+    /// <summary>
+    /// 保存项目级参数（试验时间）。
+    /// </summary>
     public async Task SaveProjectAsync(UserContext actor, int testTimeSeconds, CancellationToken ct = default)
     {
         Ensure(actor, PermissionCode.ManageTestDefinitions);
@@ -65,7 +82,9 @@ public sealed class TestParameterService
         await _audit.WriteAsync(actor.LoginName, "ProjectTestParameterSaved", "project", testTimeSeconds.ToString(), ct);
     }
 
-    /// <summary>保存产品类型级参数（试验电压）。</summary>
+    /// <summary>
+    /// 保存产品类型级参数（试验电压）。
+    /// </summary>
     public async Task SaveTypeAsync(UserContext actor, int productTypeId, double testVoltageV, CancellationToken ct = default)
     {
         Ensure(actor, PermissionCode.ManageTestDefinitions);
@@ -82,7 +101,9 @@ public sealed class TestParameterService
         await _audit.WriteAsync(actor.LoginName, "TypeTestParameterSaved", $"type:{type.Id}", testVoltageV.ToString(), ct);
     }
 
-    /// <summary>保存产品型号级参数（保护电流）。</summary>
+    /// <summary>
+    /// 保存产品型号级参数（保护电流）。
+    /// </summary>
     public async Task SaveModelAsync(UserContext actor, int productModelId, double protectCurrentMa, CancellationToken ct = default)
     {
         Ensure(actor, PermissionCode.ManageTestDefinitions);
@@ -99,6 +120,9 @@ public sealed class TestParameterService
         await _audit.WriteAsync(actor.LoginName, "ModelTestParameterSaved", $"model:{model.Id}", protectCurrentMa.ToString(), ct);
     }
 
+    /// <summary>
+    /// 校验参数编辑权限，越权时写入审计并抛出异常。
+    /// </summary>
     private void Ensure(UserContext actor, PermissionCode permission)
     {
         try { actor.EnsurePermission(permission); }

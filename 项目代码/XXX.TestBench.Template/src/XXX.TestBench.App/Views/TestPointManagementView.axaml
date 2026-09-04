@@ -1,0 +1,114 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:XXX.TestBench.App.ViewModels"
+             x:Class="XXX.TestBench.App.Views.TestPointManagementView"
+             x:DataType="vm:TestPointManagementViewModel"
+             UseLayoutRounding="True">
+  <Grid RowDefinitions="Auto,* ,Auto" RowSpacing="12" Margin="0,12,0,0">
+    <Border Grid.Row="0" Classes="parameter-surface" Padding="16,14">
+      <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="14">
+        <Border Classes="parameter-icon">
+          <TextBlock Text="⌁" FontSize="22" Foreground="{DynamicResource BrandBlueBrush}"
+                     HorizontalAlignment="Center" VerticalAlignment="Center" />
+        </Border>
+        <StackPanel Grid.Column="1" Spacing="10" VerticalAlignment="Center">
+          <StackPanel Spacing="3">
+            <TextBlock Text="试验项点" Classes="parameter-section-title" />
+            <TextBlock Text="维护产品类型下的试验项点、关联执行器与判定方式"
+                       Classes="parameter-hint" />
+          </StackPanel>
+          <StackPanel Orientation="Horizontal" Spacing="9">
+            <TextBlock Text="所属产品类型" Classes="parameter-label" VerticalAlignment="Center" />
+            <ComboBox Classes="parameter-input" Width="220"
+                      ItemsSource="{Binding TypeOptions}"
+                      SelectedItem="{Binding SelectedType, Mode=TwoWay}"
+                      DisplayMemberBinding="{Binding Name}"
+                      PlaceholderText="选择产品类型" />
+            <TextBlock Text="列表只显示当前类型的项点" Classes="parameter-hint"
+                       VerticalAlignment="Center" />
+          </StackPanel>
+        </StackPanel>
+        <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8"
+                    VerticalAlignment="Center">
+          <Border Classes="parameter-count">
+            <StackPanel Orientation="Horizontal" Spacing="5">
+              <TextBlock Text="{Binding Points.Count}" Foreground="{DynamicResource BrandBlueBrush}"
+                         FontSize="15" FontWeight="SemiBold" />
+              <TextBlock Text="个项点" Classes="parameter-label" />
+            </StackPanel>
+          </Border>
+          <Button Classes="parameter-ghost" Content="启用 / 停用"
+                  Command="{Binding TogglePointCommand}" />
+          <Button Classes="parameter-secondary" Content="编辑"
+                  Click="OnEditPointClick" />
+          <Button Classes="parameter-danger" Content="删除"
+                  Command="{Binding DeletePointCommand}" />
+          <Button Classes="parameter-primary" Content="＋ 新增项点"
+                  Click="OnAddPointClick" />
+        </StackPanel>
+      </Grid>
+    </Border>
+
+    <Border Grid.Row="1" Classes="parameter-surface" Padding="1">
+      <Grid RowDefinitions="Auto,*">
+        <Border Grid.Row="0" Background="#F8FAFD" Padding="16,11"
+                BorderBrush="#E2E8F0" BorderThickness="0,0,0,1">
+          <Grid ColumnDefinitions="*,Auto">
+            <TextBlock Text="项点清单" FontWeight="SemiBold" Foreground="#344054" />
+            <TextBlock Grid.Column="1" Text="关联逻辑类只能从编译期注册的执行器中选择"
+                       Classes="parameter-hint" HorizontalAlignment="Right" />
+          </Grid>
+        </Border>
+        <Grid Grid.Row="1">
+          <DataGrid Classes="parameter-grid"
+                    ItemsSource="{Binding Points}"
+                    SelectedItem="{Binding SelectedPoint, Mode=TwoWay}"
+                    AutoGenerateColumns="False"
+                    IsReadOnly="True"
+                    HeadersVisibility="Column"
+                    SelectionMode="Single">
+            <DataGrid.Columns>
+              <DataGridTextColumn Header="项点编号" Binding="{Binding Id}" Width="1.1*" />
+              <DataGridTextColumn Header="项点名称" Binding="{Binding Name}" Width="1.5*" />
+              <DataGridTextColumn Header="关联逻辑类" Binding="{Binding ExecutorCode}" Width="1.5*" />
+              <DataGridTextColumn Header="判定类型" Binding="{Binding ResultKind}" Width="120" />
+              <DataGridTemplateColumn Header="状态" Width="120">
+                <DataGridTemplateColumn.CellTemplate>
+                  <DataTemplate>
+                    <Grid HorizontalAlignment="Left">
+                      <Border Background="#ECFDF3" CornerRadius="12" Padding="9,4"
+                              IsVisible="{Binding IsEnabled}">
+                        <StackPanel Orientation="Horizontal" Spacing="5">
+                          <Ellipse Width="7" Height="7" Fill="#18A654" />
+                          <TextBlock Text="启用" Foreground="#087443" FontSize="12" />
+                        </StackPanel>
+                      </Border>
+                      <Border Background="#F2F4F7" CornerRadius="12" Padding="9,4"
+                              IsVisible="{Binding !IsEnabled}">
+                        <StackPanel Orientation="Horizontal" Spacing="5">
+                          <Ellipse Width="7" Height="7" Fill="#98A2B3" />
+                          <TextBlock Text="停用" Foreground="#667085" FontSize="12" />
+                        </StackPanel>
+                      </Border>
+                    </Grid>
+                  </DataTemplate>
+                </DataGridTemplateColumn.CellTemplate>
+              </DataGridTemplateColumn>
+              <DataGridTextColumn Header="排序" Binding="{Binding SortOrder}" Width="80" />
+            </DataGrid.Columns>
+          </DataGrid>
+          <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="6"
+                      IsVisible="{Binding !HasPoints}">
+            <TextBlock Text="暂无试验项点" FontSize="16" FontWeight="SemiBold"
+                       Foreground="#526071" HorizontalAlignment="Center" />
+            <TextBlock Text="选择产品类型后，点击右上角“新增项点”开始配置"
+                       Classes="parameter-hint" />
+          </StackPanel>
+        </Grid>
+      </Grid>
+    </Border>
+
+    <TextBlock Grid.Row="2" Text="{Binding StatusMessage}" Foreground="#1F618D" FontSize="13"
+               TextWrapping="Wrap" />
+  </Grid>
+</UserControl>

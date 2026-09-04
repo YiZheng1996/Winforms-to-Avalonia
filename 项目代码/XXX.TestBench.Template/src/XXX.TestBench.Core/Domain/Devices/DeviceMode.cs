@@ -5,6 +5,12 @@ namespace XXX.TestBench.Core.Domain.Devices;
 /// </summary>
 public enum DeviceMode
 {
+    /// <summary>
+    /// 模拟模式。
+    /// </summary>
     Simulation = 0,
+    /// <summary>
+    /// 硬件模式。
+    /// </summary>
     Hardware = 1
 }

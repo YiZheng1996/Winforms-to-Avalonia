@@ -8,6 +8,9 @@ namespace XXX.TestBench.Core.Configuration;
 /// </summary>
 public static class ConfigurationValidator
 {
+    /// <summary>
+    /// 校验全部配置及其交叉一致性。
+    /// </summary>
     public static void ValidateAll(AppConfig app, DeviceConfig device, PointsConfig points, SimulationConfig simulation)
     {
         app.Validate();
@@ -15,13 +18,15 @@ public static class ConfigurationValidator
         points.Validate();
         simulation.Validate();
 
+        // 硬件模式必须至少启用一台设备。
         if (device.DeviceMode == DeviceMode.Hardware && !device.Devices.Any(d => d.Enabled))
             throw new ConfigValidationException("Hardware 模式必须配置至少一个启用的设备");
 
+        // 模拟模式的初值、变化规则与故障注入地址必须存在于点位表中。
         if (device.DeviceMode == DeviceMode.Simulation)
         {
             var addresses = points.Points
-                .Where(p => p.Protocol.Equals("Simulation", StringComparison.OrdinalIgnoreCase))
+                .Where(p => p.IsEnabled && p.Protocol.Equals("Simulation", StringComparison.OrdinalIgnoreCase))
                 .Select(p => p.Address)
                 .ToHashSet(StringComparer.Ordinal);
 

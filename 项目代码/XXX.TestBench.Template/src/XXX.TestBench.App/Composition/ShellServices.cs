@@ -1,5 +1,6 @@
 using XXX.TestBench.Core.Application;
 using XXX.TestBench.Core.Configuration;
+using XXX.TestBench.Core.Execution;
 using XXX.TestBench.Core.Ports;
 
 namespace XXX.TestBench.App.Composition;
@@ -9,20 +10,25 @@ namespace XXX.TestBench.App.Composition;
 /// </summary>
 public sealed record ShellServices(
     AuthenticationService Authentication,
-    TaskService Tasks,
+    TestPointService TestPoints,
     TestExecutionService Execution,
     ProductService Products,
     TestParameterService Parameters,
     ReportService Reports,
     DeviceModeController DeviceModes,
     DeviceWritePipeline WritePipeline,
-    ITaskRepository TaskRepository,
+    IRecordRepository RecordRepository,
+    ITestPointRepository TestPointRepository,
+    IModelPointConfigRepository ModelPointConfigRepository,
     IProductRepository ProductRepository,
-    ITestDefinitionRepository DefinitionRepository,
     ITestParameterRepository TestParameterRepository,
     IUserRepository UserRepository,
     IReportRepository ReportRepository,
     IAuditLog AuditLog,
+    ITestItemExecutorFactory Executors,
+    DevicePointCatalogService DevicePoints,
+    IDevicePointImporter DevicePointImporter,
+    IDevicePointTemplateExporter DevicePointTemplateExporter,
     AppConfig AppConfig,
     DeviceConfig DeviceConfig,
     string DatabasePath,

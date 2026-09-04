@@ -1,36 +1,45 @@
 using XXX.TestBench.Core.Application;
 using XXX.TestBench.Core.Domain.Devices;
-using XXX.TestBench.Core.Domain.Tasks;
-using XXX.TestBench.Core.Domain.TestDefinitions;
+using XXX.TestBench.Core.Domain.Records;
+using XXX.TestBench.Core.Domain.TestPoints;
 using XXX.TestBench.Core.Domain.TestParameters;
 
 namespace XXX.TestBench.Core.Execution;
 
 /// <summary>
-/// 项点执行上下文：固定序列项点、参数快照（强类型）、设备运行时与记录。
+/// 项点执行上下文：记录内固化的序列项点、参数快照（强类型）、设备运行时与记录。
 /// </summary>
 public sealed record ItemExecutionContext(
     UserContext Actor,
     TestRecord Record,
     SequenceItemContext Sequence,
-    TestItemDefinition Definition,
+    SequenceItem Point,
     IReadOnlyDictionary<string, string> ParameterValues,
     DeviceMode Mode,
     Ports.IDeviceRuntime Runtime,
     EffectiveTestParameters? EffectiveParameters = null);
 
 /// <summary>
-/// 执行项定位信息：Id 在固定序列中表示试验项定义 ID。
+/// 执行项定位信息：Id 表示记录固化序列中的试验项点 ID。
 /// </summary>
 public sealed record SequenceItemContext(int Id, int SortOrder, bool IsEnabled);
 
+/// <summary>
+/// 项点执行结果。
+/// </summary>
 public sealed record ItemExecutionOutcome(ItemResultState State, string? SummaryValue, string? ResultText);
 
 /// <summary>
-/// 试验项执行器扩展点。具体试验算法通过实现本接口注册，不允许运行时编译任意 C#。
+/// 试验项点执行器扩展点。具体试验算法通过实现本接口注册（关联逻辑类），不允许运行时编译任意 C#。
 /// </summary>
 public interface ITestItemExecutor
 {
+    /// <summary>
+    /// 执行器代码。
+    /// </summary>
     string ExecutorCode { get; }
+    /// <summary>
+    /// 执行指定项点并返回结果。
+    /// </summary>
     Task<ItemExecutionOutcome> ExecuteAsync(ItemExecutionContext context, CancellationToken ct = default);
 }

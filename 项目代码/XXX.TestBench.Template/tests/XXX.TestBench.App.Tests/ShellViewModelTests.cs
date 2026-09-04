@@ -28,7 +28,7 @@ public class ShellViewModelTests
         Assert.True(shell.IsAuthenticated);
         Assert.False(shell.MustChangePassword);
         Assert.NotEmpty(shell.NavItems);
-        Assert.Equal(9, shell.NavItems.Count); // Administrator 全权限
+        Assert.Equal(9, shell.NavItems.Count); // Administrator 全权限（任务管理页已移除；设备点位已独立为菜单页）
         Assert.NotNull(shell.CurrentPage);
         Assert.Equal("运行总览", shell.CurrentPage!.Title);
         Assert.NotEqual("未登录", shell.CurrentUserText);
@@ -48,8 +48,11 @@ public class ShellViewModelTests
         Assert.True(shell.IsAuthenticated);
         Assert.DoesNotContain(shell.NavItems, n => n.Title == "参数管理");
         Assert.DoesNotContain(shell.NavItems, n => n.Title == "系统管理");
-        Assert.Contains(shell.NavItems, n => n.Title == "任务管理");
+        Assert.DoesNotContain(shell.NavItems, n => n.Title == "设备点位");
+        Assert.DoesNotContain(shell.NavItems, n => n.Title == "任务管理");
+        Assert.Contains(shell.NavItems, n => n.Title == "运行总览");
         Assert.Contains(shell.NavItems, n => n.Title == "试验执行");
+        Assert.Equal(4, shell.NavItems.Count);
     }
 
     [Fact]
