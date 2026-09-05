@@ -216,7 +216,7 @@ public sealed partial class ShellViewModel : ObservableObject
         {
             if (SetProperty(ref _selectedProductModel, value))
             {
-                OnPropertyChanged(nameof(CurrentProductModelIdText));
+                OnPropertyChanged(nameof(CurrentProductModelNameText));
                 OnPropertyChanged(nameof(CurrentProductTypeText));
                 OnPropertyChanged(nameof(CurrentProductModelText));
                 OnPropertyChanged(nameof(CurrentProductNumberText));
@@ -225,9 +225,9 @@ public sealed partial class ShellViewModel : ObservableObject
     }
 
     /// <summary>
-    /// 当前产品型号 ID 的显示文字。
+    /// 当前产品型号名称的显示文字。
     /// </summary>
-    public string CurrentProductModelIdText => SelectedProductModel?.ProductModelId.ToString() ?? "未选择";
+    public string CurrentProductModelNameText => SelectedProductModel?.ProductModelName ?? "未选择";
 
     /// <summary>
     /// 当前产品类型名称的显示文字。
@@ -235,16 +235,16 @@ public sealed partial class ShellViewModel : ObservableObject
     public string CurrentProductTypeText => SelectedProductModel?.ProductTypeName ?? "未选择";
 
     /// <summary>
-    /// 当前产品型号的组合显示文字。
+    /// 当前产品型号的显示文字。
     /// </summary>
     public string CurrentProductModelText => SelectedProductModel is null
         ? "未选择"
-        : $"{SelectedProductModel.ProductModelId}  {SelectedProductModel.ProductModelName}";
+        : SelectedProductModel.ProductModelName;
 
     /// <summary>
     /// 当前产品编号的显示文字。
     /// </summary>
-    public string CurrentProductNumberText => SelectedProductModel?.ProductModelId.ToString() ?? "未录入";
+    public string CurrentProductNumberText => "未录入";
 
     /// <summary>
     /// 读取可选产品型号列表，供型号选择弹窗使用。

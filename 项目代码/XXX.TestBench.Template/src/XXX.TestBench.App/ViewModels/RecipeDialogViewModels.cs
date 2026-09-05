@@ -17,8 +17,15 @@ public sealed record ProductModelSelectionOption(
     bool IsEnabled,
     DateTime CreatedAtUtc)
 {
-    public string TypeDisplay => $"{ProductTypeId}  {ProductTypeName}";
-    public string ModelDisplay => $"{ProductModelId}  {ProductModelName}";
+    /// <summary>
+    /// 产品类型的用户可见名称；编号仅用于内部关联。
+    /// </summary>
+    public string TypeDisplay => ProductTypeName;
+
+    /// <summary>
+    /// 产品型号的用户可见名称；编号仅用于内部关联。
+    /// </summary>
+    public string ModelDisplay => ProductModelName;
     public string StatusText => IsEnabled ? "启用" : "停用";
 }
 

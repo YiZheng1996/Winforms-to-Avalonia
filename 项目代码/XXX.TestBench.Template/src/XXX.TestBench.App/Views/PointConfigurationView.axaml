@@ -29,7 +29,7 @@
             <ComboBox Classes="parameter-input" Width="200"
                       ItemsSource="{Binding ModelOptions}"
                       SelectedItem="{Binding SelectedModel, Mode=TwoWay}"
-                      DisplayMemberBinding="{Binding Id}"
+                      DisplayMemberBinding="{Binding Name}"
                       PlaceholderText="选择产品型号" />
           </StackPanel>
         </StackPanel>

@@ -37,8 +37,8 @@ public sealed class ClosedXmlReportGenerator : IReportGenerator
 
             sheet.Cell("C2").Value = data.RecordNumber;
             sheet.Cell("C3").Value = data.ProductNumber;
-            sheet.Cell("B4").Value = "型号编号";
-            sheet.Cell("C4").Value = data.ProductModelId;
+            sheet.Cell("B4").Value = "产品型号";
+            sheet.Cell("C4").Value = data.ProductModelName;
             sheet.Cell("C5").Value = data.FlowText;
             sheet.Cell("E2").Value = data.DeviceMode;
             sheet.Cell("E3").Value = data.OperatorName;
@@ -88,8 +88,8 @@ public sealed class ClosedXmlReportGenerator : IReportGenerator
         sheet.Cell("C2").Value = data?.RecordNumber ?? string.Empty;
         sheet.Cell("B3").Value = "产品编号";
         sheet.Cell("C3").Value = data?.ProductNumber ?? string.Empty;
-        sheet.Cell("B4").Value = "型号编号";
-        sheet.Cell("C4").Value = data?.ProductModelId ?? string.Empty;
+        sheet.Cell("B4").Value = "产品型号";
+        sheet.Cell("C4").Value = data?.ProductModelName ?? string.Empty;
         sheet.Cell("B5").Value = "试验流程";
         sheet.Cell("C5").Value = data?.FlowText ?? string.Empty;
         sheet.Cell("D2").Value = "设备模式";

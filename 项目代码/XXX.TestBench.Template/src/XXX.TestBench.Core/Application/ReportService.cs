@@ -67,6 +67,8 @@ public sealed class ReportService
         var record = await _records.GetRecordAsync(recordId, ct) ?? throw new DomainException("试验记录不存在");
         if (record.State != RecordState.Completed)
             throw new DomainException("只有已完成的试验记录可以生成报表");
+        var model = await _products.GetModelAsync(record.ProductModelId, ct)
+            ?? throw new DomainException("试验记录关联的产品型号不存在");
         var operatorUser = await _users.GetByIdAsync(record.OperatorUserId, ct);
         var results = await _records.ListItemResultsAsync(recordId, ct);
 
@@ -86,7 +88,7 @@ public sealed class ReportService
             record.Id,
             record.RecordNumber,
             record.ProductIdentity.ProductNumber ?? string.Empty,
-            record.ProductModelId.ToString(),
+            model.Name,
             sequence.Count == 0 ? "未固化" : string.Join(" → ", sequence.Select(i => i.Name)),
             record.DeviceMode.ToString(),
             operatorUser?.DisplayName ?? record.OperatorUserId.ToString(),

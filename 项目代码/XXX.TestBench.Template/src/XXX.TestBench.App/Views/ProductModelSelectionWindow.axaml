@@ -64,8 +64,7 @@
                   RowHeight="42">
           <DataGrid.Columns>
             <DataGridTextColumn Header="产品类型" Binding="{Binding TypeDisplay}" Width="1.2*" />
-            <DataGridTextColumn Header="型号编号" Binding="{Binding ProductModelId}" Width="1*" />
-            <DataGridTextColumn Header="型号名称" Binding="{Binding ProductModelName}" Width="1.3*" />
+            <DataGridTextColumn Header="产品型号" Binding="{Binding ProductModelName}" Width="1.3*" />
             <DataGridTextColumn Header="状态" Binding="{Binding StatusText}" Width="90" />
           </DataGrid.Columns>
         </DataGrid>

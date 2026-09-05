@@ -27,9 +27,9 @@ public sealed partial class RecordRow : ObservableObject
     /// </summary>
     public required string ProductNumber { get; init; }
     /// <summary>
-    /// 产品型号编号。
+    /// 产品型号名称。
     /// </summary>
-    public required string ModelId { get; init; }
+    public required string ProductModelName { get; init; }
     /// <summary>
     /// 记录状态文字。
     /// </summary>
@@ -118,6 +118,8 @@ public sealed partial class DataReportsViewModel : PageViewModel
         {
             Records.Clear();
             var records = await _services.RecordRepository.ListRecordsAsync(null, ct);
+            var models = await _services.ProductRepository.ListModelsAsync(null, includeDisabled: true, ct);
+            var modelNames = models.ToDictionary(model => model.Id, model => model.Name);
             foreach (var record in records)
             {
                 Records.Add(new RecordRow
@@ -125,7 +127,9 @@ public sealed partial class DataReportsViewModel : PageViewModel
                     Id = record.Id,
                     RecordNumber = record.RecordNumber,
                     ProductNumber = record.ProductIdentity.ProductNumber ?? string.Empty,
-                    ModelId = record.ProductModelId.ToString(),
+                    ProductModelName = modelNames.TryGetValue(record.ProductModelId, out var modelName)
+                        ? modelName
+                        : "未知产品型号",
                     StateText = record.State.ToString(),
                     DeviceModeText = record.DeviceMode.ToString(),
                     StartedAt = record.StartedAtUtc.ToString("yyyy-MM-dd HH:mm"),

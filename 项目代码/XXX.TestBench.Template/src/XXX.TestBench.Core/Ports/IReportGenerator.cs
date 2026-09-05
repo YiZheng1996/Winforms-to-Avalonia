@@ -12,7 +12,7 @@ public sealed record ReportData(
     int RecordId,
     string RecordNumber,
     string ProductNumber,
-    string ProductModelId,
+    string ProductModelName,
     string FlowText,
     string DeviceMode,
     string OperatorName,

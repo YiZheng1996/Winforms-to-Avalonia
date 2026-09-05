@@ -17,7 +17,7 @@
           <DataGrid.Columns>
             <DataGridTextColumn Header="记录编号" Binding="{Binding RecordNumber}" Width="1.4*" />
             <DataGridTextColumn Header="产品编号" Binding="{Binding ProductNumber}" Width="1*" />
-            <DataGridTextColumn Header="型号编号" Binding="{Binding ModelId}" Width="1*" />
+            <DataGridTextColumn Header="产品型号" Binding="{Binding ProductModelName}" Width="1.2*" />
             <DataGridTextColumn Header="记录状态" Binding="{Binding StateText}" Width="110" />
             <DataGridTextColumn Header="设备模式" Binding="{Binding DeviceModeText}" Width="110" />
             <DataGridTextColumn Header="开始时间" Binding="{Binding StartedAt}" Width="1.4*" />

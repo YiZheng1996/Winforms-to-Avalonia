@@ -68,6 +68,7 @@ public class ReportServiceTests
         Assert.Equal("D:\\out\\out.xlsx", report.OutputPath);
         Assert.Single(generator.Calls);
         Assert.Equal("R-20260901-0001", generator.Calls[0].RecordNumber);
+        Assert.Equal("型号1", generator.Calls[0].ProductModelName);
         Assert.Equal("耐压试验", generator.Calls[0].FlowText);
         Assert.Single(generator.Calls[0].Items);
         Assert.Single(reports.Records);
