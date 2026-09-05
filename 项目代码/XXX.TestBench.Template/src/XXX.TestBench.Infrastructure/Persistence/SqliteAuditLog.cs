@@ -1,74 +1,89 @@
 using XXX.TestBench.Core.Ports;
 using XXX.TestBench.Infrastructure.Persistence.Repositories;
+using XXX.TestBench.Infrastructure.Persistence.Entities;
 
 namespace XXX.TestBench.Infrastructure.Persistence;
 
 /// <summary>
 /// 基于数据库的审计日志实现。
 /// </summary>
-public sealed class SqliteAuditLog(ISqliteConnectionFactory factory) : IAuditLog
+public sealed class SqliteAuditLog : SqliteRepositoryBase, IAuditLog
 {
+    /// <summary>
+    /// 创建审计日志仓库。
+    /// </summary>
+    public SqliteAuditLog(ISqliteConnectionFactory factory) : base(factory) { }
+
     /// <summary>
     /// 读取最近若干条审计记录。
     /// </summary>
-    public async Task<IReadOnlyList<AuditEntry>> ListRecentAsync(int limit, CancellationToken ct = default)
+    public Task<IReadOnlyList<AuditEntry>> ListRecentAsync(int limit, CancellationToken ct = default)
+        => SearchAsync(new AuditLogQuery(Limit: limit), ct);
+
+    /// <summary>
+    /// 按条件读取审计记录，结果按时间倒序返回。
+    /// </summary>
+    public async Task<IReadOnlyList<AuditEntry>> SearchAsync(AuditLogQuery query, CancellationToken ct = default)
     {
-        var rows = await QueryAsync<AuditRow>(
-            "SELECT id AS Id, actor AS Actor, action AS Action, target AS Target, detail AS Detail, created_at_utc AS CreatedAtUtc FROM audit_logs ORDER BY created_at_utc DESC, id DESC LIMIT @limit",
-            new { limit }, ct);
+        var limit = Math.Clamp(query.Limit, 1, 1000);
+        var actor = NullIfWhiteSpace(query.Actor);
+        var action = NullIfWhiteSpace(query.Action);
+        var text = NullIfWhiteSpace(query.Text);
+        var fromUtc = ToUtcText(query.FromUtcInclusive);
+        var toUtc = ToUtcText(query.ToUtcExclusive);
+
+        var rows = await RunDbAsync(() =>
+        {
+            var select = Select<SqliteAuditEntry>();
+            if (actor is not null)
+                select = select.Where(x => x.Actor.Contains(actor));
+            if (action is not null)
+                select = select.Where(x => x.Action == action);
+            if (text is not null)
+                select = select.Where(x => x.Target!.Contains(text) || x.Detail!.Contains(text));
+            if (fromUtc is not null)
+                select = select.Where(x => x.CreatedAtUtc.CompareTo(fromUtc) >= 0);
+            if (toUtc is not null)
+                select = select.Where(x => x.CreatedAtUtc.CompareTo(toUtc) < 0);
+
+            return select
+                .OrderByDescending(x => x.CreatedAtUtc)
+                .OrderByDescending(x => x.Id)
+                .Limit(limit)
+                .ToList();
+        }, ct);
+
         return rows.Select(row => new AuditEntry(
             row.Id,
             row.Actor,
             row.Action,
             row.Target,
             row.Detail,
-            DateTime.Parse(row.CreatedAtUtc, null, System.Globalization.DateTimeStyles.RoundtripKind))).ToList();
+            ParseUtc(row.CreatedAtUtc))).ToList();
     }
 
     /// <summary>
     /// 写入一条审计记录。
     /// </summary>
-    public Task WriteAsync(string actor, string action, string? target, string? detail, CancellationToken ct = default) => ExecuteAsync("""
-        INSERT INTO audit_logs (actor, action, target, detail, created_at_utc)
-        VALUES (@actor, @action, @target, @detail, @createdAtUtc)
-        """, new
-    {
-        actor,
-        action,
-        target = target ?? (object)DBNull.Value,
-        detail = detail ?? (object)DBNull.Value,
-        createdAtUtc = DateTime.UtcNow.ToString("O")
-    }, ct);
+    public Task WriteAsync(string actor, string action, string? target, string? detail, CancellationToken ct = default)
+        => InsertAsync(new SqliteAuditEntry
+        {
+            Actor = actor,
+            Action = action,
+            Target = target,
+            Detail = detail,
+            CreatedAtUtc = DateTime.UtcNow.ToString("O")
+        }, ct);
 
-    /// <summary>
-    /// 查询辅助，存在当前事务时优先使用事务连接。
-    /// </summary>
-    private Task<List<T>> QueryAsync<T>(string sql, object parameters, CancellationToken ct)
-    {
-        var ambient = SqliteAmbient.Current;
-        return ambient is null
-            ? factory.Db.Ado.QueryAsync<T>(sql, parameters, ct)
-            : factory.Db.Ado.QueryAsync<T>(ambient.Connection, ambient.Transaction, sql, parameters, ct);
-    }
+    private static string? NullIfWhiteSpace(string? value)
+        => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
-    /// <summary>
-    /// 执行辅助，存在当前事务时优先使用事务连接。
-    /// </summary>
-    private Task<int> ExecuteAsync(string sql, object parameters, CancellationToken ct)
+    private static string? ToUtcText(DateTime? value)
     {
-        var ambient = SqliteAmbient.Current;
-        return ambient is null
-            ? factory.Db.Ado.ExecuteNonQueryAsync(sql, parameters, ct)
-            : factory.Db.Ado.ExecuteNonQueryAsync(ambient.Connection, ambient.Transaction, sql, parameters, ct);
-    }
-
-    private sealed class AuditRow
-    {
-        public int Id { get; set; }
-        public string Actor { get; set; } = string.Empty;
-        public string Action { get; set; } = string.Empty;
-        public string? Target { get; set; }
-        public string? Detail { get; set; }
-        public string CreatedAtUtc { get; set; } = string.Empty;
+        if (!value.HasValue) return null;
+        var utc = value.Value.Kind == DateTimeKind.Utc
+            ? value.Value
+            : value.Value.ToUniversalTime();
+        return utc.ToString("O");
     }
 }

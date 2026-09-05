@@ -1,6 +1,7 @@
 using XXX.TestBench.Core.Domain.Reports;
 using XXX.TestBench.Core.Ports;
 using XXX.TestBench.Infrastructure.Persistence;
+using XXX.TestBench.Infrastructure.Persistence.Entities;
 using XXX.TestBench.Infrastructure.Persistence.Repositories;
 
 namespace XXX.TestBench.Infrastructure.Reports;
@@ -20,35 +21,33 @@ public sealed class ReportRepository : SqliteRepositoryBase, IReportRepository
     /// </summary>
     public async Task AddAsync(ReportRecord record, CancellationToken ct = default)
     {
-        var id = await ExecuteInsertAndGetIdAsync("""
-            INSERT INTO report_records (test_record_id, template_path, output_path, status, error, created_by_user_id, created_at_utc, completed_at_utc)
-            VALUES (@testRecordId, @templatePath, @outputPath, @status, @error, @createdByUserId, @createdAtUtc, @completedAtUtc)
-            """, new
+        var id = await InsertIdentityAsync(new SqliteReportRecord
         {
-            testRecordId = record.TestRecordId,
-            templatePath = record.TemplatePath,
-            outputPath = DbValue(record.OutputPath),
-            status = (int)record.Status,
-            error = DbValue(record.Error),
-            createdByUserId = record.CreatedByUserId,
-            createdAtUtc = record.CreatedAtUtc.ToString("O"),
-            completedAtUtc = DbValue(record.CompletedAtUtc?.ToString("O"))
+            TestRecordId = record.TestRecordId,
+            TemplatePath = record.TemplatePath,
+            OutputPath = record.OutputPath,
+            Status = (int)record.Status,
+            Error = record.Error,
+            CreatedByUserId = record.CreatedByUserId,
+            CreatedAtUtc = record.CreatedAtUtc.ToString("O"),
+            CompletedAtUtc = record.CompletedAtUtc?.ToString("O")
         }, ct);
-        record.Id = (int)id;
+        record.Id = checked((int)id);
     }
 
     /// <summary>
     /// 更新报表状态与结果信息。
     /// </summary>
-    public Task UpdateAsync(ReportRecord record, CancellationToken ct = default) => ExecuteAsync(
-        "UPDATE report_records SET output_path=@outputPath, status=@status, error=@error, completed_at_utc=@completedAtUtc WHERE id=@id",
-        new
+    public Task UpdateAsync(ReportRecord record, CancellationToken ct = default)
+        => RunDbAsync(() =>
         {
-            outputPath = DbValue(record.OutputPath),
-            status = (int)record.Status,
-            error = DbValue(record.Error),
-            completedAtUtc = DbValue(record.CompletedAtUtc?.ToString("O")),
-            id = record.Id
+            Update<SqliteReportRecord>()
+                .Where(x => x.Id == record.Id)
+                .Set(x => x.OutputPath, record.OutputPath)
+                .Set(x => x.Status, (int)record.Status)
+                .Set(x => x.Error, record.Error)
+                .Set(x => x.CompletedAtUtc, record.CompletedAtUtc?.ToString("O"))
+                .ExecuteAffrows();
         }, ct);
 
     /// <summary>
@@ -56,7 +55,9 @@ public sealed class ReportRepository : SqliteRepositoryBase, IReportRepository
     /// </summary>
     public async Task<ReportRecord?> GetAsync(int id, CancellationToken ct = default)
     {
-        var row = await QuerySingleAsync<ReportRow>(ReportSelect + " WHERE id=@id", new { id }, ct);
+        var row = await RunDbAsync(() => Select<SqliteReportRecord>()
+            .Where(x => x.Id == id)
+            .ToOne(), ct);
         return row is null ? null : Map(row);
     }
 
@@ -65,14 +66,18 @@ public sealed class ReportRepository : SqliteRepositoryBase, IReportRepository
     /// </summary>
     public async Task<IReadOnlyList<ReportRecord>> ListByRecordAsync(int testRecordId, CancellationToken ct = default)
     {
-        var rows = await QueryAsync<ReportRow>(ReportSelect + " WHERE test_record_id=@testRecordId ORDER BY created_at_utc DESC, id DESC", new { testRecordId }, ct);
+        var rows = await RunDbAsync(() => Select<SqliteReportRecord>()
+            .Where(x => x.TestRecordId == testRecordId)
+            .OrderByDescending(x => x.CreatedAtUtc)
+            .OrderByDescending(x => x.Id)
+            .ToList(), ct);
         return rows.Select(Map).ToList();
     }
 
     /// <summary>
     /// 把查询结果转换为报表记录对象。
     /// </summary>
-    private static ReportRecord Map(ReportRow row) => new()
+    private static ReportRecord Map(SqliteReportRecord row) => new()
     {
         Id = row.Id,
         TestRecordId = row.TestRecordId,
@@ -84,22 +89,4 @@ public sealed class ReportRepository : SqliteRepositoryBase, IReportRepository
         CreatedAtUtc = ParseUtc(row.CreatedAtUtc),
         CompletedAtUtc = ParseNullableUtc(row.CompletedAtUtc)
     };
-
-    /// <summary>
-    /// 报表表常用查询字段。
-    /// </summary>
-    private const string ReportSelect = "SELECT id AS Id, test_record_id AS TestRecordId, template_path AS TemplatePath, output_path AS OutputPath, status AS Status, error AS Error, created_by_user_id AS CreatedByUserId, created_at_utc AS CreatedAtUtc, completed_at_utc AS CompletedAtUtc FROM report_records";
-
-    private sealed class ReportRow
-    {
-        public int Id { get; set; }
-        public int TestRecordId { get; set; }
-        public string TemplatePath { get; set; } = string.Empty;
-        public string? OutputPath { get; set; }
-        public int Status { get; set; }
-        public string? Error { get; set; }
-        public int CreatedByUserId { get; set; }
-        public string CreatedAtUtc { get; set; } = string.Empty;
-        public string? CompletedAtUtc { get; set; }
-    }
 }

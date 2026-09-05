@@ -1,6 +1,8 @@
 using System.Data.Common;
+using FreeSql;
 using XXX.TestBench.Core.Domain.Identity;
 using XXX.TestBench.Core.Ports;
+using XXX.TestBench.Infrastructure.Persistence.Entities;
 
 namespace XXX.TestBench.Infrastructure.Persistence;
 
@@ -12,7 +14,7 @@ public sealed class SqliteDatabase
     /// <summary>
     /// 当前数据库结构版本号。
     /// </summary>
-    public const int CurrentSchemaVersion = 4;
+    public const int CurrentSchemaVersion = 5;
 
     /// <summary>
     /// 数据库连接工厂。
@@ -80,34 +82,43 @@ public sealed class SqliteDatabase
         await using var txn = await conn.BeginTransactionAsync(ct);
         try
         {
-            var roleCount = Convert.ToInt64(
-                await db.Ado.ExecuteScalarAsync(conn, txn, "SELECT COUNT(1) FROM roles", new { }, ct));
+            ct.ThrowIfCancellationRequested();
+            var roleCount = db.Select<SqliteRole>()
+                .WithConnection(conn)
+                .WithTransaction(txn)
+                .Count();
             if (roleCount == 0)
             {
                 var all = Enum.GetValues<PermissionCode>();
-                await InsertRoleAsync(conn, txn, "Administrator", all, ct);
-                await InsertRoleAsync(conn, txn, "Operator", new[]
+                InsertRole(db, conn, txn, "Administrator", "Administrator", all, ct);
+                InsertRole(db, conn, txn, "Operator", "Operator", new[]
                 {
                     PermissionCode.ViewOverview, PermissionCode.ExecuteTests,
                     PermissionCode.ViewRecords, PermissionCode.ViewLogs
                 }, ct);
-                await InsertRoleAsync(conn, txn, "Maintenance", new[]
+                InsertRole(db, conn, txn, "Maintenance", "Maintenance", new[]
                 {
                     PermissionCode.ViewOverview, PermissionCode.ManualControl, PermissionCode.ManageDevices,
                     PermissionCode.CalibrateDevices, PermissionCode.ViewRecords, PermissionCode.ViewLogs
                 }, ct);
 
-                var roleId = Convert.ToInt32(await db.Ado.ExecuteScalarAsync(
-                    conn, txn, "SELECT id FROM roles WHERE name='Administrator'", new { }, ct));
-                await db.Ado.ExecuteNonQueryAsync(conn, txn, """
-                    INSERT INTO users (login_name, display_name, password_hash, must_change_password, is_enabled, failed_login_count, locked_until_utc, role_id, created_at_utc)
-                    VALUES ('admin', '管理员', @hash, 1, 1, 0, NULL, @role, @now)
-                    """, new
+                var role = db.Select<SqliteRole>()
+                    .WithConnection(conn)
+                    .WithTransaction(txn)
+                    .Where(x => x.Name == "Administrator")
+                    .ToOne() ?? throw new InvalidOperationException("初始化 Administrator 角色失败。");
+                db.Insert(new SqliteUser
                 {
-                    hash = _hasher.Hash("admin123"),
-                    role = roleId,
-                    now = DateTime.UtcNow.ToString("O")
-                }, ct);
+                    LoginName = "admin",
+                    DisplayName = "管理员",
+                    PasswordHash = _hasher.Hash("admin123"),
+                    MustChangePassword = 1,
+                    IsEnabled = 1,
+                    FailedLoginCount = 0,
+                    LockedUntilUtc = null,
+                    RoleId = role.Id,
+                    CreatedAtUtc = DateTime.UtcNow.ToString("O")
+                }).WithConnection(conn).WithTransaction(txn).ExecuteAffrows();
             }
 
             await txn.CommitAsync(ct);
@@ -123,29 +134,34 @@ public sealed class SqliteDatabase
     /// <summary>
     /// 插入一个角色及其权限。
     /// </summary>
-    private async Task InsertRoleAsync(
+    private static void InsertRole(
+        IFreeSql db,
         DbConnection conn,
         DbTransaction txn,
         string name,
+        string? systemKey,
         IEnumerable<PermissionCode> permissions,
         CancellationToken ct)
     {
-        var db = _factory.Db;
-        await db.Ado.ExecuteNonQueryAsync(
-            conn, txn, "INSERT INTO roles (name) VALUES (@name)", new { name }, ct);
-        var roleId = Convert.ToInt32(await db.Ado.ExecuteScalarAsync(
-            conn, txn, "SELECT last_insert_rowid()", new { }, ct));
+        ct.ThrowIfCancellationRequested();
+        var roleId = db.Insert(new SqliteRole
+        {
+            Name = name,
+            SystemKey = systemKey
+        }).WithConnection(conn).WithTransaction(txn).ExecuteIdentity();
 
         foreach (var permission in permissions)
-            await db.Ado.ExecuteNonQueryAsync(
-                conn,
-                txn,
-                "INSERT INTO role_permissions (role_id, permission_code) VALUES (@role, @permission)",
-                new { role = roleId, permission = (int)permission },
-                ct);
+        {
+            ct.ThrowIfCancellationRequested();
+            db.Insert(new SqliteRolePermission
+            {
+                RoleId = checked((int)roleId),
+                PermissionCode = (int)permission
+            }).WithConnection(conn).WithTransaction(txn).ExecuteAffrows();
+        }
     }
 
-    private static (int Version, string[] Statements)[] Migrations => new[] { (1, SchemaStatements), (2, Version2Statements), (3, Version3Statements), (4, Version4Statements) };
+    private static (int Version, string[] Statements)[] Migrations => new[] { (1, SchemaStatements), (2, Version2Statements), (3, Version3Statements), (4, Version4Statements), (5, Version5Statements) };
 
     private static readonly string[] SchemaStatements =
     {
@@ -475,6 +491,16 @@ public sealed class SqliteDatabase
         "DROP TABLE IF EXISTS test_tasks",
         "DROP TABLE IF EXISTS test_item_definitions",
         "DELETE FROM role_permissions WHERE permission_code=2 AND role_id IN (SELECT id FROM roles WHERE name <> 'Administrator')"
+    };
+
+    private static readonly string[] Version5Statements =
+    {
+        "ALTER TABLE roles ADD COLUMN system_key TEXT NULL",
+        "UPDATE roles SET system_key='Administrator' WHERE name='Administrator' AND system_key IS NULL",
+        "UPDATE roles SET system_key='Operator' WHERE name='Operator' AND system_key IS NULL",
+        "UPDATE roles SET system_key='Maintenance' WHERE name='Maintenance' AND system_key IS NULL",
+        "CREATE UNIQUE INDEX IF NOT EXISTS ux_roles_system_key ON roles(system_key) WHERE system_key IS NOT NULL",
+        "INSERT OR IGNORE INTO role_permissions (role_id, permission_code) SELECT id, 14 FROM roles WHERE system_key='Administrator'"
     };
 
 }

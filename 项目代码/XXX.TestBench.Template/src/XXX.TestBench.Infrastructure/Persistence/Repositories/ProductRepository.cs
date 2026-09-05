@@ -1,5 +1,7 @@
 using XXX.TestBench.Core.Domain.Products;
 using XXX.TestBench.Core.Ports;
+using XXX.TestBench.Infrastructure.Persistence;
+using XXX.TestBench.Infrastructure.Persistence.Entities;
 
 namespace XXX.TestBench.Infrastructure.Persistence.Repositories;
 
@@ -9,26 +11,23 @@ namespace XXX.TestBench.Infrastructure.Persistence.Repositories;
 public sealed class ProductRepository : SqliteRepositoryBase, IProductRepository
 {
     /// <summary>
-    /// 数据库连接工厂。
+    /// 数据库连接工厂，用于跨多条语句的删除事务。
     /// </summary>
     private readonly ISqliteConnectionFactory _factory;
 
     /// <summary>
     /// 创建产品仓库。
     /// </summary>
-    public ProductRepository(ISqliteConnectionFactory factory) : base(factory)
-    {
-        _factory = factory;
-    }
+    public ProductRepository(ISqliteConnectionFactory factory) : base(factory) => _factory = factory;
 
     /// <summary>
     /// 按编号读取产品类型。
     /// </summary>
     public async Task<ProductType?> GetTypeAsync(int id, CancellationToken ct = default)
     {
-        var row = await QuerySingleAsync<ProductTypeRow>(
-            "SELECT id AS Id, name AS Name, is_enabled AS IsEnabled, created_at_utc AS CreatedAtUtc FROM product_types WHERE id=@id",
-            new { id }, ct);
+        var row = await RunDbAsync(() => Select<SqliteProductType>()
+            .Where(x => x.Id == id)
+            .ToOne(), ct);
         return row is null ? null : Map(row);
     }
 
@@ -37,9 +36,9 @@ public sealed class ProductRepository : SqliteRepositoryBase, IProductRepository
     /// </summary>
     public async Task<ProductModel?> GetModelAsync(int id, CancellationToken ct = default)
     {
-        var row = await QuerySingleAsync<ProductModelRow>(
-            "SELECT id AS Id, product_type_id AS ProductTypeId, name AS Name, is_enabled AS IsEnabled, created_at_utc AS CreatedAtUtc FROM product_models WHERE id=@id",
-            new { id }, ct);
+        var row = await RunDbAsync(() => Select<SqliteProductModel>()
+            .Where(x => x.Id == id)
+            .ToOne(), ct);
         return row is null ? null : Map(row);
     }
 
@@ -48,10 +47,16 @@ public sealed class ProductRepository : SqliteRepositoryBase, IProductRepository
     /// </summary>
     public async Task<IReadOnlyList<ProductType>> ListTypesAsync(bool includeDisabled, CancellationToken ct = default)
     {
-        var sql = includeDisabled
-            ? "SELECT id AS Id, name AS Name, is_enabled AS IsEnabled, created_at_utc AS CreatedAtUtc FROM product_types ORDER BY created_at_utc DESC, id DESC"
-            : "SELECT id AS Id, name AS Name, is_enabled AS IsEnabled, created_at_utc AS CreatedAtUtc FROM product_types WHERE is_enabled=1 ORDER BY created_at_utc DESC, id DESC";
-        var rows = await QueryAsync<ProductTypeRow>(sql, null, ct);
+        var rows = await RunDbAsync(() =>
+        {
+            var query = Select<SqliteProductType>();
+            if (!includeDisabled)
+                query = query.Where(x => x.IsEnabled == 1);
+            return query
+                .OrderByDescending(x => x.CreatedAtUtc)
+                .OrderByDescending(x => x.Id)
+                .ToList();
+        }, ct);
         return rows.Select(Map).ToList();
     }
 
@@ -60,13 +65,18 @@ public sealed class ProductRepository : SqliteRepositoryBase, IProductRepository
     /// </summary>
     public async Task<IReadOnlyList<ProductModel>> ListModelsAsync(int? productTypeId, bool includeDisabled, CancellationToken ct = default)
     {
-        var filters = new List<string>();
-        if (productTypeId is not null) filters.Add("product_type_id=@productTypeId");
-        if (!includeDisabled) filters.Add("is_enabled=1");
-        var where = filters.Count == 0 ? string.Empty : $" WHERE {string.Join(" AND ", filters)}";
-        var rows = await QueryAsync<ProductModelRow>(
-            $"SELECT id AS Id, product_type_id AS ProductTypeId, name AS Name, is_enabled AS IsEnabled, created_at_utc AS CreatedAtUtc FROM product_models{where} ORDER BY created_at_utc DESC, id DESC",
-            new { productTypeId }, ct);
+        var rows = await RunDbAsync(() =>
+        {
+            var query = Select<SqliteProductModel>();
+            if (productTypeId is int typeId)
+                query = query.Where(x => x.ProductTypeId == typeId);
+            if (!includeDisabled)
+                query = query.Where(x => x.IsEnabled == 1);
+            return query
+                .OrderByDescending(x => x.CreatedAtUtc)
+                .OrderByDescending(x => x.Id)
+                .ToList();
+        }, ct);
         return rows.Select(Map).ToList();
     }
 
@@ -75,10 +85,14 @@ public sealed class ProductRepository : SqliteRepositoryBase, IProductRepository
     /// </summary>
     public async Task AddTypeAsync(ProductType type, CancellationToken ct = default)
     {
-        var id = await ExecuteInsertAndGetIdAsync(
-            "INSERT INTO product_types (code, name, is_enabled, created_at_utc) VALUES (@code, @name, @enabled, @created)",
-            new { code = CompatibilityCode("type"), name = type.Name, enabled = type.IsEnabled ? 1 : 0, created = type.CreatedAtUtc.ToString("O") }, ct);
-        type.Id = (int)id;
+        var id = await InsertIdentityAsync(new SqliteProductType
+        {
+            Code = CompatibilityCode("type"),
+            Name = type.Name,
+            IsEnabled = type.IsEnabled ? 1 : 0,
+            CreatedAtUtc = type.CreatedAtUtc.ToString("O")
+        }, ct);
+        type.Id = checked((int)id);
     }
 
     /// <summary>
@@ -86,58 +100,66 @@ public sealed class ProductRepository : SqliteRepositoryBase, IProductRepository
     /// </summary>
     public async Task AddModelAsync(ProductModel model, CancellationToken ct = default)
     {
-        var id = await ExecuteInsertAndGetIdAsync(
-            "INSERT INTO product_models (product_type_id, code, name, is_enabled, created_at_utc) VALUES (@productTypeId, @code, @name, @enabled, @created)",
-            new { productTypeId = model.ProductTypeId, code = CompatibilityCode("model"), name = model.Name, enabled = model.IsEnabled ? 1 : 0, created = model.CreatedAtUtc.ToString("O") }, ct);
-        model.Id = (int)id;
+        var id = await InsertIdentityAsync(new SqliteProductModel
+        {
+            ProductTypeId = model.ProductTypeId,
+            Code = CompatibilityCode("model"),
+            Name = model.Name,
+            IsEnabled = model.IsEnabled ? 1 : 0,
+            CreatedAtUtc = model.CreatedAtUtc.ToString("O")
+        }, ct);
+        model.Id = checked((int)id);
     }
 
     /// <summary>
     /// 更新产品类型。
     /// </summary>
-    public Task UpdateTypeAsync(ProductType type, CancellationToken ct = default) => ExecuteAsync(
-        "UPDATE product_types SET name=@name, is_enabled=@enabled WHERE id=@id",
-        new { name = type.Name, enabled = type.IsEnabled ? 1 : 0, id = type.Id }, ct);
+    public Task UpdateTypeAsync(ProductType type, CancellationToken ct = default)
+        => RunDbAsync(() =>
+        {
+            Update<SqliteProductType>()
+                .Where(x => x.Id == type.Id)
+                .Set(x => x.Name, type.Name)
+                .Set(x => x.IsEnabled, type.IsEnabled ? 1 : 0)
+                .ExecuteAffrows();
+        }, ct);
 
     /// <summary>
     /// 更新产品型号。
     /// </summary>
-    public Task UpdateModelAsync(ProductModel model, CancellationToken ct = default) => ExecuteAsync(
-        "UPDATE product_models SET name=@name, is_enabled=@enabled WHERE id=@id",
-        new { name = model.Name, enabled = model.IsEnabled ? 1 : 0, id = model.Id }, ct);
+    public Task UpdateModelAsync(ProductModel model, CancellationToken ct = default)
+        => RunDbAsync(() =>
+        {
+            Update<SqliteProductModel>()
+                .Where(x => x.Id == model.Id)
+                .Set(x => x.Name, model.Name)
+                .Set(x => x.IsEnabled, model.IsEnabled ? 1 : 0)
+                .ExecuteAffrows();
+        }, ct);
 
     /// <summary>
     /// 统计某类型下的型号数量。
     /// </summary>
-    public async Task<int> CountModelsByTypeAsync(int productTypeId, CancellationToken ct = default)
-    {
-        var value = await ScalarAsync(
-            "SELECT COUNT(1) FROM product_models WHERE product_type_id=@productTypeId",
-            new { productTypeId }, ct);
-        return Convert.ToInt32(value, System.Globalization.CultureInfo.InvariantCulture);
-    }
+    public Task<int> CountModelsByTypeAsync(int productTypeId, CancellationToken ct = default)
+        => RunDbAsync(() => checked((int)Select<SqliteProductModel>()
+            .Where(x => x.ProductTypeId == productTypeId)
+            .Count()), ct);
 
     /// <summary>
     /// 统计某类型关联的试验项点数量。
     /// </summary>
-    public async Task<int> CountTestPointsByTypeAsync(int productTypeId, CancellationToken ct = default)
-    {
-        var value = await ScalarAsync(
-            "SELECT COUNT(1) FROM test_item_points WHERE product_type_id=@productTypeId",
-            new { productTypeId }, ct);
-        return Convert.ToInt32(value, System.Globalization.CultureInfo.InvariantCulture);
-    }
+    public Task<int> CountTestPointsByTypeAsync(int productTypeId, CancellationToken ct = default)
+        => RunDbAsync(() => checked((int)Select<SqliteTestItemPoint>()
+            .Where(x => x.ProductTypeId == productTypeId)
+            .Count()), ct);
 
     /// <summary>
     /// 统计某型号关联的试验记录数量。
     /// </summary>
-    public async Task<int> CountRecordsByModelAsync(int productModelId, CancellationToken ct = default)
-    {
-        var value = await ScalarAsync(
-            "SELECT COUNT(1) FROM test_records WHERE product_model_id=@productModelId",
-            new { productModelId }, ct);
-        return Convert.ToInt32(value, System.Globalization.CultureInfo.InvariantCulture);
-    }
+    public Task<int> CountRecordsByModelAsync(int productModelId, CancellationToken ct = default)
+        => RunDbAsync(() => checked((int)Select<SqliteTestRecord>()
+            .Where(x => x.ProductModelId == productModelId)
+            .Count()), ct);
 
     /// <summary>
     /// 删除产品类型并清理类型级参数。
@@ -148,12 +170,12 @@ public sealed class ProductRepository : SqliteRepositoryBase, IProductRepository
         await using var txn = await lease.Connection.BeginTransactionAsync(ct);
         try
         {
-            await Db.Ado.ExecuteNonQueryAsync(lease.Connection, txn,
-                "DELETE FROM product_type_test_parameters WHERE product_type_id=@id",
-                new { id = productTypeId }, ct);
-            await Db.Ado.ExecuteNonQueryAsync(lease.Connection, txn,
-                "DELETE FROM product_types WHERE id=@id",
-                new { id = productTypeId }, ct);
+            await RunDbAsync(() => Delete<SqliteProductTypeTestParameter>(lease.Connection, txn)
+                .Where(x => x.ProductTypeId == productTypeId)
+                .ExecuteAffrows(), ct);
+            await RunDbAsync(() => Delete<SqliteProductType>(lease.Connection, txn)
+                .Where(x => x.Id == productTypeId)
+                .ExecuteAffrows(), ct);
             await txn.CommitAsync(ct);
         }
         catch
@@ -172,15 +194,15 @@ public sealed class ProductRepository : SqliteRepositoryBase, IProductRepository
         await using var txn = await lease.Connection.BeginTransactionAsync(ct);
         try
         {
-            await Db.Ado.ExecuteNonQueryAsync(lease.Connection, txn,
-                "DELETE FROM model_point_configs WHERE product_model_id=@id",
-                new { id = productModelId }, ct);
-            await Db.Ado.ExecuteNonQueryAsync(lease.Connection, txn,
-                "DELETE FROM product_model_test_parameters WHERE product_model_id=@id",
-                new { id = productModelId }, ct);
-            await Db.Ado.ExecuteNonQueryAsync(lease.Connection, txn,
-                "DELETE FROM product_models WHERE id=@id",
-                new { id = productModelId }, ct);
+            await RunDbAsync(() => Delete<SqliteModelPointConfig>(lease.Connection, txn)
+                .Where(x => x.ProductModelId == productModelId)
+                .ExecuteAffrows(), ct);
+            await RunDbAsync(() => Delete<SqliteProductModelTestParameter>(lease.Connection, txn)
+                .Where(x => x.ProductModelId == productModelId)
+                .ExecuteAffrows(), ct);
+            await RunDbAsync(() => Delete<SqliteProductModel>(lease.Connection, txn)
+                .Where(x => x.Id == productModelId)
+                .ExecuteAffrows(), ct);
             await txn.CommitAsync(ct);
         }
         catch
@@ -190,10 +212,7 @@ public sealed class ProductRepository : SqliteRepositoryBase, IProductRepository
         }
     }
 
-    /// <summary>
-    /// 把查询结果转换为产品类型对象。
-    /// </summary>
-    private static ProductType Map(ProductTypeRow row) => new()
+    private static ProductType Map(SqliteProductType row) => new()
     {
         Id = row.Id,
         Name = row.Name,
@@ -201,10 +220,7 @@ public sealed class ProductRepository : SqliteRepositoryBase, IProductRepository
         CreatedAtUtc = ParseUtc(row.CreatedAtUtc)
     };
 
-    /// <summary>
-    /// 把查询结果转换为产品型号对象。
-    /// </summary>
-    private static ProductModel Map(ProductModelRow row) => new()
+    private static ProductModel Map(SqliteProductModel row) => new()
     {
         Id = row.Id,
         ProductTypeId = row.ProductTypeId,
@@ -212,23 +228,6 @@ public sealed class ProductRepository : SqliteRepositoryBase, IProductRepository
         IsEnabled = row.IsEnabled != 0,
         CreatedAtUtc = ParseUtc(row.CreatedAtUtc)
     };
-
-    private sealed class ProductTypeRow
-    {
-        public int Id { get; set; }
-        public string Name { get; set; } = string.Empty;
-        public int IsEnabled { get; set; }
-        public string CreatedAtUtc { get; set; } = string.Empty;
-    }
-
-    private sealed class ProductModelRow
-    {
-        public int Id { get; set; }
-        public int ProductTypeId { get; set; }
-        public string Name { get; set; } = string.Empty;
-        public int IsEnabled { get; set; }
-        public string CreatedAtUtc { get; set; } = string.Empty;
-    }
 
     /// <summary>
     /// 为旧数据生成唯一兼容编码，满足旧表非空约束且不与新编码冲突。

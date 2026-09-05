@@ -1,10 +1,12 @@
+using System.Globalization;
+using System.Data.Common;
 using FreeSql;
 using XXX.TestBench.Infrastructure.Persistence;
 
 namespace XXX.TestBench.Infrastructure.Persistence.Repositories;
 
 /// <summary>
-/// 各仓储共用的数据库访问基类；保留手写语句以兼容现有表结构与迁移历史。
+/// 各仓储共用的 FreeSql Lambda 访问基类。
 /// </summary>
 public abstract class SqliteRepositoryBase
 {
@@ -24,96 +26,154 @@ public abstract class SqliteRepositoryBase
     protected IFreeSql Db => _factory.Db;
 
     /// <summary>
-    /// 查询多行，存在当前事务时使用事务连接。
+    /// 创建带当前事务连接的 Lambda 查询。
     /// </summary>
-    protected Task<List<T>> QueryAsync<T>(string sql, object? parameters, CancellationToken ct = default)
+    protected ISelect<T> Select<T>() where T : class, new()
     {
-        var values = parameters ?? new { };
+        var query = Db.Select<T>();
         var ambient = SqliteAmbient.Current;
         return ambient is null
-            ? Db.Ado.QueryAsync<T>(sql, values, ct)
-            : Db.Ado.QueryAsync<T>(ambient.Connection, ambient.Transaction, sql, values, ct);
+            ? query
+            : query.WithConnection(ambient.Connection).WithTransaction(ambient.Transaction);
     }
 
     /// <summary>
-    /// 查询单行，无结果时返回空。
+    /// 创建绑定到显式事务的 Lambda 查询。
     /// </summary>
-    protected async Task<T?> QuerySingleAsync<T>(string sql, object? parameters, CancellationToken ct = default)
-    {
-        var rows = await QueryAsync<T>(sql, parameters, ct);
-        return rows.FirstOrDefault();
-    }
+    protected ISelect<T> Select<T>(DbConnection connection, DbTransaction transaction) where T : class, new()
+        => Db.Select<T>().WithConnection(connection).WithTransaction(transaction);
 
     /// <summary>
-    /// 执行写入语句，返回受影响行数。
+    /// 创建带当前事务连接的 Lambda 新增操作。
     /// </summary>
-    protected Task<int> ExecuteAsync(string sql, object? parameters, CancellationToken ct = default)
+    protected IInsert<T> Insert<T>(T source) where T : class, new()
     {
-        var values = parameters ?? new { };
+        var insert = Db.Insert(source);
         var ambient = SqliteAmbient.Current;
         return ambient is null
-            ? Db.Ado.ExecuteNonQueryAsync(sql, values, ct)
-            : Db.Ado.ExecuteNonQueryAsync(ambient.Connection, ambient.Transaction, sql, values, ct);
+            ? insert
+            : insert.WithConnection(ambient.Connection).WithTransaction(ambient.Transaction);
     }
 
     /// <summary>
-    /// 执行查询并返回首行首列值。
+    /// 创建绑定到显式事务的 Lambda 新增操作。
     /// </summary>
-    protected Task<object> ScalarAsync(string sql, object? parameters, CancellationToken ct = default)
+    protected IInsert<T> Insert<T>(T source, DbConnection connection, DbTransaction transaction) where T : class, new()
+        => Db.Insert(source).WithConnection(connection).WithTransaction(transaction);
+
+    /// <summary>
+    /// 创建带当前事务连接的批量新增操作。
+    /// </summary>
+    protected IInsert<T> InsertMany<T>(IEnumerable<T> source) where T : class, new()
     {
-        var values = parameters ?? new { };
+        var insert = Db.Insert(source);
         var ambient = SqliteAmbient.Current;
         return ambient is null
-            ? Db.Ado.ExecuteScalarAsync(sql, values, ct)
-            : Db.Ado.ExecuteScalarAsync(ambient.Connection, ambient.Transaction, sql, values, ct);
+            ? insert
+            : insert.WithConnection(ambient.Connection).WithTransaction(ambient.Transaction);
     }
 
     /// <summary>
-    /// 读取当前连接最后插入的自增编号。
+    /// 创建绑定到显式事务的批量新增操作。
     /// </summary>
-    protected async Task<long> LastInsertRowIdAsync(CancellationToken ct = default)
-    {
-        var value = await ScalarAsync("SELECT last_insert_rowid()", null, ct);
-        return Convert.ToInt64(value, System.Globalization.CultureInfo.InvariantCulture);
-    }
+    protected IInsert<T> InsertMany<T>(IEnumerable<T> source, DbConnection connection, DbTransaction transaction) where T : class, new()
+        => Db.Insert(source).WithConnection(connection).WithTransaction(transaction);
 
     /// <summary>
-    /// 在同一物理连接上执行新增并读取自增编号。
+    /// 创建带当前事务连接的插入或更新操作。
     /// </summary>
-    protected async Task<long> ExecuteInsertAndGetIdAsync(string sql, object? parameters, CancellationToken ct = default)
+    protected IInsertOrUpdate<T> InsertOrUpdate<T>() where T : class, new()
     {
-        var values = parameters ?? new { };
+        var upsert = Db.InsertOrUpdate<T>();
         var ambient = SqliteAmbient.Current;
-        if (ambient is not null)
-        {
-            await Db.Ado.ExecuteNonQueryAsync(ambient.Connection, ambient.Transaction, sql, values, ct);
-            var value = await Db.Ado.ExecuteScalarAsync(ambient.Connection, ambient.Transaction, "SELECT last_insert_rowid()", new { }, ct);
-            return Convert.ToInt64(value, System.Globalization.CultureInfo.InvariantCulture);
-        }
-
-        await using var lease = await _factory.OpenLeaseAsync(ct);
-        await Db.Ado.ExecuteNonQueryAsync(lease.Connection, null, sql, values, ct);
-        var id = await Db.Ado.ExecuteScalarAsync(lease.Connection, null, "SELECT last_insert_rowid()", new { }, ct);
-        return Convert.ToInt64(id, System.Globalization.CultureInfo.InvariantCulture);
+        return ambient is null
+            ? upsert
+            : upsert.WithConnection(ambient.Connection).WithTransaction(ambient.Transaction);
     }
 
     /// <summary>
-    /// 空值转为数据库空值。
+    /// 创建绑定到显式事务的插入或更新操作。
     /// </summary>
-    protected static object DbValue(object? value) => value ?? DBNull.Value;
+    protected IInsertOrUpdate<T> InsertOrUpdate<T>(DbConnection connection, DbTransaction transaction) where T : class, new()
+        => Db.InsertOrUpdate<T>().WithConnection(connection).WithTransaction(transaction);
 
     /// <summary>
-    /// 把可空字段转换为字符串，空值保持为空。
+    /// 创建带当前事务连接的 Lambda 更新操作。
     /// </summary>
-    protected static string? ParseNullableString(object? value) => value is DBNull or null ? null : Convert.ToString(value);
+    protected IUpdate<T> Update<T>() where T : class, new()
+    {
+        var update = Db.Update<T>();
+        var ambient = SqliteAmbient.Current;
+        return ambient is null
+            ? update
+            : update.WithConnection(ambient.Connection).WithTransaction(ambient.Transaction);
+    }
+
+    /// <summary>
+    /// 创建绑定到显式事务的 Lambda 更新操作。
+    /// </summary>
+    protected IUpdate<T> Update<T>(DbConnection connection, DbTransaction transaction) where T : class, new()
+        => Db.Update<T>().WithConnection(connection).WithTransaction(transaction);
+
+    /// <summary>
+    /// 创建带当前事务连接的 Lambda 删除操作。
+    /// </summary>
+    protected IDelete<T> Delete<T>() where T : class, new()
+    {
+        var delete = Db.Delete<T>();
+        var ambient = SqliteAmbient.Current;
+        return ambient is null
+            ? delete
+            : delete.WithConnection(ambient.Connection).WithTransaction(ambient.Transaction);
+    }
+
+    /// <summary>
+    /// 创建绑定到显式事务的 Lambda 删除操作。
+    /// </summary>
+    protected IDelete<T> Delete<T>(DbConnection connection, DbTransaction transaction) where T : class, new()
+        => Db.Delete<T>().WithConnection(connection).WithTransaction(transaction);
+
+    /// <summary>
+    /// 执行 FreeSql 的同步 fluent API，并保持仓储接口的异步形态。
+    /// FreeSql 3.5 的 Lambda 执行器本身没有异步 ToList/Execute 方法；这里同步完成操作，
+    /// 使仓储方法仍可实现现有异步契约，同时避免多个 UI 加载回调交错修改集合。
+    /// </summary>
+    protected static Task<TResult> RunDbAsync<TResult>(Func<TResult> operation, CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+        return Task.FromResult(operation());
+    }
+
+    /// <summary>
+    /// 执行无返回值的 FreeSql fluent API。
+    /// </summary>
+    protected static Task RunDbAsync(Action operation, CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+        operation();
+        return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// 执行新增并返回数据库生成的自增编号。
+    /// </summary>
+    protected Task<long> InsertIdentityAsync<T>(T source, CancellationToken ct = default) where T : class, new()
+        => RunDbAsync(() => Insert(source).ExecuteIdentity(), ct);
+
+    /// <summary>
+    /// 执行新增并返回受影响行数。
+    /// </summary>
+    protected Task<int> InsertAsync<T>(T source, CancellationToken ct = default) where T : class, new()
+        => RunDbAsync(() => Insert(source).ExecuteAffrows(), ct);
 
     /// <summary>
     /// 按往返格式解析时间。
     /// </summary>
-    protected static DateTime ParseUtc(string value) => DateTime.Parse(value, null, System.Globalization.DateTimeStyles.RoundtripKind);
+    protected static DateTime ParseUtc(string value) => DateTime.Parse(value, null, DateTimeStyles.RoundtripKind);
 
     /// <summary>
     /// 解析可空时间，空值保持为空。
     /// </summary>
-    protected static DateTime? ParseNullableUtc(object? value) => value is DBNull or null ? null : ParseUtc(Convert.ToString(value)!);
+    protected static DateTime? ParseNullableUtc(string? value)
+        => string.IsNullOrWhiteSpace(value) ? null : ParseUtc(value);
 }

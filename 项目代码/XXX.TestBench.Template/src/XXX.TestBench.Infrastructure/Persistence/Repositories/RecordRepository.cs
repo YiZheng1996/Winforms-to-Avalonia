@@ -1,6 +1,8 @@
 using XXX.TestBench.Core.Domain.Devices;
 using XXX.TestBench.Core.Domain.Records;
 using XXX.TestBench.Core.Ports;
+using XXX.TestBench.Infrastructure.Persistence;
+using XXX.TestBench.Infrastructure.Persistence.Entities;
 
 namespace XXX.TestBench.Infrastructure.Persistence.Repositories;
 
@@ -17,38 +19,34 @@ public sealed class RecordRepository : SqliteRepositoryBase, IRecordRepository
     /// <summary>
     /// 判断记录流水号是否已存在。
     /// </summary>
-    public async Task<bool> ExistsRecordNumberAsync(string recordNumber, CancellationToken ct = default)
-    {
-        var value = await ScalarAsync("SELECT COUNT(1) FROM test_records WHERE record_number=@recordNumber", new { recordNumber }, ct);
-        return Convert.ToInt64(value, System.Globalization.CultureInfo.InvariantCulture) > 0;
-    }
+    public Task<bool> ExistsRecordNumberAsync(string recordNumber, CancellationToken ct = default)
+        => RunDbAsync(() => Select<SqliteTestRecord>()
+            .Where(x => x.RecordNumber == recordNumber)
+            .Any(), ct);
 
     /// <summary>
     /// 新增试验记录并回填编号。
     /// </summary>
     public async Task AddRecordAsync(TestRecord record, CancellationToken ct = default)
     {
-        var id = await ExecuteInsertAndGetIdAsync("""
-            INSERT INTO test_records (record_number, product_model_id, product_number, batch_number, station_number, remark, parameter_snapshot, sequence_snapshot, device_mode, operator_user_id, state, conclusion, started_at_utc, finished_at_utc)
-            VALUES (@recordNumber, @productModelId, @productNumber, @batchNumber, @stationNumber, @remark, @parameterSnapshot, @sequenceSnapshot, @deviceMode, @operatorUserId, @state, @conclusion, @startedAtUtc, @finishedAtUtc)
-            """, new
+        var id = await InsertIdentityAsync(new SqliteTestRecord
         {
-            recordNumber = record.RecordNumber,
-            productModelId = record.ProductModelId,
-            productNumber = DbValue(record.ProductIdentity.ProductNumber),
-            batchNumber = DbValue(record.ProductIdentity.BatchNumber),
-            stationNumber = DbValue(record.ProductIdentity.StationNumber),
-            remark = DbValue(record.ProductIdentity.Remark),
-            parameterSnapshot = DbValue(record.ParameterSnapshot),
-            sequenceSnapshot = DbValue(record.SequenceSnapshot),
-            deviceMode = (int)record.DeviceMode,
-            operatorUserId = record.OperatorUserId,
-            state = (int)record.State,
-            conclusion = DbValue(record.Conclusion),
-            startedAtUtc = record.StartedAtUtc.ToString("O"),
-            finishedAtUtc = DbValue(record.FinishedAtUtc?.ToString("O"))
+            RecordNumber = record.RecordNumber,
+            ProductModelId = record.ProductModelId,
+            ProductNumber = record.ProductIdentity.ProductNumber,
+            BatchNumber = record.ProductIdentity.BatchNumber,
+            StationNumber = record.ProductIdentity.StationNumber,
+            Remark = record.ProductIdentity.Remark,
+            ParameterSnapshot = record.ParameterSnapshot,
+            SequenceSnapshot = record.SequenceSnapshot,
+            DeviceMode = (int)record.DeviceMode,
+            OperatorUserId = record.OperatorUserId,
+            State = (int)record.State,
+            Conclusion = record.Conclusion,
+            StartedAtUtc = record.StartedAtUtc.ToString("O"),
+            FinishedAtUtc = record.FinishedAtUtc?.ToString("O")
         }, ct);
-        record.Id = (int)id;
+        record.Id = checked((int)id);
     }
 
     /// <summary>
@@ -56,7 +54,9 @@ public sealed class RecordRepository : SqliteRepositoryBase, IRecordRepository
     /// </summary>
     public async Task<TestRecord?> GetRecordAsync(int recordId, CancellationToken ct = default)
     {
-        var row = await QuerySingleAsync<TestRecordRow>(RecordSelect + " WHERE id=@id", new { id = recordId }, ct);
+        var row = await RunDbAsync(() => Select<SqliteTestRecord>()
+            .Where(x => x.Id == recordId)
+            .ToOne(), ct);
         return row is null ? null : MapRecord(row);
     }
 
@@ -65,7 +65,12 @@ public sealed class RecordRepository : SqliteRepositoryBase, IRecordRepository
     /// </summary>
     public async Task<TestRecord?> GetActiveRunningRecordAsync(CancellationToken ct = default)
     {
-        var row = await QuerySingleAsync<TestRecordRow>(RecordSelect + " WHERE state=0 ORDER BY started_at_utc DESC, id DESC LIMIT 1", null, ct);
+        var row = await RunDbAsync(() => Select<SqliteTestRecord>()
+            .Where(x => x.State == (int)RecordState.Running)
+            .OrderByDescending(x => x.StartedAtUtc)
+            .OrderByDescending(x => x.Id)
+            .Limit(1)
+            .ToOne(), ct);
         return row is null ? null : MapRecord(row);
     }
 
@@ -74,43 +79,49 @@ public sealed class RecordRepository : SqliteRepositoryBase, IRecordRepository
     /// </summary>
     public async Task<IReadOnlyList<TestRecord>> ListRecordsAsync(int? state, CancellationToken ct = default)
     {
-        var filter = state is null ? string.Empty : " WHERE state=@state";
-        var rows = await QueryAsync<TestRecordRow>(RecordSelect + filter + " ORDER BY started_at_utc DESC, id DESC", new { state }, ct);
+        var rows = await RunDbAsync(() =>
+        {
+            var query = Select<SqliteTestRecord>();
+            if (state is int stateValue)
+                query = query.Where(x => x.State == stateValue);
+            return query
+                .OrderByDescending(x => x.StartedAtUtc)
+                .OrderByDescending(x => x.Id)
+                .ToList();
+        }, ct);
         return rows.Select(MapRecord).ToList();
     }
 
     /// <summary>
     /// 更新试验记录状态与结论。
     /// </summary>
-    public Task UpdateRecordAsync(TestRecord record, CancellationToken ct = default) => ExecuteAsync("""
-        UPDATE test_records SET state=@state, conclusion=@conclusion, finished_at_utc=@finishedAtUtc WHERE id=@id
-        """, new
-    {
-        state = (int)record.State,
-        conclusion = DbValue(record.Conclusion),
-        finishedAtUtc = DbValue(record.FinishedAtUtc?.ToString("O")),
-        id = record.Id
-    }, ct);
+    public Task UpdateRecordAsync(TestRecord record, CancellationToken ct = default)
+        => RunDbAsync(() =>
+        {
+            Update<SqliteTestRecord>()
+                .Where(x => x.Id == record.Id)
+                .Set(x => x.State, (int)record.State)
+                .Set(x => x.Conclusion, record.Conclusion)
+                .Set(x => x.FinishedAtUtc, record.FinishedAtUtc?.ToString("O"))
+                .ExecuteAffrows();
+        }, ct);
 
     /// <summary>
     /// 新增项点结果并回填编号。
     /// </summary>
     public async Task AddItemResultAsync(TestItemResult result, CancellationToken ct = default)
     {
-        var id = await ExecuteInsertAndGetIdAsync("""
-            INSERT INTO test_item_results (record_id, test_item_point_id, state, summary_value, result_text, started_at_utc, finished_at_utc)
-            VALUES (@recordId, @testItemPointId, @state, @summaryValue, @resultText, @startedAtUtc, @finishedAtUtc)
-            """, new
+        var id = await InsertIdentityAsync(new SqliteTestItemResult
         {
-            recordId = result.RecordId,
-            testItemPointId = result.TestItemPointId,
-            state = (int)result.State,
-            summaryValue = DbValue(result.SummaryValue),
-            resultText = DbValue(result.ResultText),
-            startedAtUtc = DbValue(result.StartedAtUtc?.ToString("O")),
-            finishedAtUtc = DbValue(result.FinishedAtUtc?.ToString("O"))
+            RecordId = result.RecordId,
+            TestItemPointId = result.TestItemPointId,
+            State = (int)result.State,
+            SummaryValue = result.SummaryValue,
+            ResultText = result.ResultText,
+            StartedAtUtc = result.StartedAtUtc?.ToString("O"),
+            FinishedAtUtc = result.FinishedAtUtc?.ToString("O")
         }, ct);
-        result.Id = (int)id;
+        result.Id = checked((int)id);
     }
 
     /// <summary>
@@ -118,29 +129,33 @@ public sealed class RecordRepository : SqliteRepositoryBase, IRecordRepository
     /// </summary>
     public async Task<IReadOnlyList<TestItemResult>> ListItemResultsAsync(int recordId, CancellationToken ct = default)
     {
-        var rows = await QueryAsync<TestItemResultRow>(ItemResultSelect + " WHERE record_id=@recordId", new { recordId }, ct);
+        var rows = await RunDbAsync(() => Select<SqliteTestItemResult>()
+            .Where(x => x.RecordId == recordId)
+            .OrderBy(x => x.Id)
+            .ToList(), ct);
         return rows.Select(MapItemResult).ToList();
     }
 
     /// <summary>
     /// 更新项点结果。
     /// </summary>
-    public Task UpdateItemResultAsync(TestItemResult result, CancellationToken ct = default) => ExecuteAsync("""
-        UPDATE test_item_results SET state=@state, summary_value=@summaryValue, result_text=@resultText, started_at_utc=@startedAtUtc, finished_at_utc=@finishedAtUtc WHERE id=@id
-        """, new
-    {
-        state = (int)result.State,
-        summaryValue = DbValue(result.SummaryValue),
-        resultText = DbValue(result.ResultText),
-        startedAtUtc = DbValue(result.StartedAtUtc?.ToString("O")),
-        finishedAtUtc = DbValue(result.FinishedAtUtc?.ToString("O")),
-        id = result.Id
-    }, ct);
+    public Task UpdateItemResultAsync(TestItemResult result, CancellationToken ct = default)
+        => RunDbAsync(() =>
+        {
+            Update<SqliteTestItemResult>()
+                .Where(x => x.Id == result.Id)
+                .Set(x => x.State, (int)result.State)
+                .Set(x => x.SummaryValue, result.SummaryValue)
+                .Set(x => x.ResultText, result.ResultText)
+                .Set(x => x.StartedAtUtc, result.StartedAtUtc?.ToString("O"))
+                .Set(x => x.FinishedAtUtc, result.FinishedAtUtc?.ToString("O"))
+                .ExecuteAffrows();
+        }, ct);
 
     /// <summary>
     /// 把查询结果转换为试验记录对象。
     /// </summary>
-    private static TestRecord MapRecord(TestRecordRow row) => new()
+    private static TestRecord MapRecord(SqliteTestRecord row) => new()
     {
         Id = row.Id,
         RecordNumber = row.RecordNumber,
@@ -159,7 +174,7 @@ public sealed class RecordRepository : SqliteRepositoryBase, IRecordRepository
     /// <summary>
     /// 把查询结果转换为项点结果对象。
     /// </summary>
-    private static TestItemResult MapItemResult(TestItemResultRow row) => new()
+    private static TestItemResult MapItemResult(SqliteTestItemResult row) => new()
     {
         Id = row.Id,
         RecordId = row.RecordId,
@@ -170,44 +185,4 @@ public sealed class RecordRepository : SqliteRepositoryBase, IRecordRepository
         StartedAtUtc = ParseNullableUtc(row.StartedAtUtc),
         FinishedAtUtc = ParseNullableUtc(row.FinishedAtUtc)
     };
-
-    /// <summary>
-    /// 试验记录常用查询字段。
-    /// </summary>
-    private const string RecordSelect = "SELECT id AS Id, record_number AS RecordNumber, product_model_id AS ProductModelId, product_number AS ProductNumber, batch_number AS BatchNumber, station_number AS StationNumber, remark AS Remark, parameter_snapshot AS ParameterSnapshot, sequence_snapshot AS SequenceSnapshot, device_mode AS DeviceMode, operator_user_id AS OperatorUserId, state AS State, conclusion AS Conclusion, started_at_utc AS StartedAtUtc, finished_at_utc AS FinishedAtUtc FROM test_records";
-    /// <summary>
-    /// 项点结果常用查询字段。
-    /// </summary>
-    private const string ItemResultSelect = "SELECT id AS Id, record_id AS RecordId, test_item_point_id AS TestItemPointId, state AS State, summary_value AS SummaryValue, result_text AS ResultText, started_at_utc AS StartedAtUtc, finished_at_utc AS FinishedAtUtc FROM test_item_results";
-
-    private sealed class TestRecordRow
-    {
-        public int Id { get; set; }
-        public string RecordNumber { get; set; } = string.Empty;
-        public int ProductModelId { get; set; }
-        public string? ProductNumber { get; set; }
-        public string? BatchNumber { get; set; }
-        public string? StationNumber { get; set; }
-        public string? Remark { get; set; }
-        public string? ParameterSnapshot { get; set; }
-        public string? SequenceSnapshot { get; set; }
-        public int DeviceMode { get; set; }
-        public int OperatorUserId { get; set; }
-        public int State { get; set; }
-        public string? Conclusion { get; set; }
-        public string StartedAtUtc { get; set; } = string.Empty;
-        public string? FinishedAtUtc { get; set; }
-    }
-
-    private sealed class TestItemResultRow
-    {
-        public int Id { get; set; }
-        public int RecordId { get; set; }
-        public int TestItemPointId { get; set; }
-        public int State { get; set; }
-        public string? SummaryValue { get; set; }
-        public string? ResultText { get; set; }
-        public string? StartedAtUtc { get; set; }
-        public string? FinishedAtUtc { get; set; }
-    }
 }
