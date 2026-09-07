@@ -1,0 +1,18 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:XXX.TestBench.App.ViewModels"
+        xmlns:views="using:XXX.TestBench.App.Views"
+        x:Class="XXX.TestBench.App.LoginWindow"
+        x:DataType="vm:ShellViewModel"
+        Title="{Binding SystemName}"
+        Width="1440" Height="900"
+        MinWidth="1100" MinHeight="700"
+        WindowStartupLocation="CenterScreen"
+        SystemDecorations="None"
+        TransparencyLevelHint="Transparent"
+        Background="Transparent"
+        UseLayoutRounding="True">
+  <Border Background="#F4F7FC" CornerRadius="12" ClipToBounds="True">
+    <views:LoginView HorizontalAlignment="Stretch" VerticalAlignment="Stretch" />
+  </Border>
+</Window>

@@ -9,9 +9,9 @@ namespace XXX.TestBench.Core.Tests;
 
 public class DeviceWritePipelineTests
 {
-    private static readonly DevicePoint WritablePoint = new("DO_Start", "Simulation", "sim.start", "Boolean", "", true, WriteRiskLevel.Normal, null, null, null, null);
-    private static readonly DevicePoint HighRiskPoint = new("DO_Stop", "Simulation", "sim.stop", "Boolean", "", true, WriteRiskLevel.HighRisk, null, null, null, null);
-    private static readonly DevicePoint ReadOnlyPoint = new("AI_Pressure", "Simulation", "sim.pressure", "Decimal", "MPa", false, WriteRiskLevel.Normal, null, null, null, null);
+    private static readonly DevicePoint WritablePoint = new("DO_Start", DevicePointProtocol.Simulation, "sim.start", DevicePointDataType.Boolean, "", true, WriteRiskLevel.Normal, null, null, null, null);
+    private static readonly DevicePoint HighRiskPoint = new("DO_Stop", DevicePointProtocol.Simulation, "sim.stop", DevicePointDataType.Boolean, "", true, WriteRiskLevel.HighRisk, null, null, null, null);
+    private static readonly DevicePoint ReadOnlyPoint = new("AI_Pressure", DevicePointProtocol.Simulation, "sim.pressure", DevicePointDataType.Decimal, "MPa", false, WriteRiskLevel.Normal, null, null, null, null);
 
     private static (DeviceWritePipeline Pipeline, FakeAuditLog Audit) Create()
     {
@@ -128,5 +128,135 @@ public class DeviceWritePipelineTests
         var runtime = new FakeRuntime(isSimulation: false, readOverride: _ => "999");
         await Assert.ThrowsAsync<DomainException>(() =>
             pipeline.ExecuteAsync(Cmd(TestContexts.With(PermissionCode.ManualControl), WritablePoint, true, DeviceMode.Hardware, runtime)));
+    }
+
+    [Fact]
+    public async Task V2Write_UsesCurrentPointById_AndFreshReadback()
+    {
+        var (pipeline, _) = Create();
+        var current = V2Point();
+        var runtime = new IdentityRuntime(current);
+        var staleDefinition = current with { IsWritable = false, Address = "sim.old", Revision = current.Revision };
+
+        var result = await pipeline.ExecuteAsync(Cmd(
+            TestContexts.With(PermissionCode.ManualControl), staleDefinition, 3.5m,
+            DeviceMode.Simulation, runtime));
+
+        Assert.Equal(PointQuality.Good, result.Quality);
+        Assert.Equal(1, runtime.WriteCount);
+        Assert.Equal(1, runtime.FreshReadCount);
+        Assert.Equal(3.5m, runtime.LastWritten);
+    }
+
+    [Fact]
+    public async Task V2Write_RejectsExpiredDefinitionBeforeDriverCall()
+    {
+        var (pipeline, _) = Create();
+        var current = V2Point();
+        var runtime = new IdentityRuntime(current);
+        var expired = current with { Revision = "old-revision" };
+
+        await Assert.ThrowsAsync<DomainException>(() => pipeline.ExecuteAsync(Cmd(
+            TestContexts.With(PermissionCode.ManualControl), expired, 1m,
+            DeviceMode.Simulation, runtime)));
+
+        Assert.Equal(0, runtime.WriteCount);
+    }
+
+    [Fact]
+    public async Task V2Write_ConvertsEngineeringValueToRawValue()
+    {
+        var (pipeline, _) = Create();
+        var current = V2Point() with
+        {
+            DataType = DevicePointDataType.Int16,
+            RawMin = 0,
+            RawMax = 100,
+            EngMin = 0,
+            EngMax = 10
+        };
+        var runtime = new IdentityRuntime(current);
+
+        await pipeline.ExecuteAsync(Cmd(
+            TestContexts.With(PermissionCode.ManualControl), current, 5m,
+            DeviceMode.Simulation, runtime));
+
+        Assert.Equal((short)50, runtime.LastWritten);
+    }
+
+    [Fact]
+    public async Task V2Write_CancelledAfterSend_IsUncertainAndAudited()
+    {
+        var (pipeline, audit) = Create();
+        var current = V2Point();
+        var runtime = new IdentityRuntime(current) { CancelDuringWrite = true };
+
+        await Assert.ThrowsAsync<DeviceWriteUncertainException>(() => pipeline.ExecuteAsync(Cmd(
+            TestContexts.With(PermissionCode.ManualControl), current, 1m,
+            DeviceMode.Simulation, runtime)));
+
+        Assert.Contains(audit.Entries, entry => entry.Contains("DeviceWriteUncertain", StringComparison.Ordinal));
+    }
+
+    private static DevicePoint V2Point()
+        => new(
+            "P_V2",
+            DevicePointProtocol.Simulation,
+            "sim.p2",
+            DevicePointDataType.Decimal,
+            "MPa",
+            true,
+            WriteRiskLevel.Normal,
+            null,
+            null,
+            null,
+            null,
+            Name: "P2",
+            PointId: "30000000-0000-5000-8000-000000000002",
+            DeviceId: "20000000-0000-5000-8000-000000000002",
+            DriverKey: DriverKeyCatalog.Simulation,
+            Revision: "current-revision");
+
+    private sealed class IdentityRuntime(DevicePoint current) : IDeviceRuntime
+    {
+        private object? _value;
+
+        public bool CancelDuringWrite { get; set; }
+        public int WriteCount { get; private set; }
+        public int FreshReadCount { get; private set; }
+        public object? LastWritten { get; private set; }
+        public string Name => "identity-runtime";
+        public DeviceMode Mode => DeviceMode.Simulation;
+        public bool IsSimulation => true;
+        public DeviceRuntimeInfo Status => new(Name, "simulation", "sim://identity", true,
+            DeviceHealth.Healthy, true, null, current.DeviceId, "channel-2", current.Revision, 1, DeviceConnectionState.Online);
+        public string ActiveRevision => current.Revision;
+        public Task StartAsync(CancellationToken ct = default) => Task.CompletedTask;
+        public Task StopAsync(CancellationToken ct = default) => Task.CompletedTask;
+        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+        public Task<IReadOnlyList<DevicePoint>> ListPointsAsync(CancellationToken ct = default)
+            => Task.FromResult<IReadOnlyList<DevicePoint>>(new[] { current });
+        public Task<PointValue> ReadAsync(DevicePoint point, CancellationToken ct = default)
+            => Task.FromResult(Value(_value));
+        public Task<PointValue> ReadFreshAsync(string pointId, CancellationToken ct = default)
+        {
+            FreshReadCount++;
+            return Task.FromResult(Value(_value));
+        }
+        public Task<PointValue> WriteAsync(DevicePoint point, object? value, CancellationToken ct = default)
+        {
+            WriteCount++;
+            LastWritten = value;
+            _value = value;
+            if (CancelDuringWrite) throw new OperationCanceledException("模拟写入超时");
+            return Task.FromResult(Value(value));
+        }
+        public DevicePoint? GetPoint(string pointId)
+            => string.Equals(pointId, current.PointId, StringComparison.OrdinalIgnoreCase) ? current : null;
+        public DeviceRuntimeInfo GetDeviceStatus(string deviceId) => Status with { DeviceId = deviceId };
+
+        private PointValue Value(object? value)
+            => new(current.Code, current.Address, PointQuality.Good, value, DateTime.UtcNow,
+                current.PointId, current.DeviceId, 1, current.Revision);
     }
 }

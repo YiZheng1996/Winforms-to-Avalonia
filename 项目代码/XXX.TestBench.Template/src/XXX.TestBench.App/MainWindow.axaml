@@ -1,7 +1,7 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:XXX.TestBench.App.ViewModels"
-        xmlns:views="using:XXX.TestBench.App.Views"
+        xmlns:icons="using:XXX.TestBench.App.Icons"
         x:Class="XXX.TestBench.App.MainWindow"
         x:DataType="vm:ShellViewModel"
         Title="{Binding SystemName}"
@@ -35,7 +35,7 @@
       <Setter Property="FontWeight" Value="SemiBold" />
     </Style>
     <Style Selector="Button.mode-choice">
-      <Setter Property="Height" Value="50" />
+      <Setter Property="Height" Value="36" />
       <Setter Property="Padding" Value="16,0" />
       <Setter Property="Background" Value="White" />
       <Setter Property="Foreground" Value="#242B36" />
@@ -50,7 +50,7 @@
       <Setter Property="BorderBrush" Value="#0868F7" />
     </Style>
     <Style Selector="Button.test-action">
-      <Setter Property="Height" Value="58" />
+      <Setter Property="Height" Value="42" />
       <Setter Property="FontSize" Value="18" />
       <Setter Property="FontWeight" Value="SemiBold" />
       <Setter Property="Margin" Value="10,0" />
@@ -73,9 +73,9 @@
     </Style>
   </Window.Styles>
 
-  <Grid RowDefinitions="92,*">
+  <Grid RowDefinitions="78,*">
     <!-- 顶部品牌与用户区 -->
-    <Border Grid.Row="0" Background="White" BorderBrush="#D6DEEA" BorderThickness="0,0,0,1">
+    <Border x:Name="TopHeader" Grid.Row="0" Background="White" BorderBrush="#D6DEEA" BorderThickness="0,0,0,1">
       <Grid ColumnDefinitions="420,*,470" Margin="20,0">
         <Image Grid.Column="0" Source="avares://XXX.TestBench.App/Assets/crrc-logo.png"
                Width="188" Height="62" Stretch="Uniform" HorizontalAlignment="Left" VerticalAlignment="Center" />
@@ -85,12 +85,12 @@
 
         <Grid Grid.Column="2" ColumnDefinitions="Auto,Auto,24,Auto,Auto" HorizontalAlignment="Right" VerticalAlignment="Center">
           <Border Grid.Column="0" Width="20" Height="20" CornerRadius="10" Background="#0868F7" Margin="0,0,10,0">
-            <TextBlock Text="●" Foreground="White" FontSize="10" HorizontalAlignment="Center" VerticalAlignment="Center" />
+            <Ellipse Width="6" Height="6" Fill="White" HorizontalAlignment="Center" VerticalAlignment="Center" />
           </Border>
           <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
             <TextBlock Text="当前用户：" FontSize="15" />
             <TextBlock Text="{Binding CurrentUserText}" FontSize="15" FontWeight="SemiBold" />
-            <TextBlock Text="⌄" FontSize="16" Foreground="#5D6878" />
+            <icons:AppIcon Kind="ChevronDown" Width="12" Height="12" Stroke="#5D6878" VerticalAlignment="Center" />
           </StackPanel>
           <Border Grid.Column="2" Width="1" Height="28" Background="#D6DEEA" HorizontalAlignment="Center" />
           <TextBlock x:Name="CurrentDateTextBlock" Grid.Column="3" Text="{Binding HeaderDateText}"
@@ -101,8 +101,8 @@
       </Grid>
     </Border>
 
-    <!-- 登录后的完整工控外壳 -->
-    <Grid x:Name="ShellRoot" Grid.Row="1" ColumnDefinitions="178,*" IsVisible="{Binding IsAuthenticated}">
+    <!-- 工艺主窗口的完整工控外壳 -->
+    <Grid x:Name="ShellRoot" Grid.Row="1" ColumnDefinitions="178,*">
       <!-- 左侧导航 -->
       <Border Grid.Column="0" Background="White" BorderBrush="#D6DEEA" BorderThickness="0,0,1,0">
         <Grid RowDefinitions="*,Auto">
@@ -112,9 +112,9 @@
                 <DataTemplate x:DataType="vm:NavigationItemViewModel">
                   <Button Classes="nav" Classes.active="{Binding IsSelected}" Tag="{Binding}" Click="OnNavClick">
                     <Grid ColumnDefinitions="38,*" ColumnSpacing="8">
-                      <TextBlock Grid.Column="0" Text="{Binding IconGlyph}" FontSize="25"
-                                 Foreground="{Binding $parent[Button].Foreground}"
-                                 HorizontalAlignment="Center" VerticalAlignment="Center" />
+                      <icons:AppIcon Grid.Column="0" Kind="{Binding Icon}" Width="24" Height="24"
+                                     Stroke="{Binding $parent[Button].Foreground}"
+                                     HorizontalAlignment="Center" VerticalAlignment="Center" />
                       <TextBlock Grid.Column="1" Text="{Binding DisplayTitle}" FontSize="16"
                                  Foreground="{Binding $parent[Button].Foreground}"
                                  VerticalAlignment="Center" />
@@ -125,14 +125,17 @@
             </ItemsControl>
           </ScrollViewer>
 
-          <Border Grid.Row="1" BorderBrush="#E1E7EF" BorderThickness="0,1,0,0" Margin="18,0">
-            <Button Classes="nav" Command="{Binding LogoutCommand}" Margin="-18,0" Height="66">
+          <Grid Grid.Row="1" RowDefinitions="1,48">
+            <Border Grid.Row="0" Background="#E1E7EF" Margin="18,0" />
+            <Button x:Name="ExitButton" Grid.Row="1" Classes="nav" Click="OnExitClick" Height="48"
+                    Padding="18,0" Background="Transparent" AutomationProperties.Name="退出系统">
               <Grid ColumnDefinitions="38,*" ColumnSpacing="8">
-                <TextBlock Text="⇥" FontSize="25" Foreground="#0868F7" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                <TextBlock Grid.Column="1" Text="退出" FontSize="16" VerticalAlignment="Center" />
+                <icons:AppIcon Kind="Logout" Width="22" Height="22" Stroke="#0868F7"
+                              HorizontalAlignment="Center" VerticalAlignment="Center" />
+                <TextBlock Grid.Column="1" Text="退出系统" FontSize="16" VerticalAlignment="Center" />
               </Grid>
             </Button>
-          </Border>
+          </Grid>
         </Grid>
       </Border>
 
@@ -151,7 +154,8 @@
                         HorizontalAlignment="Right" VerticalAlignment="Center">
                   <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Center" VerticalAlignment="Center">
                     <TextBlock Text="选择型号" Foreground="#0868F7" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center" />
-                    <TextBlock Text="›" Foreground="#0868F7" FontSize="26" VerticalAlignment="Center" />
+                    <icons:AppIcon Kind="ChevronRight" Width="14" Height="14" Stroke="#0868F7"
+                                  VerticalAlignment="Center" />
                   </StackPanel>
                 </Border>
               </Grid>
@@ -180,19 +184,21 @@
           <ContentControl Content="{Binding CurrentPage}" />
         </Border>
 
-        <Border x:Name="BottomControlBar" Grid.Row="2" IsVisible="{Binding IsOverviewPage}" MinHeight="120" Background="White" BorderBrush="#D6DEEA" BorderThickness="1,1,0,0" Padding="14,12">
+        <Border x:Name="BottomControlBar" Grid.Row="2" IsVisible="{Binding IsOverviewPage}" MinHeight="76" Background="White" BorderBrush="#D6DEEA" BorderThickness="1,1,0,0" Padding="14,4">
           <Grid ColumnDefinitions="1.35*,1.45*,1.25*,0.8*,0.8*">
             <Grid Grid.Column="0" ColumnDefinitions="Auto,*,*" VerticalAlignment="Center">
               <TextBlock Text="控制模式：" FontSize="13" FontWeight="SemiBold" VerticalAlignment="Center" Margin="4,0,4,0" />
               <Button Grid.Column="1" Classes="mode-choice" Margin="0,0,4,0" Padding="6,0" FontSize="13">
                 <StackPanel Orientation="Horizontal" Spacing="4" HorizontalAlignment="Center" VerticalAlignment="Center">
-                  <TextBlock Text="♧" FontSize="15" VerticalAlignment="Center" />
+                  <icons:AppIcon Kind="Manual" Width="16" Height="16"
+                                Stroke="{Binding $parent[Button].Foreground}" VerticalAlignment="Center" />
                   <TextBlock Text="手动控制" VerticalAlignment="Center" />
                 </StackPanel>
               </Button>
               <Button Grid.Column="2" Classes="mode-choice active" Padding="6,0" FontSize="13">
                 <StackPanel Orientation="Horizontal" Spacing="4" HorizontalAlignment="Center" VerticalAlignment="Center">
-                  <TextBlock Text="◉" FontSize="15" VerticalAlignment="Center" />
+                  <icons:AppIcon Kind="Automatic" Width="16" Height="16"
+                                Stroke="{Binding $parent[Button].Foreground}" VerticalAlignment="Center" />
                   <TextBlock Text="自动控制" VerticalAlignment="Center" />
                 </StackPanel>
               </Button>
@@ -217,32 +223,39 @@
             <Border Grid.Column="3" BorderBrush="#D7DFEA" BorderThickness="1,0,0,0">
               <Button Classes="test-action" Background="#C9D0DB" Foreground="White" BorderThickness="0"
                       IsHitTestVisible="False" Focusable="False">
-                <StackPanel Orientation="Horizontal" Spacing="10"><TextBlock Text="▶" /><TextBlock Text="开始试验" /></StackPanel>
+                <StackPanel Orientation="Horizontal" Spacing="10">
+                  <icons:AppIcon Kind="Play" Width="16" Height="16" Stroke="{Binding $parent[Button].Foreground}" />
+                  <TextBlock Text="开始试验" />
+                </StackPanel>
               </Button>
             </Border>
             <Button Grid.Column="4" Classes="test-action" Background="#F5222D" Foreground="White" BorderThickness="0"
                     Tag="试验执行" Click="OnNavigateToTitleClick">
-              <StackPanel Orientation="Horizontal" Spacing="12"><TextBlock Text="■" /><TextBlock Text="结束试验" /></StackPanel>
+              <StackPanel Orientation="Horizontal" Spacing="12">
+                <icons:AppIcon Kind="Stop" Width="16" Height="16" Stroke="{Binding $parent[Button].Foreground}" />
+                <TextBlock Text="结束试验" />
+              </StackPanel>
             </Button>
           </Grid>
         </Border>
 
-        <Border x:Name="StatusBar" Grid.Row="3" MinHeight="64" Background="White"
+        <Border x:Name="StatusBar" Grid.Row="3" MinHeight="48" Background="White"
                 BorderBrush="#D6DEEA" BorderThickness="0,1,0,0"
                 AutomationProperties.Name="设备与安全状态">
           <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" Spacing="56" Margin="0,0,34,0">
             <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
-              <TextBlock Text="↗" Foreground="#18A654" FontSize="25" FontWeight="Bold" />
+              <icons:AppIcon Kind="Connection" Width="20" Height="20" Stroke="#18A654" />
               <TextBlock Text="{Binding ConnectionDisplayText}" FontSize="16" VerticalAlignment="Center" />
             </StackPanel>
             <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
               <Border Width="22" Height="22" Background="#20A65A" CornerRadius="5">
-                <TextBlock Text="✓" Foreground="White" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                <icons:AppIcon Kind="Check" Width="12" Height="12" Stroke="White"
+                              HorizontalAlignment="Center" VerticalAlignment="Center" />
               </Border>
               <TextBlock Text="急停回路正常" FontSize="16" VerticalAlignment="Center" />
             </StackPanel>
             <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
-              <TextBlock Text="▣" Foreground="#0868F7" FontSize="23" />
+              <icons:AppIcon Kind="DeviceMode" Width="20" Height="20" Stroke="#0868F7" />
               <TextBlock x:Name="ModeTextBlock" Text="{Binding DeviceModeDisplayText}" Foreground="#0868F7"
                          FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center" />
             </StackPanel>
@@ -250,8 +263,6 @@
         </Border>
       </Grid>
     </Grid>
-
-    <views:LoginView Grid.RowSpan="2" IsVisible="{Binding !IsAuthenticated}" />
 
     <!-- 弹窗遮罩：弹窗打开期间压暗主界面，突出当前弹窗并阻断底层点击 -->
     <Border x:Name="DialogOverlay" Grid.RowSpan="2" Background="#66000000"

@@ -1,0 +1,44 @@
+{
+  "schemaVersion": 2,
+  "deviceMode": "Simulation",
+  "pollIntervalMs": 500,
+  "timeoutMs": 1000,
+  "channels": [
+    {
+      "id": "10000000-0000-5000-8000-000000000001",
+      "code": "SIM_SHARED",
+      "name": "共享仿真通道",
+      "transportKind": "Simulation",
+      "enabled": true,
+      "timeoutMs": 1000,
+      "retryCount": 0,
+      "simulation": { "instanceKey": "multi-device-demo" }
+    }
+  ],
+  "devices": [
+    {
+      "id": "20000000-0000-5000-8000-000000000001",
+      "code": "PLC1",
+      "name": "仿真 PLC 1",
+      "channelId": "10000000-0000-5000-8000-000000000001",
+      "driverKey": "simulation",
+      "manufacturer": "示例",
+      "model": "Simulation",
+      "pollIntervalMs": 500,
+      "staleAfterMs": 2000,
+      "enabled": true
+    },
+    {
+      "id": "20000000-0000-5000-8000-000000000002",
+      "code": "PLC2",
+      "name": "仿真 PLC 2",
+      "channelId": "10000000-0000-5000-8000-000000000001",
+      "driverKey": "simulation",
+      "manufacturer": "示例",
+      "model": "Simulation",
+      "pollIntervalMs": 500,
+      "staleAfterMs": 2000,
+      "enabled": true
+    }
+  ]
+}

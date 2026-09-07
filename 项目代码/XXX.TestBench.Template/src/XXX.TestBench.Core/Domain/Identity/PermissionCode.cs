@@ -57,5 +57,9 @@ public enum PermissionCode
     /// <summary>
     /// 查看日志。
     /// </summary>
-    ViewLogs = 13
+    ViewLogs = 13,
+    /// <summary>
+    /// 配置角色与权限。
+    /// </summary>
+    ManageRoles = 14
 }

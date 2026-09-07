@@ -32,8 +32,7 @@ public class PageViewModelTests
     private static async Task SeedParametersAsync(AppTestHarness harness, UserContext actor, int typeId, int modelId)
     {
         await harness.Services.Parameters.SaveProjectAsync(actor, 60);
-        await harness.Services.Parameters.SaveTypeAsync(actor, typeId, 5000);
-        await harness.Services.Parameters.SaveModelAsync(actor, modelId, 100);
+        await harness.Services.Parameters.SaveProductAsync(actor, typeId, modelId, 5000, 100);
     }
 
     [Fact]
@@ -104,7 +103,7 @@ public class PageViewModelTests
     }
 
     [Fact]
-    public async Task ParameterManagement_CreatesTypeAndSavesFixedParameters()
+    public async Task ParameterManagement_CreatesTypeAndSavesProjectAndProductParameters()
     {
         var (harness, actor) = await AdminAsync();
         var vm = new ParameterManagementViewModel(harness.Services, actor);
@@ -123,15 +122,15 @@ public class PageViewModelTests
         Assert.Equal("60", (await harness.Services.TestParameterRepository.GetProjectAsync())!.TestTimeSeconds.ToString());
 
         vm.SelectedParamType = type;
-        vm.TestVoltageInput = "5000";
-        await vm.SaveTypeParameterCommand.ExecuteAsync(null);
-        Assert.Equal(5000.0, (await harness.Services.TestParameterRepository.GetTypeAsync(type.Id))!.TestVoltageV);
-
         await vm.LoadParamModelOptionsAsync();
         vm.SelectedParamModel = model;
+        vm.TestVoltageInput = "5000";
         vm.ProtectCurrentInput = "100";
-        await vm.SaveModelParameterCommand.ExecuteAsync(null);
-        Assert.Equal(100.0, (await harness.Services.TestParameterRepository.GetModelAsync(model.Id))!.ProtectCurrentMa);
+        await vm.SaveProductParameterCommand.ExecuteAsync(null);
+        var productParameter = await harness.Services.TestParameterRepository.GetProductAsync(type.Id, model.Id);
+        Assert.NotNull(productParameter);
+        Assert.Equal(5000.0, productParameter!.TestVoltageV);
+        Assert.Equal(100.0, productParameter.ProtectCurrentMa);
     }
 
     [Fact]
@@ -139,8 +138,7 @@ public class PageViewModelTests
     {
         var (harness, actor) = await AdminAsync();
         var (typeId, modelId) = await SeedProductAsync(harness, actor);
-        await harness.Services.Parameters.SaveTypeAsync(actor, typeId, 5000);
-        await harness.Services.Parameters.SaveModelAsync(actor, modelId, 100);
+        await harness.Services.Parameters.SaveProductAsync(actor, typeId, modelId, 5000, 100);
         var pointId = await SeedPointAndConfigAsync(harness, actor, typeId, modelId);
 
         var vm = new ParameterManagementViewModel(harness.Services, actor);
@@ -149,7 +147,7 @@ public class PageViewModelTests
         await vm.DeleteSelectedModelCommand.ExecuteAsync(null);
 
         Assert.Null(await harness.Services.ProductRepository.GetModelAsync(modelId));
-        Assert.Null(await harness.Services.TestParameterRepository.GetModelAsync(modelId));
+        Assert.Null(await harness.Services.TestParameterRepository.GetProductAsync(typeId, modelId));
         Assert.Empty(await harness.Services.ModelPointConfigRepository.ListByModelAsync(modelId));
 
         await harness.Services.TestPoints.DeletePointAsync(actor, pointId);
@@ -157,7 +155,7 @@ public class PageViewModelTests
         await vm.DeleteSelectedTypeCommand.ExecuteAsync(null);
 
         Assert.Null(await harness.Services.ProductRepository.GetTypeAsync(typeId));
-        Assert.Null(await harness.Services.TestParameterRepository.GetTypeAsync(typeId));
+        Assert.Null(await harness.Services.TestParameterRepository.GetProductAsync(typeId, modelId));
     }
 
     [Fact]

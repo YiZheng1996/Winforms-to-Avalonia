@@ -15,6 +15,8 @@ public sealed partial class PointRow : ObservableObject
 {
     public required string Code { get; init; }
     public required string Address { get; init; }
+    public string PointId { get; init; } = string.Empty;
+    public string DeviceId { get; init; } = string.Empty;
     public required bool IsWritable { get; init; }
     public required WriteRiskLevel RiskLevel { get; init; }
 
@@ -58,6 +60,20 @@ public sealed partial class ProcessMonitorViewModel : PageViewModel
     [ObservableProperty]
     private PointRow? _selectedPoint;
 
+    partial void OnSelectedPointChanged(PointRow? value)
+    {
+        OnPropertyChanged(nameof(CanWriteSelectedPoint));
+        WriteCommand.NotifyCanExecuteChanged();
+    }
+
+    /// <summary>
+    /// 当前选中点位是否允许执行写入；高风险点位需要校准权限，普通点位需要手动控制权限。
+    /// </summary>
+    public bool CanWriteSelectedPoint => SelectedPoint is { IsWritable: true } point
+        && _actor.HasPermission(point.RiskLevel == WriteRiskLevel.HighRisk
+            ? PermissionCode.CalibrateDevices
+            : PermissionCode.ManualControl);
+
     /// <summary>
     /// 操作员输入的要写入点位的值。
     /// </summary>
@@ -84,7 +100,15 @@ public sealed partial class ProcessMonitorViewModel : PageViewModel
             if (runtime is null) { StatusMessage = "设备运行时未初始化"; return; }
             var points = await runtime.ListPointsAsync(ct);
             foreach (var p in points)
-                Points.Add(new PointRow { Code = p.Code, Address = p.Address, IsWritable = p.IsWritable, RiskLevel = p.RiskLevel });
+                Points.Add(new PointRow
+                {
+                    Code = p.Code,
+                    Address = p.Address,
+                    PointId = p.PointId,
+                    DeviceId = p.DeviceId,
+                    IsWritable = p.IsWritable,
+                    RiskLevel = p.RiskLevel
+                });
             await RefreshAsync();
         }
         finally { IsBusy = false; }
@@ -101,7 +125,9 @@ public sealed partial class ProcessMonitorViewModel : PageViewModel
         var points = await runtime.ListPointsAsync();
         foreach (var row in Points)
         {
-            var point = points.FirstOrDefault(p => p.Code == row.Code);
+            var point = !string.IsNullOrWhiteSpace(row.PointId)
+                ? points.FirstOrDefault(p => string.Equals(p.PointId, row.PointId, StringComparison.OrdinalIgnoreCase))
+                : points.FirstOrDefault(p => p.Code == row.Code);
             if (point is null) continue;
             var value = await runtime.ReadAsync(point);
             row.Value = value.Value?.ToString() ?? string.Empty;
@@ -112,8 +138,10 @@ public sealed partial class ProcessMonitorViewModel : PageViewModel
     /// <summary>
     /// 写入命令：把输入值写入当前选中的点位。
     /// </summary>
-    [RelayCommand]
+    [RelayCommand(CanExecute = nameof(CanWrite))]
     public async Task WriteAsync() => await WriteSelectedPointAsync(SelectedPoint);
+
+    private bool CanWrite() => CanWriteSelectedPoint;
 
     private async Task WriteSelectedPointAsync(PointRow? row)
     {
@@ -122,10 +150,14 @@ public sealed partial class ProcessMonitorViewModel : PageViewModel
         {
             if (row is null || !row.IsWritable) throw new Core.Common.DomainException("请选择可写点位");
             var runtime = _services.DeviceModes.Runtime ?? throw new Core.Common.DomainException("设备运行时未初始化");
-            var point = (await runtime.ListPointsAsync()).FirstOrDefault(p => p.Code == row.Code) ?? throw new Core.Common.DomainException("点位不存在");
+            var point = (await runtime.ListPointsAsync()).FirstOrDefault(p =>
+                !string.IsNullOrWhiteSpace(row.PointId)
+                    ? string.Equals(p.PointId, row.PointId, StringComparison.OrdinalIgnoreCase)
+                    : p.Code == row.Code) ?? throw new Core.Common.DomainException("点位不存在");
             object? value = bool.TryParse(WriteValue, out var b) ? b : (decimal.TryParse(WriteValue, out var d) ? d : WriteValue);
             var activeRun = await _services.RecordRepository.GetActiveRunningRecordAsync() is not null;
-            await _services.WritePipeline.ExecuteAsync(new WriteCommand(_actor, point, value, _services.DeviceConfig.DeviceMode, runtime, activeRun, RiskConfirmed));
+            await _services.WritePipeline.ExecuteAsync(new WriteCommand(_actor, point, value, _services.DeviceConfig.DeviceMode, runtime, activeRun, RiskConfirmed,
+                ExpectedRevision: runtime.ActiveRevision));
             StatusMessage = $"已写入 {row.Code}={value}";
             await RefreshAsync();
         }

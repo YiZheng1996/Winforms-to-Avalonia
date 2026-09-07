@@ -114,7 +114,7 @@ public sealed class ProductService
     }
 
     /// <summary>
-    /// 删除没有下属型号和试验项点的产品类型；类型级试验参数随类型一并清理。
+    /// 删除没有下属型号和试验项点的产品类型。
     /// </summary>
     public async Task DeleteTypeAsync(UserContext actor, int typeId, CancellationToken ct = default)
     {

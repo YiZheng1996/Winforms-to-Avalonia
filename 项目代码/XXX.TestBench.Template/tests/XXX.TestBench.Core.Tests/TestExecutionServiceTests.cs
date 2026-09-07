@@ -80,8 +80,15 @@ public class TestExecutionServiceTests
         if (withParameters)
         {
             parameters.Project = new ProjectTestParameter { TestTimeSeconds = 60, UpdatedBy = "tester", UpdatedAtUtc = clock.UtcNow };
-            parameters.TypeParameters.Add(new ProductTypeTestParameter { ProductTypeId = type.Id, TestVoltageV = 5000, UpdatedBy = "tester", UpdatedAtUtc = clock.UtcNow });
-            parameters.ModelParameters.Add(new ProductModelTestParameter { ProductModelId = model.Id, ProtectCurrentMa = 100, UpdatedBy = "tester", UpdatedAtUtc = clock.UtcNow });
+        parameters.ProductParameters.Add(new ProductTestParameter
+        {
+            ProductTypeId = type.Id,
+            ProductModelId = model.Id,
+            TestVoltageV = 5000,
+            ProtectCurrentMa = 100,
+            UpdatedBy = "tester",
+            UpdatedAtUtc = clock.UtcNow
+        });
         }
 
         var testParameters = new TestParameterService(parameters, products, clock, audit);

@@ -17,7 +17,9 @@ public sealed record ItemExecutionContext(
     IReadOnlyDictionary<string, string> ParameterValues,
     DeviceMode Mode,
     Ports.IDeviceRuntime Runtime,
-    EffectiveTestParameters? EffectiveParameters = null);
+    EffectiveTestParameters? EffectiveParameters = null,
+    Application.SignalResolver? SignalResolver = null,
+    IReadOnlyDictionary<string, ResolvedSignal>? ResolvedSignals = null);
 
 /// <summary>
 /// 执行项定位信息：Id 表示记录固化序列中的试验项点 ID。
@@ -38,6 +40,16 @@ public interface ITestItemExecutor
     /// 执行器代码。
     /// </summary>
     string ExecutorCode { get; }
+
+    /// <summary>
+    /// 执行器声明的必需业务信号。空集合表示该执行器不依赖设备点位。
+    /// </summary>
+    IReadOnlyList<RequiredSignal> RequiredSignals => Array.Empty<RequiredSignal>();
+
+    /// <summary>
+    /// 仅用于显示的可选信号，不参与合格判定。
+    /// </summary>
+    IReadOnlyList<RequiredSignal> OptionalSignals => Array.Empty<RequiredSignal>();
     /// <summary>
     /// 执行指定项点并返回结果。
     /// </summary>

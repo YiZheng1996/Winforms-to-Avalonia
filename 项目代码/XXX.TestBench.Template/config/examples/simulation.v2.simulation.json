@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 2,
+  "initialValues": {},
+  "initialValuesByPointId": {
+    "30000000-0000-5000-8000-000000000001": 1.0,
+    "30000000-0000-5000-8000-000000000002": 2.0,
+    "30000000-0000-5000-8000-000000000003": false
+  },
+  "changeRules": [
+    {
+      "pointId": "30000000-0000-5000-8000-000000000001",
+      "address": "sim.pressure",
+      "pattern": "ramp",
+      "ratePerSecond": 0.1,
+      "min": 0.0,
+      "max": 10.0
+    }
+  ],
+  "faultInjectionScenarios": []
+}

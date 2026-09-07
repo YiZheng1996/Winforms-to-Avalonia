@@ -105,7 +105,16 @@ public sealed partial class DataReportsViewModel : PageViewModel
     [ObservableProperty]
     private RecordRow? _selectedRecord;
 
-    partial void OnSelectedRecordChanged(RecordRow? value) => _ = LoadReportsAsync();
+    partial void OnSelectedRecordChanged(RecordRow? value)
+    {
+        GenerateReportCommand.NotifyCanExecuteChanged();
+        _ = LoadReportsAsync();
+    }
+
+    /// <summary>
+    /// 当前用户是否拥有生成报表权限。
+    /// </summary>
+    public bool CanGenerateReports => _actor.HasPermission(PermissionCode.GenerateReports);
 
     /// <summary>
     /// 页面加载命令：读取试验记录并刷新记录列表。
@@ -143,8 +152,10 @@ public sealed partial class DataReportsViewModel : PageViewModel
     /// <summary>
     /// 生成报表命令：为当前选中的记录生成报表文件。
     /// </summary>
-    [RelayCommand]
+    [RelayCommand(CanExecute = nameof(CanGenerateReport))]
     public async Task GenerateReportAsync() => await GenerateReportForSelectedRowAsync(SelectedRecord);
+
+    private bool CanGenerateReport() => CanGenerateReports && SelectedRecord is not null;
 
     /// <summary>
     /// 加载当前记录对应的报表列表。
@@ -167,7 +178,7 @@ public sealed partial class DataReportsViewModel : PageViewModel
         try
         {
             if (row is null) return;
-            var record = await _services.RecordRepository.GetRecordAsync(row.Id) ?? throw new Core.Common.DomainException("记录不存在");
+            _ = await _services.RecordRepository.GetRecordAsync(row.Id) ?? throw new Core.Common.DomainException("记录不存在");
             var outputDir = Path.Combine(_services.DatabasePath is { Length: > 0 } db ? Path.GetDirectoryName(db) ?? "." : ".", "reports");
             var report = await _services.Reports.GenerateAsync(_actor, row.Id, "assets/report-templates/标准报表.xlsx", outputDir);
             StatusMessage = $"报表已生成：{report.OutputPath}";

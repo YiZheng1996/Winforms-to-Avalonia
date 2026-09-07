@@ -53,8 +53,7 @@ public class Phase4ClosedLoopTests
 
         var parameters = new TestParameterService(paramRepo, productRepo, clock, audit);
         await parameters.SaveProjectAsync(actor, 60);
-        await parameters.SaveTypeAsync(actor, type.Id, 5000);
-        await parameters.SaveModelAsync(actor, model.Id, 100);
+        await parameters.SaveProductAsync(actor, type.Id, model.Id, 5000, 100);
 
         // 仿真运行时 + 预检启动
         var store = new JsonConfigStore(env.ConfigRoot);

@@ -34,6 +34,8 @@ public static class LogTextLocalizer
         ["TestPointDeleted"] = "删除试验项点",
         ["ModelPointConfigSaved"] = "保存型号试验项点配置",
         ["ProjectTestParameterSaved"] = "保存项目级试验参数",
+        ["ProductTestParameterSaved"] = "保存产品试验参数",
+        // 兼容升级前已经写入的历史动作码；当前页面不再产生这两类记录。
         ["TypeTestParameterSaved"] = "保存产品类型试验参数",
         ["ModelTestParameterSaved"] = "保存产品型号试验参数",
         ["TestStarted"] = "开始试验",
@@ -59,6 +61,12 @@ public static class LogTextLocalizer
         ["UserDisabled"] = "停用用户"
     };
 
+    /// <summary>
+    /// 已知动作码及其显示名称，供日志查询下拉框使用。
+    /// </summary>
+    public static IReadOnlyList<KeyValuePair<string, string>> KnownActions { get; } =
+        ActionNames.OrderBy(pair => pair.Value, StringComparer.CurrentCulture).ToArray();
+
     private static readonly IReadOnlyDictionary<string, string> PermissionNames = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
     {
         ["ViewOverview"] = "查看运行总览",
@@ -67,7 +75,7 @@ public static class LogTextLocalizer
         ["ExecuteTests"] = "执行试验",
         ["ManualControl"] = "手动控制",
         ["ManageProducts"] = "管理产品类型与型号",
-        ["ManageTestDefinitions"] = "管理试验定义",
+        ["ManageTestDefinitions"] = "管理试验参数",
         ["ManageRecipes"] = "管理配方",
         ["ViewRecords"] = "查看试验记录",
         ["GenerateReports"] = "生成报表",
@@ -113,6 +121,8 @@ public static class LogTextLocalizer
         var value = target?.Trim();
         if (string.IsNullOrWhiteSpace(value)) return "未指定";
 
+        if (TryReadProductTarget(value, out var productTypeId, out var productModelId))
+            return $"产品参数（类型编号：{productTypeId}；型号编号：{productModelId}）";
         if (TryReadPrefixedValue(value, "type:", out var typeId, out _))
             return $"产品类型（编号：{typeId}）";
         if (TryReadPrefixedValue(value, "model:", out var modelId, out _))
@@ -156,6 +166,9 @@ public static class LogTextLocalizer
 
         if (action?.Equals("ProjectTestParameterSaved", StringComparison.OrdinalIgnoreCase) == true)
             return $"试验时长：{FormatValue(value)} 秒";
+        if (action?.Equals("ProductTestParameterSaved", StringComparison.OrdinalIgnoreCase) == true
+            && TryReadProductParameterValues(value, out var voltage, out var current))
+            return $"试验电压：{FormatValue(voltage)} 伏；保护电流：{FormatValue(current)} 毫安";
         if (action?.Equals("TypeTestParameterSaved", StringComparison.OrdinalIgnoreCase) == true)
             return $"试验电压：{FormatValue(value)} 伏";
         if (action?.Equals("ModelTestParameterSaved", StringComparison.OrdinalIgnoreCase) == true)
@@ -273,6 +286,32 @@ public static class LogTextLocalizer
         identifier = payload[..separator].Trim();
         remainder = payload[(separator + 1)..].Trim();
         return identifier.Length > 0;
+    }
+
+    private static bool TryReadProductTarget(string value, out string typeId, out string modelId)
+    {
+        typeId = string.Empty;
+        modelId = string.Empty;
+        if (!value.StartsWith("type:", StringComparison.OrdinalIgnoreCase)) return false;
+
+        var separator = value.IndexOf("/model:", StringComparison.OrdinalIgnoreCase);
+        if (separator <= "type:".Length) return false;
+        typeId = value["type:".Length..separator].Trim();
+        modelId = value[(separator + "/model:".Length)..].Trim();
+        return typeId.Length > 0 && modelId.Length > 0;
+    }
+
+    private static bool TryReadProductParameterValues(string value, out string voltage, out string current)
+    {
+        voltage = string.Empty;
+        current = string.Empty;
+        if (!value.StartsWith("voltage:", StringComparison.OrdinalIgnoreCase)) return false;
+
+        var separator = value.IndexOf(";current:", StringComparison.OrdinalIgnoreCase);
+        if (separator <= "voltage:".Length) return false;
+        voltage = value["voltage:".Length..separator].Trim();
+        current = value[(separator + ";current:".Length)..].Trim();
+        return voltage.Length > 0 && current.Length > 0;
     }
 
     private static bool ContainsChinese(string value)

@@ -14,7 +14,7 @@ public sealed class SqliteDatabase
     /// <summary>
     /// 当前数据库结构版本号。
     /// </summary>
-    public const int CurrentSchemaVersion = 5;
+    public const int CurrentSchemaVersion = 7;
 
     /// <summary>
     /// 数据库连接工厂。
@@ -161,7 +161,7 @@ public sealed class SqliteDatabase
         }
     }
 
-    private static (int Version, string[] Statements)[] Migrations => new[] { (1, SchemaStatements), (2, Version2Statements), (3, Version3Statements), (4, Version4Statements), (5, Version5Statements) };
+    private static (int Version, string[] Statements)[] Migrations => new[] { (1, SchemaStatements), (2, Version2Statements), (3, Version3Statements), (4, Version4Statements), (5, Version5Statements), (6, Version6Statements), (7, Version7Statements) };
 
     private static readonly string[] SchemaStatements =
     {
@@ -501,6 +501,61 @@ public sealed class SqliteDatabase
         "UPDATE roles SET system_key='Maintenance' WHERE name='Maintenance' AND system_key IS NULL",
         "CREATE UNIQUE INDEX IF NOT EXISTS ux_roles_system_key ON roles(system_key) WHERE system_key IS NOT NULL",
         "INSERT OR IGNORE INTO role_permissions (role_id, permission_code) SELECT id, 14 FROM roles WHERE system_key='Administrator'"
+    };
+
+    private static readonly string[] Version6Statements =
+    {
+        // 旧版参数表在真实 v5 数据库中存在；IF NOT EXISTS 兼容精简测试库或中途创建的数据库。
+        """
+        CREATE TABLE IF NOT EXISTS product_type_test_parameters (
+            product_type_id INTEGER PRIMARY KEY,
+            test_voltage_v REAL NOT NULL,
+            updated_by TEXT NOT NULL,
+            updated_at_utc TEXT NOT NULL
+        )
+        """,
+        """
+        CREATE TABLE IF NOT EXISTS product_model_test_parameters (
+            product_model_id INTEGER PRIMARY KEY,
+            protect_current_ma REAL NOT NULL,
+            updated_by TEXT NOT NULL,
+            updated_at_utc TEXT NOT NULL
+        )
+        """,
+        """
+        CREATE TABLE IF NOT EXISTS product_test_parameters (
+            product_model_id INTEGER PRIMARY KEY,
+            product_type_id INTEGER NOT NULL,
+            test_voltage_v REAL NOT NULL,
+            protect_current_ma REAL NOT NULL,
+            updated_by TEXT NOT NULL,
+            updated_at_utc TEXT NOT NULL,
+            FOREIGN KEY (product_type_id) REFERENCES product_types(id),
+            FOREIGN KEY (product_model_id) REFERENCES product_models(id)
+        )
+        """,
+        """
+        INSERT OR IGNORE INTO product_test_parameters
+            (product_model_id, product_type_id, test_voltage_v, protect_current_ma, updated_by, updated_at_utc)
+        SELECT
+            m.id,
+            m.product_type_id,
+            COALESCE(tp.test_voltage_v, 0),
+            COALESCE(mp.protect_current_ma, 0),
+            COALESCE(NULLIF(mp.updated_by, ''), NULLIF(tp.updated_by, ''), 'migration'),
+            COALESCE(NULLIF(mp.updated_at_utc, ''), NULLIF(tp.updated_at_utc, ''), '1970-01-01T00:00:00.0000000Z')
+        FROM product_models m
+        LEFT JOIN product_type_test_parameters tp ON tp.product_type_id = m.product_type_id
+        LEFT JOIN product_model_test_parameters mp ON mp.product_model_id = m.id
+        """,
+        "DROP TABLE IF EXISTS product_type_test_parameters",
+        "DROP TABLE IF EXISTS product_model_test_parameters"
+    };
+
+    private static readonly string[] Version7Statements =
+    {
+        "ALTER TABLE test_records ADD COLUMN device_configuration_revision TEXT NULL",
+        "ALTER TABLE test_records ADD COLUMN signal_bindings_snapshot TEXT NULL"
     };
 
 }

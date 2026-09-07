@@ -1,33 +1,226 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:XXX.TestBench.App.ViewModels"
+             xmlns:icons="using:XXX.TestBench.App.Icons"
              x:Class="XXX.TestBench.App.Views.SystemManagementView"
-             x:DataType="vm:SystemManagementViewModel">
-  <DockPanel Margin="16">
-    <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Spacing="8" Margin="0,0,0,8">
-      <Button Content="刷新" Command="{Binding LoadCommand}" />
-    </StackPanel>
-    <Grid ColumnDefinitions="*,*" ColumnSpacing="12">
-      <DockPanel Grid.Column="0">
-        <TextBlock DockPanel.Dock="Top" Text="用户" FontWeight="Bold" />
-        <DataGrid ItemsSource="{Binding Users}" AutoGenerateColumns="False" IsReadOnly="True" RowHeight="42" HeadersVisibility="Column">
-          <DataGrid.Columns>
-            <DataGridTextColumn Header="登录账号" Binding="{Binding LoginName}" Width="1.2*" />
-            <DataGridTextColumn Header="显示名称" Binding="{Binding DisplayName}" Width="1.2*" />
-            <DataGridTextColumn Header="角色" Binding="{Binding RoleName}" Width="1.1*" />
-            <DataGridTextColumn Header="状态" Binding="{Binding StatusText}" Width="100" />
-          </DataGrid.Columns>
-        </DataGrid>
-      </DockPanel>
-      <DockPanel Grid.Column="1">
-        <TextBlock DockPanel.Dock="Top" Text="角色与权限" FontWeight="Bold" />
-        <DataGrid ItemsSource="{Binding Roles}" AutoGenerateColumns="False" IsReadOnly="True" RowHeight="42" HeadersVisibility="Column">
-          <DataGrid.Columns>
-            <DataGridTextColumn Header="角色名称" Binding="{Binding Name}" Width="1.2*" />
-            <DataGridTextColumn Header="权限" Binding="{Binding Permissions}" Width="2.2*" />
-          </DataGrid.Columns>
-        </DataGrid>
-      </DockPanel>
-    </Grid>
-  </DockPanel>
+             x:DataType="vm:SystemManagementViewModel"
+             UseLayoutRounding="True">
+  <UserControl.Styles>
+    <Style Selector="Border.identity-surface">
+      <Setter Property="Background" Value="White" />
+      <Setter Property="BorderBrush" Value="#D6DEEA" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="8" />
+    </Style>
+    <Style Selector="Button.identity-primary">
+      <Setter Property="MinHeight" Value="38" />
+      <Setter Property="Padding" Value="14,0" />
+      <Setter Property="Background" Value="#0868F7" />
+      <Setter Property="Foreground" Value="White" />
+      <Setter Property="BorderBrush" Value="#0868F7" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="6" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+    <Style Selector="Button.identity-secondary">
+      <Setter Property="MinHeight" Value="38" />
+      <Setter Property="Padding" Value="12,0" />
+      <Setter Property="Background" Value="White" />
+      <Setter Property="Foreground" Value="#344054" />
+      <Setter Property="BorderBrush" Value="#C9D3E0" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="6" />
+    </Style>
+    <Style Selector="Button.identity-danger">
+      <Setter Property="MinHeight" Value="38" />
+      <Setter Property="Padding" Value="12,0" />
+      <Setter Property="Background" Value="#FFF4F2" />
+      <Setter Property="Foreground" Value="#C9362B" />
+      <Setter Property="BorderBrush" Value="#F2C5BF" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="6" />
+    </Style>
+    <Style Selector="TextBlock.identity-label">
+      <Setter Property="FontSize" Value="13" />
+      <Setter Property="Foreground" Value="#667085" />
+    </Style>
+    <Style Selector="TextBlock.identity-section-title">
+      <Setter Property="FontSize" Value="18" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="Foreground" Value="#151A24" />
+    </Style>
+    <Style Selector="ListBox.identity-list">
+      <Setter Property="Background" Value="White" />
+      <Setter Property="BorderBrush" Value="#DCE5F0" />
+      <Setter Property="BorderThickness" Value="1" />
+    </Style>
+    <Style Selector="ListBox.identity-list ListBoxItem">
+      <Setter Property="Padding" Value="14,12" />
+      <Setter Property="MinHeight" Value="66" />
+      <Setter Property="BorderBrush" Value="#EDF1F7" />
+      <Setter Property="BorderThickness" Value="0,0,0,1" />
+    </Style>
+    <Style Selector="ListBox.identity-list ListBoxItem:selected">
+      <Setter Property="Background" Value="#EAF2FF" />
+      <Setter Property="Foreground" Value="#0758D7" />
+      <Setter Property="BorderBrush" Value="#CFE0FF" />
+    </Style>
+  </UserControl.Styles>
+
+  <Grid Background="{DynamicResource WorkspaceBrush}" RowDefinitions="Auto,*" RowSpacing="12" Margin="16,14,16,8">
+    <Border Grid.Row="0" Classes="identity-surface" Padding="18,14">
+      <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="14">
+        <Border Width="4" Height="48" Background="{DynamicResource BrandBlueBrush}" CornerRadius="2" VerticalAlignment="Center" />
+        <StackPanel Grid.Column="1" Spacing="3" VerticalAlignment="Center">
+          <TextBlock Text="系统管理" FontSize="24" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" />
+          <TextBlock Text="维护用户账号、角色归属与角色权限" Classes="identity-label" />
+        </StackPanel>
+        <Button Grid.Column="2" Classes="identity-secondary" Command="{Binding LoadCommand}">
+          <StackPanel Orientation="Horizontal" Spacing="7">
+            <icons:AppIcon Kind="Refresh" Width="15" Height="15" Stroke="{Binding $parent[Button].Foreground}" />
+            <TextBlock Text="刷新数据" />
+          </StackPanel>
+        </Button>
+      </Grid>
+    </Border>
+
+    <TabControl Grid.Row="1" SelectedIndex="{Binding SelectedTabIndex, Mode=TwoWay}" TabStripPlacement="Top">
+      <TabItem IsVisible="{Binding CanManageUsers}">
+        <TabItem.Header>
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <icons:AppIcon Kind="User" Width="17" Height="17" Stroke="{DynamicResource BrandBlueBrush}" />
+            <TextBlock Text="用户管理" />
+          </StackPanel>
+        </TabItem.Header>
+        <Grid RowDefinitions="Auto,* ,Auto" RowSpacing="12" Margin="0,12,0,0">
+          <Border Classes="identity-surface" Padding="14">
+            <WrapPanel Orientation="Horizontal" HorizontalAlignment="Stretch">
+              <TextBox Width="220" Margin="0,0,10,6" Text="{Binding Keyword, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Watermark="搜索账号或显示名称" />
+              <ComboBox Width="150" Margin="0,0,10,6" ItemsSource="{Binding RoleFilterOptions}" SelectedItem="{Binding SelectedRoleFilter, Mode=TwoWay}" />
+              <ComboBox Width="120" Margin="0,0,18,6" ItemsSource="{Binding StatusFilterOptions}" SelectedItem="{Binding SelectedStatusFilter, Mode=TwoWay}" />
+              <Button Classes="identity-primary" IsEnabled="{Binding CanManageUsers}" Click="OnAddUserClick">
+                <StackPanel Orientation="Horizontal" Spacing="7">
+                  <icons:AppIcon Kind="Add" Width="15" Height="15" Stroke="{Binding $parent[Button].Foreground}" />
+                  <TextBlock Text="新增用户" />
+                </StackPanel>
+              </Button>
+              <Button Classes="identity-secondary" Content="编辑" IsEnabled="{Binding HasSelectedUser}" Click="OnEditUserClick" />
+              <Button Classes="identity-secondary" Content="启用 / 停用" IsEnabled="{Binding CanToggleSelectedUser}" Click="OnToggleUserClick" />
+              <Button Classes="identity-secondary" Content="解锁" IsEnabled="{Binding IsSelectedUserLocked}" Click="OnUnlockUserClick" />
+              <Button Classes="identity-secondary" Content="重置密码" IsEnabled="{Binding CanResetSelectedUser}" Click="OnResetPasswordClick" />
+            </WrapPanel>
+          </Border>
+
+          <Border Grid.Row="1" Classes="identity-surface">
+            <Grid>
+              <DataGrid ItemsSource="{Binding VisibleUsers}" SelectedItem="{Binding SelectedUser, Mode=TwoWay}"
+                        AutoGenerateColumns="False" IsReadOnly="True" RowHeight="48" HeadersVisibility="Column">
+                <DataGrid.Columns>
+                  <DataGridTextColumn Header="登录账号" Binding="{Binding LoginName}" Width="1.2*" />
+                  <DataGridTextColumn Header="显示名称" Binding="{Binding DisplayName}" Width="1.2*" />
+                  <DataGridTextColumn Header="角色" Binding="{Binding RoleName}" Width="1.1*" />
+                  <DataGridTextColumn Header="状态" Binding="{Binding StatusText}" Width="100" />
+                  <DataGridTextColumn Header="密码状态" Binding="{Binding PasswordStatusText}" Width="100" />
+                </DataGrid.Columns>
+              </DataGrid>
+              <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="5" IsVisible="{Binding !HasVisibleUsers}">
+                <TextBlock Text="暂无用户" FontSize="16" FontWeight="SemiBold" Foreground="#526071" HorizontalAlignment="Center" />
+                <TextBlock Text="调整筛选条件，或点击右上角“新增用户”" Classes="identity-label" />
+              </StackPanel>
+            </Grid>
+          </Border>
+          <Border Grid.Row="2" Background="#F0F7FF" BorderBrush="#CFE0FF" BorderThickness="1" CornerRadius="6" Padding="12,8">
+            <TextBlock Text="{Binding StatusMessage}" Foreground="#0758D7" TextWrapping="Wrap" />
+          </Border>
+        </Grid>
+      </TabItem>
+
+      <TabItem IsVisible="{Binding CanManageRoles}">
+        <TabItem.Header>
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <icons:AppIcon Kind="ShieldCheck" Width="17" Height="17" Stroke="{DynamicResource BrandBlueBrush}" />
+            <TextBlock Text="角色权限" />
+          </StackPanel>
+        </TabItem.Header>
+        <Grid ColumnDefinitions="300,*" ColumnSpacing="12" Margin="0,12,0,0">
+          <Border Classes="identity-surface" Padding="12">
+            <Grid RowDefinitions="Auto,*" RowSpacing="10">
+              <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                <TextBlock Text="角色列表" Classes="identity-section-title" VerticalAlignment="Center" />
+                <Button Grid.Column="1" Classes="identity-primary" Click="OnAddRoleClick">
+                  <StackPanel Orientation="Horizontal" Spacing="7">
+                    <icons:AppIcon Kind="Add" Width="15" Height="15" Stroke="{Binding $parent[Button].Foreground}" />
+                    <TextBlock Text="新增" />
+                  </StackPanel>
+                </Button>
+              </Grid>
+              <ListBox Grid.Row="1" Classes="identity-list" ItemsSource="{Binding Roles}" SelectedItem="{Binding SelectedRole, Mode=TwoWay}">
+                <ListBox.ItemTemplate>
+                  <DataTemplate x:DataType="vm:RoleRow">
+                    <Grid RowDefinitions="Auto,Auto" ColumnDefinitions="*,Auto" RowSpacing="4">
+                      <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" />
+                      <TextBlock Grid.Column="1" Text="{Binding UserCount, StringFormat={}{0} 人}" Classes="identity-label" />
+                      <TextBlock Grid.Row="1" Text="{Binding BuiltInText}" Classes="identity-label" />
+                    </Grid>
+                  </DataTemplate>
+                </ListBox.ItemTemplate>
+              </ListBox>
+            </Grid>
+          </Border>
+
+          <Border Grid.Column="1" Classes="identity-surface" Padding="16">
+            <Grid RowDefinitions="Auto,Auto,*,Auto" RowSpacing="12">
+              <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                <StackPanel Spacing="3">
+                  <TextBlock Text="{Binding SelectedRole.DisplayName}" Classes="identity-section-title" />
+                  <TextBlock Text="{Binding RoleEditorHint}" Classes="identity-label" TextWrapping="Wrap" />
+                </StackPanel>
+                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+                  <Button Classes="identity-secondary" Content="改名" IsEnabled="{Binding CanRenameSelectedRole}" Click="OnRenameRoleClick" />
+                  <Button Classes="identity-danger" Content="删除" IsEnabled="{Binding CanDeleteSelectedRole}" Click="OnDeleteRoleClick" />
+                </StackPanel>
+              </Grid>
+              <Border Grid.Row="1" Background="#F8FAFD" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="6" Padding="10">
+                <StackPanel Orientation="Horizontal" Spacing="14">
+                  <TextBlock Text="权限说明：勾选后保存，相关用户下次登录生效" Classes="identity-label" />
+                  <Button Content="全选有效权限" Classes="identity-secondary" IsEnabled="{Binding CanEditSelectedRole}" Command="{Binding SelectAllPermissionsCommand}" />
+                </StackPanel>
+              </Border>
+              <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto">
+                <ItemsControl ItemsSource="{Binding PermissionGroups}">
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="vm:PermissionGroupViewModel">
+                      <Border Background="#FBFCFE" BorderBrush="#E4EAF2" BorderThickness="1" CornerRadius="6" Padding="12" Margin="0,0,0,10">
+                        <StackPanel Spacing="8">
+                          <TextBlock Text="{Binding Name}" FontWeight="SemiBold" Foreground="#153B72" />
+                          <ItemsControl ItemsSource="{Binding Options}">
+                            <ItemsControl.ItemTemplate>
+                              <DataTemplate x:DataType="vm:PermissionOptionViewModel">
+                                <CheckBox IsChecked="{Binding IsChecked, Mode=TwoWay}" IsEnabled="{Binding !IsReadOnly}" Margin="0,2">
+                                  <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <TextBlock Text="{Binding Name}" FontWeight="SemiBold" />
+                                    <TextBlock Text="—" Foreground="#98A2B3" />
+                                    <TextBlock Text="{Binding Description}" Classes="identity-label" TextWrapping="Wrap" />
+                                  </StackPanel>
+                                </CheckBox>
+                              </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                          </ItemsControl>
+                        </StackPanel>
+                      </Border>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+              </ScrollViewer>
+              <Grid Grid.Row="3" ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
+                <TextBlock Text="{Binding StatusMessage}" Foreground="#0758D7" TextWrapping="Wrap" VerticalAlignment="Center" />
+                <Button Grid.Column="1" Classes="identity-secondary" Content="取消修改" IsEnabled="{Binding CanSaveRolePermissions}" Command="{Binding CancelRolePermissionsCommand}" />
+                <Button Grid.Column="2" Classes="identity-primary" Content="保存权限" IsEnabled="{Binding CanSaveRolePermissions}" Command="{Binding SaveRolePermissionsCommand}" />
+              </Grid>
+            </Grid>
+          </Border>
+        </Grid>
+      </TabItem>
+    </TabControl>
+  </Grid>
 </UserControl>

@@ -1,0 +1,61 @@
+{
+  "schemaVersion": 2,
+  "points": [
+    {
+      "id": "30000000-0000-5000-8000-000000000001",
+      "code": "AI_PRESSURE_PLC1",
+      "name": "PLC1 压力",
+      "deviceId": "20000000-0000-5000-8000-000000000001",
+      "address": "sim.pressure",
+      "dataType": "Decimal",
+      "rawDataType": "Decimal",
+      "addressDefinition": { "logicalAddress": "sim.pressure" },
+      "decodeOptions": { "byteOrder": "BigEndian", "wordOrder": "None" },
+      "unit": "MPa",
+      "isWritable": false,
+      "isEnabled": true,
+      "riskLevel": "Normal",
+      "rawMin": 0,
+      "rawMax": 10000,
+      "engMin": 0,
+      "engMax": 10,
+      "description": "PLC1 仿真压力"
+    },
+    {
+      "id": "30000000-0000-5000-8000-000000000002",
+      "code": "AI_PRESSURE_PLC2",
+      "name": "PLC2 压力",
+      "deviceId": "20000000-0000-5000-8000-000000000002",
+      "address": "sim.pressure",
+      "dataType": "Float32",
+      "rawDataType": "Float32",
+      "addressDefinition": { "logicalAddress": "sim.pressure" },
+      "decodeOptions": { "byteOrder": "BigEndian", "wordOrder": "None" },
+      "unit": "MPa",
+      "isWritable": false,
+      "isEnabled": true,
+      "riskLevel": "Normal",
+      "rawMin": 0,
+      "rawMax": 10000,
+      "engMin": 0,
+      "engMax": 10,
+      "description": "PLC2 仿真压力"
+    },
+    {
+      "id": "30000000-0000-5000-8000-000000000003",
+      "code": "DO_START_PLC1",
+      "name": "PLC1 启动",
+      "deviceId": "20000000-0000-5000-8000-000000000001",
+      "address": "sim.start",
+      "dataType": "Bool",
+      "rawDataType": "Bool",
+      "addressDefinition": { "logicalAddress": "sim.start" },
+      "decodeOptions": { "byteOrder": "BigEndian", "wordOrder": "None" },
+      "isWritable": true,
+      "isEnabled": true,
+      "riskLevel": "HighRisk",
+      "writePolicy": "ReadBackEqual",
+      "description": "PLC1 仿真启动命令"
+    }
+  ]
+}

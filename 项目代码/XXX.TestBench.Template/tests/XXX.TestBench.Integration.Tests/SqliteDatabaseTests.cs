@@ -21,6 +21,11 @@ public class SqliteDatabaseTests
             "SELECT COUNT(1) FROM users WHERE login_name='admin'", new { }, default)));
         Assert.Equal(3L, Convert.ToInt64(await factory.Db.Ado.ExecuteScalarAsync(
             "SELECT COUNT(1) FROM roles", new { }, default)));
+        Assert.Equal("Administrator", Convert.ToString(await factory.Db.Ado.ExecuteScalarAsync(
+            "SELECT system_key FROM roles WHERE name='Administrator'", new { }, default)));
+        Assert.Equal(1L, Convert.ToInt64(await factory.Db.Ado.ExecuteScalarAsync(
+            "SELECT COUNT(1) FROM role_permissions rp JOIN roles r ON r.id=rp.role_id WHERE r.name='Administrator' AND rp.permission_code=14",
+            new { }, default)));
         Assert.Equal("ok", Convert.ToString(await factory.Db.Ado.ExecuteScalarAsync(
             "PRAGMA integrity_check", new { }, default)));
 

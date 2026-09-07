@@ -1,3 +1,3 @@
-点位编码,点位名称,协议,地址,数据类型,单位,原始下限,原始上限,工程下限,工程上限,可写,风险等级,启用,说明
-AI_Pressure,试验压力,Simulation,sim.pressure,Decimal,MPa,0,10000,0,10,否,普通,是,仿真压力输入示例
-DO_Start,启动命令,Simulation,sim.start,Boolean,,,,,是,高风险,是,高风险写入示例
+点位标识,点位编码,点位名称,设备编码,点位分组编码,地址类型,地址参数,原始数据类型,字节序,字序,单位,原始下限,原始上限,工程下限,工程上限,可写,启用,风险等级,说明
+9d2c2a1e-5d87-4d3a-b4fd-2a3f7fb4e901,AI_Pressure,试验压力,PLC_SIM_1,PRESSURE,仿真逻辑地址,sim.pressure,小数,大端,无,MPa,0,10000,0,10,否,是,普通,采集压力示例
+1aeac75f-6c6c-4a18-8c11-4d8a38a9f514,DO_Start,启动命令,PLC_SIM_1,COMMAND,仿真逻辑地址,sim.start,布尔量,大端,无,,,,,,是,是,高风险,高风险写入示例

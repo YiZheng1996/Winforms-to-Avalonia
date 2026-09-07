@@ -1,15 +1,16 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:XXX.TestBench.App.ViewModels"
+             xmlns:icons="using:XXX.TestBench.App.Icons"
              x:Class="XXX.TestBench.App.Views.TestPointManagementView"
              x:DataType="vm:TestPointManagementViewModel"
              UseLayoutRounding="True">
-  <Grid RowDefinitions="Auto,* ,Auto" RowSpacing="12" Margin="0,12,0,0">
+  <Grid RowDefinitions="Auto,*" RowSpacing="12" Margin="0,12,0,0">
     <Border Grid.Row="0" Classes="parameter-surface" Padding="16,14">
       <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="14">
         <Border Classes="parameter-icon">
-          <TextBlock Text="⌁" FontSize="22" Foreground="{DynamicResource BrandBlueBrush}"
-                     HorizontalAlignment="Center" VerticalAlignment="Center" />
+          <icons:AppIcon Kind="Flow" Width="22" Height="22" Stroke="{DynamicResource BrandBlueBrush}"
+                        HorizontalAlignment="Center" VerticalAlignment="Center" />
         </Border>
         <StackPanel Grid.Column="1" Spacing="10" VerticalAlignment="Center">
           <StackPanel Spacing="3">
@@ -38,13 +39,17 @@
             </StackPanel>
           </Border>
           <Button Classes="parameter-ghost" Content="启用 / 停用"
-                  Command="{Binding TogglePointCommand}" />
+                  Click="OnTogglePointClick" IsEnabled="{Binding CanEdit}" />
           <Button Classes="parameter-secondary" Content="编辑"
-                  Click="OnEditPointClick" />
+                  Click="OnEditPointClick" IsEnabled="{Binding CanEdit}" />
           <Button Classes="parameter-danger" Content="删除"
-                  Command="{Binding DeletePointCommand}" />
-          <Button Classes="parameter-primary" Content="＋ 新增项点"
-                  Click="OnAddPointClick" />
+                  Click="OnDeletePointClick" IsEnabled="{Binding CanEdit}" />
+          <Button Classes="parameter-primary" Click="OnAddPointClick" IsEnabled="{Binding CanEdit}">
+            <StackPanel Orientation="Horizontal" Spacing="7">
+              <icons:AppIcon Kind="Add" Width="15" Height="15" Stroke="{Binding $parent[Button].Foreground}" />
+              <TextBlock Text="新增项点" />
+            </StackPanel>
+          </Button>
         </StackPanel>
       </Grid>
     </Border>
@@ -107,8 +112,5 @@
         </Grid>
       </Grid>
     </Border>
-
-    <TextBlock Grid.Row="2" Text="{Binding StatusMessage}" Foreground="#1F618D" FontSize="13"
-               TextWrapping="Wrap" />
   </Grid>
 </UserControl>

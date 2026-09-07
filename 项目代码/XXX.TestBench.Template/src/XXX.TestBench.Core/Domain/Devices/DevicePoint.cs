@@ -5,9 +5,9 @@ namespace XXX.TestBench.Core.Domain.Devices;
 /// </summary>
 public sealed record DevicePoint(
     string Code,
-    string Protocol,
+    DevicePointProtocol Protocol,
     string Address,
-    string DataType,
+    DevicePointDataType DataType,
     string Unit,
     bool IsWritable,
     WriteRiskLevel RiskLevel,
@@ -17,4 +17,11 @@ public sealed record DevicePoint(
     decimal? EngMax,
     string Name = "",
     bool IsEnabled = true,
-    string Description = "");
+    string Description = "",
+    string PointId = "",
+    string DeviceId = "",
+    string DriverKey = "",
+    PointAddressDefinition? AddressDefinition = null,
+    DecodeOptions? DecodeOptions = null,
+    PointWritePolicy WritePolicy = PointWritePolicy.ReadBackEqual,
+    string Revision = "");

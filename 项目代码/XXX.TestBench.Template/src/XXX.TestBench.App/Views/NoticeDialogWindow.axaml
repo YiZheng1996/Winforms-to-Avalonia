@@ -1,0 +1,46 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:XXX.TestBench.App.ViewModels"
+        x:Class="XXX.TestBench.App.Views.NoticeDialogWindow"
+        x:DataType="vm:NoticeDialogViewModel"
+        Title="{Binding Title}"
+        Width="480"
+        Height="270"
+        MinWidth="440"
+        MinHeight="240"
+        CanResize="False"
+        WindowStartupLocation="CenterScreen"
+        SystemDecorations="None"
+        TransparencyLevelHint="Transparent"
+        Background="Transparent"
+        UseLayoutRounding="True">
+  <Window.Styles>
+    <Style Selector="Button.dialog-primary">
+      <Setter Property="Background" Value="#0868F7" />
+      <Setter Property="Foreground" Value="White" />
+      <Setter Property="BorderBrush" Value="#0868F7" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="MinWidth" Value="96" />
+    </Style>
+  </Window.Styles>
+
+  <Border Background="White" BorderBrush="#C9D3E0" BorderThickness="1" CornerRadius="8">
+    <Grid RowDefinitions="Auto,*,Auto">
+      <Border Grid.Row="0" Background="#F0F7FF" BorderBrush="#CFE0FF" BorderThickness="0,0,0,1"
+              CornerRadius="8,8,0,0" Padding="24,14" PointerPressed="OnTitleBarPointerPressed"
+              IsVisible="{Binding !IsError}">
+        <TextBlock Text="{Binding Title}" FontSize="20" FontWeight="Bold" Foreground="#164B95" />
+      </Border>
+      <Border Grid.Row="0" Background="#FFF8F7" BorderBrush="#F2D0CB" BorderThickness="0,0,0,1"
+              CornerRadius="8,8,0,0" Padding="24,14" PointerPressed="OnTitleBarPointerPressed"
+              IsVisible="{Binding IsError}">
+        <TextBlock Text="{Binding Title}" FontSize="20" FontWeight="Bold" Foreground="#9F2D25" />
+      </Border>
+      <TextBlock Grid.Row="1" Text="{Binding Message}" Margin="24,24" TextWrapping="Wrap"
+                 Foreground="#344054" FontSize="15" VerticalAlignment="Center" />
+      <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="24,0,24,20">
+        <Button Classes="dialog-primary" Content="知道了" Click="OnCloseClick" />
+      </StackPanel>
+    </Grid>
+  </Border>
+</Window>

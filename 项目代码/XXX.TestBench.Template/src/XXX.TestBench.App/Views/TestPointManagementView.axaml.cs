@@ -31,11 +31,11 @@ public partial class TestPointManagementView : UserControl
             };
             var result = await ShowDialogAsync<TestPointDialogResult>(owner, dialog);
             if (result is not null)
-                await viewModel.CreateFromDialogAsync(result);
+                await ShowFeedbackAsync(owner, await viewModel.CreateFromDialogAsync(result));
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"新增试验项点失败：{ex}");
+            await ShowFeedbackAsync(owner, OperationFeedback.Failure(ex.Message));
         }
     }
 
@@ -44,8 +44,14 @@ public partial class TestPointManagementView : UserControl
     /// </summary>
     private async void OnEditPointClick(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is not TestPointManagementViewModel viewModel || viewModel.SelectedPoint is not { } point || GetOwner() is not { } owner)
+        if (DataContext is not TestPointManagementViewModel viewModel || GetOwner() is not { } owner)
             return;
+
+        if (viewModel.SelectedPoint is not { } point)
+        {
+            await ShowFeedbackAsync(owner, OperationFeedback.Failure("请先选择试验项点"));
+            return;
+        }
 
         try
         {
@@ -55,11 +61,67 @@ public partial class TestPointManagementView : UserControl
             };
             var result = await ShowDialogAsync<TestPointDialogResult>(owner, dialog);
             if (result is not null)
-                await viewModel.UpdateFromDialogAsync(point.Id, result);
+                await ShowFeedbackAsync(owner, await viewModel.UpdateFromDialogAsync(point.Id, result));
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"编辑试验项点失败：{ex}");
+            await ShowFeedbackAsync(owner, OperationFeedback.Failure(ex.Message));
+        }
+    }
+
+    /// <summary>
+    /// 启用或停用当前选中的试验项点。
+    /// </summary>
+    private async void OnTogglePointClick(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is not TestPointManagementViewModel viewModel || GetOwner() is not { } owner)
+            return;
+
+        if (viewModel.SelectedPoint is not { } point)
+        {
+            await ShowFeedbackAsync(owner, OperationFeedback.Failure("请先选择试验项点"));
+            return;
+        }
+
+        var action = point.IsEnabled ? "停用" : "启用";
+        if (await ConfirmAsync(owner, $"{action}试验项点", $"确定要{action}试验项点“{point.Name}”吗？", $"确认{action}") is not true)
+            return;
+
+        try
+        {
+            await ShowFeedbackAsync(owner, await viewModel.TogglePointFromDialogAsync());
+        }
+        catch (Exception ex)
+        {
+            await ShowFeedbackAsync(owner, OperationFeedback.Failure(ex.Message));
+        }
+    }
+
+    /// <summary>
+    /// 删除当前选中的试验项点。
+    /// </summary>
+    private async void OnDeletePointClick(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is not TestPointManagementViewModel viewModel || GetOwner() is not { } owner)
+            return;
+
+        if (viewModel.SelectedPoint is not { } point)
+        {
+            await ShowFeedbackAsync(owner, OperationFeedback.Failure("请先选择试验项点"));
+            return;
+        }
+
+        const string messageSuffix = "如果该项点已被型号配置或试验记录引用，删除会被拒绝，请改用停用。";
+        if (await ConfirmAsync(owner, "删除试验项点", $"确定删除试验项点“{point.Name}”吗？\n{messageSuffix}", "确认删除") is not true)
+            return;
+
+        try
+        {
+            await ShowFeedbackAsync(owner, await viewModel.DeletePointFromDialogAsync());
+        }
+        catch (Exception ex)
+        {
+            await ShowFeedbackAsync(owner, OperationFeedback.Failure(ex.Message));
         }
     }
 
@@ -67,6 +129,27 @@ public partial class TestPointManagementView : UserControl
     /// 获取承载当前页面的窗口。
     /// </summary>
     private Window? GetOwner() => TopLevel.GetTopLevel(this) as Window;
+
+    private async Task<bool?> ConfirmAsync(Window owner, string title, string message, string confirmText)
+    {
+        var dialog = new ConfirmDialogWindow
+        {
+            DataContext = new ConfirmDialogViewModel(title, message, confirmText)
+        };
+        return await ShowDialogAsync<bool>(owner, dialog);
+    }
+
+    private static async Task ShowFeedbackAsync(Window owner, OperationFeedback feedback)
+    {
+        var dialog = new NoticeDialogWindow
+        {
+            DataContext = new NoticeDialogViewModel(
+                feedback.Succeeded ? "操作成功" : "操作失败",
+                feedback.Message,
+                !feedback.Succeeded)
+        };
+        await ShowDialogAsync<object?>(owner, dialog);
+    }
 
     /// <summary>
     /// 通过主窗口带遮罩显示弹窗。

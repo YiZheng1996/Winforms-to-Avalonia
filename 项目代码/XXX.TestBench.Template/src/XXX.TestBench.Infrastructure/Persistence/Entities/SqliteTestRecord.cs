@@ -69,6 +69,18 @@ internal sealed class SqliteTestRecord
     public int DeviceMode { get; set; }
 
     /// <summary>
+    /// 创建记录时使用的完整设备配置版本。
+    /// </summary>
+    [Column(Name = "device_configuration_revision", IsNullable = true)]
+    public string? DeviceConfigurationRevision { get; set; }
+
+    /// <summary>
+    /// 创建记录时解析出的 SignalKey → PointId 映射 JSON 快照。
+    /// </summary>
+    [Column(Name = "signal_bindings_snapshot", IsNullable = true)]
+    public string? SignalBindingsSnapshot { get; set; }
+
+    /// <summary>
     /// 操作用户编号。
     /// </summary>
     [Column(Name = "operator_user_id")]

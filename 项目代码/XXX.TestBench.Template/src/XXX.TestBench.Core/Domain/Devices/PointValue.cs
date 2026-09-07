@@ -8,4 +8,8 @@ public sealed record PointValue(
     string Address,
     PointQuality Quality,
     object? Value,
-    DateTime TimestampUtc);
+    DateTime TimestampUtc,
+    string PointId = "",
+    string DeviceId = "",
+    long ConnectionGeneration = 0,
+    string Revision = "");

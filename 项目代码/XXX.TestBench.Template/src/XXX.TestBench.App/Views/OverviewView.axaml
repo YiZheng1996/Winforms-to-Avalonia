@@ -2,6 +2,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:XXX.TestBench.App.ViewModels"
              xmlns:local="using:XXX.TestBench.App.Views"
+             xmlns:icons="using:XXX.TestBench.App.Icons"
              x:Class="XXX.TestBench.App.Views.OverviewView"
              x:DataType="vm:OverviewViewModel"
              UseLayoutRounding="True">
@@ -33,7 +34,8 @@
         <Border Grid.Row="0" BorderBrush="#D7DFEA" BorderThickness="0,0,0,1" Padding="14,0">
           <Grid ColumnDefinitions="*,Auto">
             <TextBlock Text="试验项点" FontSize="17" FontWeight="SemiBold" VerticalAlignment="Center" />
-            <TextBlock Grid.Column="1" Text="⌃" FontSize="18" VerticalAlignment="Center" />
+            <icons:AppIcon Grid.Column="1" Kind="ChevronUp" Width="13" Height="13"
+                          Stroke="#596273" VerticalAlignment="Center" />
           </Grid>
         </Border>
 
@@ -43,15 +45,16 @@
               <Grid Grid.Column="0">
                 <Border Width="32" Height="32" CornerRadius="16" Background="White" BorderBrush="#18A654" BorderThickness="2"
                         HorizontalAlignment="Center" VerticalAlignment="Center">
-                  <TextBlock Text="✓" Foreground="#18A654" FontSize="18" FontWeight="Bold"
-                             HorizontalAlignment="Center" VerticalAlignment="Center" />
+                  <icons:AppIcon Kind="Check" Width="16" Height="16" Stroke="#18A654"
+                                HorizontalAlignment="Center" VerticalAlignment="Center" />
                 </Border>
                 <Border Width="2" Background="#61B583" HorizontalAlignment="Center" VerticalAlignment="Bottom" Height="45" Margin="0,0,0,-23" />
               </Grid>
               <Grid Grid.Column="1" RowDefinitions="Auto,Auto,Auto" Margin="2,22,2,12">
                 <Grid ColumnDefinitions="*,Auto">
                   <TextBlock Text="试验测试1" FontSize="17" FontWeight="SemiBold" />
-                  <TextBlock Grid.Column="1" Text="›" Foreground="#0868F7" FontSize="30" Margin="0,-8,0,0" />
+                  <icons:AppIcon Grid.Column="1" Kind="ChevronRight" Width="13" Height="18"
+                                Stroke="#0868F7" VerticalAlignment="Center" />
                 </Grid>
                 <TextBlock Grid.Row="1" Text="风路建立与保压" Foreground="#596273" FontSize="13" Margin="0,5,0,0" />
                 <TextBlock Grid.Row="2" Text="完成时间：00:06:15" Foreground="#18A654" FontSize="13" Margin="0,5,0,0" />
@@ -71,7 +74,8 @@
               <Grid Grid.Column="1" RowDefinitions="Auto,Auto,Auto" Margin="2,22,2,12">
                 <Grid ColumnDefinitions="*,Auto">
                   <TextBlock Text="试验测试2" Foreground="#0868F7" FontSize="17" FontWeight="SemiBold" />
-                  <TextBlock Grid.Column="1" Text="›" Foreground="#0868F7" FontSize="30" Margin="0,-8,0,0" />
+                  <icons:AppIcon Grid.Column="1" Kind="ChevronRight" Width="13" Height="18"
+                                Stroke="#0868F7" VerticalAlignment="Center" />
                 </Grid>
                 <TextBlock Grid.Row="1" Text="制动缓解" Foreground="#0868F7" FontSize="13" Margin="0,5,0,0" />
                 <TextBlock Grid.Row="2" Text="进行中...  00:06:33" Foreground="#0868F7" FontSize="13" FontWeight="SemiBold" Margin="0,5,0,0" />
@@ -90,7 +94,8 @@
               <Grid Grid.Column="1" RowDefinitions="Auto,Auto,Auto" Margin="2,22,2,12">
                 <Grid ColumnDefinitions="*,Auto">
                   <TextBlock Text="试验测试3" FontSize="17" FontWeight="SemiBold" />
-                  <TextBlock Grid.Column="1" Text="›" Foreground="#7A8492" FontSize="30" Margin="0,-8,0,0" />
+                  <icons:AppIcon Grid.Column="1" Kind="ChevronRight" Width="13" Height="18"
+                                Stroke="#7A8492" VerticalAlignment="Center" />
                 </Grid>
                 <TextBlock Grid.Row="1" Text="制动施加" Foreground="#596273" FontSize="13" Margin="0,5,0,0" />
                 <TextBlock Grid.Row="2" Text="等待中" Foreground="#596273" FontSize="13" Margin="0,5,0,0" />
@@ -266,28 +271,28 @@
           <Border Canvas.Left="770" Canvas.Top="78" Width="67" Height="52" Background="#F5F6F7" BorderBrush="#15181D" BorderThickness="1" CornerRadius="3">
             <Grid ColumnDefinitions="1*,1.2*,1*"><Border Grid.Column="1" Background="White" BorderBrush="#15181D" BorderThickness="1,0" /></Grid>
           </Border>
-          <TextBlock Canvas.Left="757" Canvas.Top="88" Text="↪" Foreground="#1670F8" FontSize="15" />
+          <icons:AppIcon Canvas.Left="757" Canvas.Top="88" Kind="Flow" Width="16" Height="16" Stroke="#1670F8" />
           <TextBlock Canvas.Left="757" Canvas.Top="111" Text="−" FontSize="13" /><TextBlock Canvas.Left="840" Canvas.Top="111" Text="+" FontSize="13" />
 
           <TextBlock Canvas.Left="792" Canvas.Top="158" Text="C04" Classes="blue-label" />
           <Border Canvas.Left="770" Canvas.Top="178" Width="67" Height="52" Background="#F5F6F7" BorderBrush="#15181D" BorderThickness="1" CornerRadius="3">
             <Grid ColumnDefinitions="1*,1.2*,1*"><Border Grid.Column="1" Background="White" BorderBrush="#15181D" BorderThickness="1,0" /></Grid>
           </Border>
-          <TextBlock Canvas.Left="757" Canvas.Top="188" Text="↪" Foreground="#1670F8" FontSize="15" />
+          <icons:AppIcon Canvas.Left="757" Canvas.Top="188" Kind="Flow" Width="16" Height="16" Stroke="#1670F8" />
           <TextBlock Canvas.Left="757" Canvas.Top="211" Text="−" FontSize="13" /><TextBlock Canvas.Left="840" Canvas.Top="211" Text="+" FontSize="13" />
 
           <TextBlock Canvas.Left="792" Canvas.Top="258" Text="C05" Classes="blue-label" />
           <Border Canvas.Left="770" Canvas.Top="278" Width="67" Height="52" Background="#F5F6F7" BorderBrush="#15181D" BorderThickness="1" CornerRadius="3">
             <Grid ColumnDefinitions="1*,1.2*,1*"><Border Grid.Column="1" Background="White" BorderBrush="#15181D" BorderThickness="1,0" /></Grid>
           </Border>
-          <TextBlock Canvas.Left="757" Canvas.Top="288" Text="↪" Foreground="#1670F8" FontSize="15" />
+          <icons:AppIcon Canvas.Left="757" Canvas.Top="288" Kind="Flow" Width="16" Height="16" Stroke="#1670F8" />
           <TextBlock Canvas.Left="757" Canvas.Top="311" Text="−" FontSize="13" /><TextBlock Canvas.Left="840" Canvas.Top="311" Text="+" FontSize="13" />
 
           <TextBlock Canvas.Left="792" Canvas.Top="358" Text="C06" Classes="blue-label" />
           <Border Canvas.Left="770" Canvas.Top="378" Width="67" Height="52" Background="#F5F6F7" BorderBrush="#15181D" BorderThickness="1" CornerRadius="3">
             <Grid ColumnDefinitions="1*,1.2*,1*"><Border Grid.Column="1" Background="White" BorderBrush="#15181D" BorderThickness="1,0" /></Grid>
           </Border>
-          <TextBlock Canvas.Left="757" Canvas.Top="388" Text="↪" Foreground="#1670F8" FontSize="15" />
+          <icons:AppIcon Canvas.Left="757" Canvas.Top="388" Kind="Flow" Width="16" Height="16" Stroke="#1670F8" />
           <TextBlock Canvas.Left="757" Canvas.Top="411" Text="−" FontSize="13" /><TextBlock Canvas.Left="840" Canvas.Top="411" Text="+" FontSize="13" />
         </Canvas>
       </Viewbox>
@@ -300,7 +305,8 @@
         <Border Grid.Row="0" BorderBrush="#D7DFEA" BorderThickness="0,0,0,1" Padding="14,0">
           <Grid ColumnDefinitions="*,Auto">
             <TextBlock Text="实时测量" FontSize="17" FontWeight="SemiBold" VerticalAlignment="Center" />
-            <TextBlock Grid.Column="1" Text="⌄" FontSize="18" VerticalAlignment="Center" />
+            <icons:AppIcon Grid.Column="1" Kind="ChevronDown" Width="13" Height="13"
+                          Stroke="#596273" VerticalAlignment="Center" />
           </Grid>
         </Border>
         <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
@@ -310,7 +316,8 @@
                 <Grid Height="39" ColumnDefinitions="28,*,34,48,14" Margin="12,0,8,0">
                   <Border Width="18" Height="18" CornerRadius="9" BorderBrush="#3484FF" BorderThickness="1.2"
                           HorizontalAlignment="Center" VerticalAlignment="Center">
-                    <TextBlock Text="⌁" Foreground="#2478FB" FontSize="10" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    <icons:AppIcon Kind="Signal" Width="12" Height="12" Stroke="#2478FB"
+                                  HorizontalAlignment="Center" VerticalAlignment="Center" />
                   </Border>
                   <TextBlock Grid.Column="1" Text="{Binding Name}" FontSize="13" FontWeight="SemiBold"
                              TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />

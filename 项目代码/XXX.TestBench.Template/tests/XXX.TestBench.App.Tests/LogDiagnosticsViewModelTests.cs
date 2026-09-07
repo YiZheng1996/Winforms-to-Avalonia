@@ -6,6 +6,31 @@ namespace XXX.TestBench.App.Tests;
 public sealed class LogDiagnosticsViewModelTests
 {
     [Fact]
+    public async Task NewViewModel_UsesRecentSevenDaysAndResetRestoresDefaults()
+    {
+        using var harness = AppTestHarness.Create();
+        var viewModel = new LogDiagnosticsViewModel(harness.Services, await harness.AdminActorAsync());
+
+        Assert.Equal(DateTime.Today.AddDays(-6), viewModel.StartDate!.Value.Date);
+        Assert.Equal(DateTime.Today, viewModel.EndDate!.Value.Date);
+        Assert.Equal("全部操作", viewModel.SelectedAction!.DisplayName);
+
+        viewModel.ActorFilter = "admin";
+        viewModel.TextFilter = "record";
+        viewModel.StartDate = null;
+        viewModel.EndDate = null;
+        viewModel.SelectedAction = null;
+
+        await viewModel.ResetFiltersAsync();
+
+        Assert.Empty(viewModel.ActorFilter);
+        Assert.Empty(viewModel.TextFilter);
+        Assert.Equal(DateTime.Today.AddDays(-6), viewModel.StartDate!.Value.Date);
+        Assert.Equal(DateTime.Today, viewModel.EndDate!.Value.Date);
+        Assert.Equal("全部操作", viewModel.SelectedAction!.DisplayName);
+    }
+
+    [Fact]
     public async Task LoadAsync_ConvertsAuditCodesAndValuesToChineseDisplayText()
     {
         using var harness = AppTestHarness.Create();
@@ -33,5 +58,43 @@ public sealed class LogDiagnosticsViewModelTests
 
         Assert.DoesNotContain(viewModel.Logs, row => row.Action.Contains("Succeeded", StringComparison.OrdinalIgnoreCase));
         Assert.DoesNotContain(viewModel.Logs, row => row.Action.Contains("Executed", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public async Task SearchAsync_AppliesActorActionTextAndDateFilters()
+    {
+        using var harness = AppTestHarness.Create();
+        await harness.Services.AuditLog.WriteAsync("admin", "TestStarted", "record:12", "model:7 R-20260904-0001");
+        await harness.Services.AuditLog.WriteAsync("operator", "TestStarted", "record:13", "model:7 R-20260904-0002");
+
+        var viewModel = new LogDiagnosticsViewModel(harness.Services, await harness.AdminActorAsync())
+        {
+            ActorFilter = "admin",
+            SelectedAction = null,
+            TextFilter = "R-20260904-0001",
+            StartDate = DateTime.Today,
+            EndDate = DateTime.Today
+        };
+        viewModel.SelectedAction = viewModel.ActionOptions.Single(option => option.Code == "TestStarted");
+
+        await viewModel.SearchAsync();
+
+        var row = Assert.Single(viewModel.Logs);
+        Assert.Equal("开始试验", row.Action);
+        Assert.Equal("试验记录（编号：12）", row.Target);
+
+        viewModel.ActorFilter = string.Empty;
+        viewModel.SelectedAction = viewModel.ActionOptions[0];
+        viewModel.TextFilter = string.Empty;
+        viewModel.StartDate = DateTime.Today.AddDays(1);
+        viewModel.EndDate = DateTime.Today.AddDays(1);
+        await viewModel.SearchAsync();
+        Assert.Empty(viewModel.Logs);
+
+        viewModel.StartDate = DateTime.Today.AddDays(2);
+        viewModel.EndDate = DateTime.Today.AddDays(1);
+        await viewModel.SearchAsync();
+        Assert.Equal("结束日期不能早于开始日期", viewModel.StatusMessage);
+        Assert.Empty(viewModel.Logs);
     }
 }

@@ -10,6 +10,7 @@ namespace XXX.TestBench.App.Composition;
 /// </summary>
 public sealed record ShellServices(
     AuthenticationService Authentication,
+    IdentityAdministrationService IdentityAdministration,
     TestPointService TestPoints,
     TestExecutionService Execution,
     ProductService Products,
@@ -32,4 +33,6 @@ public sealed record ShellServices(
     AppConfig AppConfig,
     DeviceConfig DeviceConfig,
     string DatabasePath,
-    string Version);
+    string Version,
+    DeviceConfigurationService? DeviceConfigurations = null,
+    IReadOnlyList<IDeviceDriverDescriptor>? DriverDescriptors = null);

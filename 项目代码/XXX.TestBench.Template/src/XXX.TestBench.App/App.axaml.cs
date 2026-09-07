@@ -41,13 +41,32 @@ public partial class App : Application
             var configRoot = Path.Combine(baseDir, "config");
             var dataRoot = Path.Combine(baseDir, "data");
             _composition = AppComposition.Create(configRoot, dataRoot);
-            var mainWindow = new MainWindow
+
+            if (_composition.Shell is not { } shell)
+                throw new InvalidOperationException("应用组合根未创建外壳视图模型。");
+
+            // 登录窗口是桌面生命周期的初始主窗口；认证完成后会被 LoginWindow 替换为工艺主窗口。
+            // 固定为主窗口关闭即退出，避免退出工艺界面后又回到登录界面。
+            desktop.ShutdownMode = ShutdownMode.OnMainWindowClose;
+
+            if (_composition.StartupError is null)
             {
-                DataContext = _composition.Shell,
-                WindowState = WindowState.Maximized
-            };
-            mainWindow.Icon = AppIconProvider.Create();
-            desktop.MainWindow = mainWindow;
+                desktop.MainWindow = new LoginWindow(shell)
+                {
+                    Icon = AppIconProvider.Create()
+                };
+            }
+            else
+            {
+                // 启动故障没有可用认证服务，直接显示诊断主窗口，不进入登录流程。
+                var faultWindow = new MainWindow
+                {
+                    DataContext = shell,
+                    WindowState = WindowState.Maximized,
+                    Icon = AppIconProvider.Create()
+                };
+                desktop.MainWindow = faultWindow;
+            }
         }
 
         base.OnFrameworkInitializationCompleted();

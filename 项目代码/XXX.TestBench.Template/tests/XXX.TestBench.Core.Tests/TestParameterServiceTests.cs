@@ -26,13 +26,12 @@ public class TestParameterServiceTests
     private static UserContext Admin() => TestContexts.With(PermissionCode.ManageTestDefinitions);
 
     [Fact]
-    public async Task LoadEffective_MergesThreeLevels()
+    public async Task LoadEffective_MergesProjectAndProductParameters()
     {
         var (service, repository, _, _) = Create();
         var actor = Admin();
         await service.SaveProjectAsync(actor, 60);
-        await service.SaveTypeAsync(actor, 1, 5000);
-        await service.SaveModelAsync(actor, 1, 100);
+        await service.SaveProductAsync(actor, 1, 1, 5000, 100);
 
         var effective = await service.LoadEffectiveAsync(1);
 
@@ -41,8 +40,7 @@ public class TestParameterServiceTests
         Assert.Equal(60, effective.TestTimeSeconds);
         Assert.Equal(5000, effective.TestVoltageV);
         Assert.Equal(100, effective.ProtectCurrentMa);
-        Assert.Single(repository.TypeParameters);
-        Assert.Single(repository.ModelParameters);
+        Assert.Single(repository.ProductParameters);
         Assert.NotNull(repository.Project);
     }
 
@@ -52,10 +50,9 @@ public class TestParameterServiceTests
         var (service, repository, _, _) = Create();
         var actor = Admin();
         await service.SaveProjectAsync(actor, 60);
-        await service.SaveModelAsync(actor, 1, 100);
 
         var ex = await Assert.ThrowsAsync<DomainException>(() => service.LoadEffectiveAsync(1));
-        Assert.Contains("产品类型参数", ex.Message);
+        Assert.Contains("产品参数", ex.Message);
     }
 
     [Fact]
@@ -65,8 +62,10 @@ public class TestParameterServiceTests
         var actor = Admin();
 
         await Assert.ThrowsAsync<DomainException>(() => service.SaveProjectAsync(actor, 0));
-        await Assert.ThrowsAsync<DomainException>(() => service.SaveTypeAsync(actor, 1, 6000));
-        await Assert.ThrowsAsync<DomainException>(() => service.SaveModelAsync(actor, 1, -1));
+        await Assert.ThrowsAsync<DomainException>(() => service.SaveProductAsync(actor, 1, 1, 6000, 100));
+        await Assert.ThrowsAsync<DomainException>(() => service.SaveProductAsync(actor, 1, 1, 5000, -1));
+        await Assert.ThrowsAsync<DomainException>(() => service.SaveProductAsync(actor, 1, 1, double.NaN, 100));
+        await Assert.ThrowsAsync<DomainException>(() => service.SaveProductAsync(actor, 1, 1, 5000, double.PositiveInfinity));
     }
 
     [Fact]
@@ -76,6 +75,23 @@ public class TestParameterServiceTests
         var viewer = TestContexts.With(PermissionCode.ViewRecords);
 
         await Assert.ThrowsAsync<AuthorizationException>(() => service.SaveProjectAsync(viewer, 60));
+    }
+
+    [Fact]
+    public async Task SaveProduct_RequiresMatchingProductTypeAndModel()
+    {
+        var (service, _, products, _) = Create();
+        await products.AddTypeAsync(new Domain.Products.ProductType
+        {
+            Id = 2,
+            Name = "绝缘试验",
+            CreatedAtUtc = DateTime.UtcNow
+        });
+
+        var ex = await Assert.ThrowsAsync<DomainException>(
+            () => service.SaveProductAsync(Admin(), 2, 1, 5000, 100));
+
+        Assert.Contains("不匹配", ex.Message);
     }
 
     [Fact]

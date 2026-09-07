@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using XXX.TestBench.App.Composition;
+using XXX.TestBench.App.Icons;
 using XXX.TestBench.Core.Application;
 using XXX.TestBench.Core.Domain.Devices;
 using XXX.TestBench.Core.Domain.Identity;
@@ -204,6 +205,11 @@ public sealed partial class ShellViewModel : ObservableObject
     /// </summary>
     public UserContext? CurrentUser => _currentUser;
 
+    /// <summary>
+    /// 认证流程完成事件。桌面层据此把登录窗口替换为工艺主窗口。
+    /// </summary>
+    public event EventHandler? AuthenticationSucceeded;
+
     private ProductModelSelectionOption? _selectedProductModel;
 
     /// <summary>
@@ -338,7 +344,7 @@ public sealed partial class ShellViewModel : ObservableObject
     private bool CanChangePassword() => !string.IsNullOrWhiteSpace(NewPassword) && NewPassword == ConfirmPassword;
 
     /// <summary>
-    /// 退出命令：注销会话并清空登录状态与当前页面。
+    /// 注销当前会话并清空登录状态与当前页面；主窗口关闭由桌面窗口层负责。
     /// </summary>
     [RelayCommand]
     public async Task LogoutAsync()
@@ -380,6 +386,7 @@ public sealed partial class ShellViewModel : ObservableObject
         ConfirmPassword = string.Empty;
         BuildNavigation();
         if (NavItems.Count > 0) await NavigateAsync(NavItems[0]);
+        AuthenticationSucceeded?.Invoke(this, EventArgs.Empty);
     }
 
     private void BuildNavigation()
@@ -387,21 +394,24 @@ public sealed partial class ShellViewModel : ObservableObject
         if (_services is null || _currentUser is null) return;
         NavItems.Clear();
         var user = _currentUser;
-        var pages = new (string Title, string DisplayTitle, string Icon, PermissionCode Permission, Func<PageViewModel> Create)[]
+        var pages = new (string Title, string DisplayTitle, AppIconKind Icon, Func<UserContext, bool> CanOpen, Func<PageViewModel> Create)[]
         {
-            ( "运行总览", "工艺界面", "⌂", PermissionCode.ViewOverview, () => new OverviewViewModel(_services, user) ),
-            ( "数据与报表", "报表界面", "▤", PermissionCode.ViewRecords, () => new DataReportsViewModel(_services, user) ),
-            ( "参数管理", "参数管理", "☷", PermissionCode.ManageTestDefinitions, () => new ParameterManagementViewModel(_services, user) ),
-            ( "试验执行", "试验执行", "▷", PermissionCode.ExecuteTests, () => new TestExecutionViewModel(_services, user) ),
-            ( "工艺监控", "工艺监控", "⌁", PermissionCode.ManualControl, () => new ProcessMonitorViewModel(_services, user) ),
-            ( "设备与校准", "硬件校准", "⚒", PermissionCode.ManageDevices, () => new DeviceCalibrationViewModel(_services, user) ),
-            ( "设备点位", "设备点位", "⌁", PermissionCode.ManageDevices, () => new DevicePointManagementViewModel(_services, user) ),
-            ( "日志诊断", "日志管理", "≡", PermissionCode.ViewLogs, () => new LogDiagnosticsViewModel(_services, user) ),
-            ( "系统管理", "系统管理", "▣", PermissionCode.ManageUsers, () => new SystemManagementViewModel(_services, user) )
+            ( "运行总览", "工艺界面", AppIconKind.Overview, actor => actor.HasPermission(PermissionCode.ViewOverview), () => new OverviewViewModel(_services, user) ),
+            ( "数据与报表", "报表界面", AppIconKind.Reports, actor => actor.HasPermission(PermissionCode.ViewRecords), () => new DataReportsViewModel(_services, user) ),
+            ( "参数管理", "参数管理", AppIconKind.Parameters, actor => actor.HasPermission(PermissionCode.ManageProducts)
+                || actor.HasPermission(PermissionCode.ManageTestPoints)
+                || actor.HasPermission(PermissionCode.ManageTestDefinitions), () => new ParameterManagementViewModel(_services, user) ),
+            ( "试验执行", "试验执行", AppIconKind.TestExecution, actor => actor.HasPermission(PermissionCode.ExecuteTests), () => new TestExecutionViewModel(_services, user) ),
+            ( "工艺监控", "工艺监控", AppIconKind.ProcessMonitor, actor => actor.HasPermission(PermissionCode.ManualControl), () => new ProcessMonitorViewModel(_services, user) ),
+            ( "设备与校准", "硬件校准", AppIconKind.Calibration, actor => actor.HasPermission(PermissionCode.ManageDevices), () => new DeviceCalibrationViewModel(_services, user) ),
+            ( "设备点位", "设备点位", AppIconKind.DevicePoints, actor => actor.HasPermission(PermissionCode.ManageDevices), () => new DevicePointManagementViewModel(_services, user) ),
+            ( "日志诊断", "日志管理", AppIconKind.Logs, actor => actor.HasPermission(PermissionCode.ViewLogs), () => new LogDiagnosticsViewModel(_services, user) ),
+            ( "系统管理", "系统管理", AppIconKind.SystemManagement, actor => actor.HasPermission(PermissionCode.ManageUsers)
+                || actor.HasPermission(PermissionCode.ManageRoles), () => new SystemManagementViewModel(_services, user) )
         };
-        foreach (var (title, displayTitle, icon, permission, create) in pages)
+        foreach (var (title, displayTitle, icon, canOpen, create) in pages)
         {
-            if (user.HasPermission(permission))
+            if (canOpen(user))
                 NavItems.Add(new NavigationItemViewModel(title, displayTitle, icon, create()));
         }
     }

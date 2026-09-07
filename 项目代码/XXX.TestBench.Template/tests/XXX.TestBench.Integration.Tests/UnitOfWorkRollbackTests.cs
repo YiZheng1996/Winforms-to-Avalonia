@@ -67,8 +67,7 @@ public class UnitOfWorkRollbackTests
 
         var parameters = new TestParameterService(paramRepo, productRepo, clock, audit);
         await parameters.SaveProjectAsync(actor, 60);
-        await parameters.SaveTypeAsync(actor, type.Id, 5000);
-        await parameters.SaveModelAsync(actor, model.Id, 100);
+        await parameters.SaveProductAsync(actor, type.Id, model.Id, 5000, 100);
 
         var execution = new TestExecutionService(recordRepo, productRepo, executors, testPoints, parameters, clock, audit, uowFactory);
         var runtime = await new Devices.DeviceRuntimeFactory(

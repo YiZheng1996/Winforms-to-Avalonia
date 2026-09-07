@@ -162,7 +162,7 @@ public sealed class ProductRepository : SqliteRepositoryBase, IProductRepository
             .Count()), ct);
 
     /// <summary>
-    /// 删除产品类型并清理类型级参数。
+    /// 删除产品类型。
     /// </summary>
     public async Task DeleteTypeAsync(int productTypeId, CancellationToken ct = default)
     {
@@ -170,9 +170,6 @@ public sealed class ProductRepository : SqliteRepositoryBase, IProductRepository
         await using var txn = await lease.Connection.BeginTransactionAsync(ct);
         try
         {
-            await RunDbAsync(() => Delete<SqliteProductTypeTestParameter>(lease.Connection, txn)
-                .Where(x => x.ProductTypeId == productTypeId)
-                .ExecuteAffrows(), ct);
             await RunDbAsync(() => Delete<SqliteProductType>(lease.Connection, txn)
                 .Where(x => x.Id == productTypeId)
                 .ExecuteAffrows(), ct);
@@ -186,7 +183,7 @@ public sealed class ProductRepository : SqliteRepositoryBase, IProductRepository
     }
 
     /// <summary>
-    /// 删除产品型号并清理型号级参数与项点配置。
+    /// 删除产品型号并清理产品参数与项点配置。
     /// </summary>
     public async Task DeleteModelAsync(int productModelId, CancellationToken ct = default)
     {
@@ -197,7 +194,7 @@ public sealed class ProductRepository : SqliteRepositoryBase, IProductRepository
             await RunDbAsync(() => Delete<SqliteModelPointConfig>(lease.Connection, txn)
                 .Where(x => x.ProductModelId == productModelId)
                 .ExecuteAffrows(), ct);
-            await RunDbAsync(() => Delete<SqliteProductModelTestParameter>(lease.Connection, txn)
+            await RunDbAsync(() => Delete<SqliteProductTestParameter>(lease.Connection, txn)
                 .Where(x => x.ProductModelId == productModelId)
                 .ExecuteAffrows(), ct);
             await RunDbAsync(() => Delete<SqliteProductModel>(lease.Connection, txn)

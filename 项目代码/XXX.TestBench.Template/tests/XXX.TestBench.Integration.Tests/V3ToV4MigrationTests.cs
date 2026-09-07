@@ -5,13 +5,13 @@ using Xunit;
 namespace XXX.TestBench.Integration.Tests;
 
 /// <summary>
-/// schema v3 → v4 迁移验证：旧任务/记录数据按新语义迁移，任务表删除，权限回收，
-/// 新项点表与配置表创建。这是“移除任务系统”数据兼容性的回归护栏。
+/// schema v3 → v7 迁移验证：旧任务/记录数据按新语义迁移，任务表删除，权限回收，
+/// 新项点表与配置表创建，产品参数合并，并补齐角色系统标识。这是数据兼容性的回归护栏。
 /// </summary>
-public class V3ToV4MigrationTests
+public class V3ToV7MigrationTests
 {
     [Fact]
-    public async Task V3Database_UpgradesToV4_PreservesRecords_AndDropsTasks()
+    public async Task V3Database_UpgradesToV7_PreservesRecords_AndDropsTasks_AndMergesProductParameters()
     {
         using var env = TestEnv.Create();
         var hasher = new Pbkdf2PasswordHasher();
@@ -22,7 +22,7 @@ public class V3ToV4MigrationTests
 
         // 版本号
         var version = Convert.ToInt64(await factory.Db.Ado.ExecuteScalarAsync("PRAGMA user_version", new { }, default));
-        Assert.Equal(4L, version);
+        Assert.Equal((long)SqliteDatabase.CurrentSchemaVersion, version);
 
         // 记录迁移：task_number → record_number，产品标识保留
         var recordNumber = Convert.ToString(await factory.Db.Ado.ExecuteScalarAsync(
@@ -40,6 +40,15 @@ public class V3ToV4MigrationTests
         Assert.Equal(0L, TableCountAsync(factory, "test_item_definitions"));
         Assert.Equal(1L, TableCountAsync(factory, "test_item_points"));
         Assert.Equal(1L, TableCountAsync(factory, "model_point_configs"));
+        Assert.Equal(0L, TableCountAsync(factory, "product_type_test_parameters"));
+        Assert.Equal(0L, TableCountAsync(factory, "product_model_test_parameters"));
+        Assert.Equal(1L, TableCountAsync(factory, "product_test_parameters"));
+        Assert.Equal(5000D, Convert.ToDouble(await factory.Db.Ado.ExecuteScalarAsync(
+            "SELECT test_voltage_v FROM product_test_parameters WHERE product_type_id=1 AND product_model_id=1",
+            new { }, default)));
+        Assert.Equal(100D, Convert.ToDouble(await factory.Db.Ado.ExecuteScalarAsync(
+            "SELECT protect_current_ma FROM product_test_parameters WHERE product_type_id=1 AND product_model_id=1",
+            new { }, default)));
 
         // 旧项点结果按新语义已重建为空表（旧定义无法映射）
         var resultCount = Convert.ToInt64(await factory.Db.Ado.ExecuteScalarAsync(
@@ -51,6 +60,14 @@ public class V3ToV4MigrationTests
             "SELECT COUNT(1) FROM role_permissions rp JOIN roles r ON r.id=rp.role_id WHERE r.name='Operator' AND rp.permission_code=2",
             new { }, default));
         Assert.Equal(0L, operatorPermission2);
+
+        var administratorSystemKey = Convert.ToString(await factory.Db.Ado.ExecuteScalarAsync(
+            "SELECT system_key FROM roles WHERE name='Administrator'", new { }, default));
+        Assert.Equal("Administrator", administratorSystemKey);
+        var administratorRolePermission = Convert.ToInt64(await factory.Db.Ado.ExecuteScalarAsync(
+            "SELECT COUNT(1) FROM role_permissions rp JOIN roles r ON r.id=rp.role_id WHERE r.name='Administrator' AND rp.permission_code=14",
+            new { }, default));
+        Assert.Equal(1L, administratorRolePermission);
     }
 
     private static long TableCountAsync(SqliteConnectionFactory factory, string name)
@@ -88,6 +105,12 @@ public class V3ToV4MigrationTests
         CREATE TABLE product_models (id INTEGER PRIMARY KEY AUTOINCREMENT, product_type_id INTEGER NOT NULL, code TEXT NOT NULL, name TEXT NOT NULL, is_enabled INTEGER NOT NULL DEFAULT 1, created_at_utc TEXT NOT NULL, UNIQUE (product_type_id, code))
         """,
         """
+        CREATE TABLE product_type_test_parameters (product_type_id INTEGER PRIMARY KEY, test_voltage_v REAL NOT NULL, updated_by TEXT NOT NULL, updated_at_utc TEXT NOT NULL)
+        """,
+        """
+        CREATE TABLE product_model_test_parameters (product_model_id INTEGER PRIMARY KEY, protect_current_ma REAL NOT NULL, updated_by TEXT NOT NULL, updated_at_utc TEXT NOT NULL)
+        """,
+        """
         CREATE TABLE test_item_definitions (id INTEGER PRIMARY KEY AUTOINCREMENT, code TEXT NOT NULL UNIQUE, name TEXT NOT NULL, executor_code TEXT NOT NULL, result_kind TEXT NOT NULL, is_enabled INTEGER NOT NULL DEFAULT 1, sort_order INTEGER NOT NULL DEFAULT 0, created_at_utc TEXT NOT NULL)
         """,
         """
@@ -109,6 +132,8 @@ public class V3ToV4MigrationTests
         """,
         "INSERT INTO product_types (id, code, name, is_enabled, created_at_utc) VALUES (1, 'PT', '压力试验', 1, '2026-09-01T00:00:00.0000000Z')",
         "INSERT INTO product_models (id, product_type_id, code, name, is_enabled, created_at_utc) VALUES (1, 1, 'M1', '型号1', 1, '2026-09-01T00:00:00.0000000Z')",
+        "INSERT INTO product_type_test_parameters (product_type_id, test_voltage_v, updated_by, updated_at_utc) VALUES (1, 5000, 'admin', '2026-09-01T00:00:00.0000000Z')",
+        "INSERT INTO product_model_test_parameters (product_model_id, protect_current_ma, updated_by, updated_at_utc) VALUES (1, 100, 'admin', '2026-09-01T00:00:00.0000000Z')",
         """
         INSERT INTO test_tasks (id, task_number, product_model_id, product_number, batch_number, station_number, remark, state, created_by_user_id, created_at_utc)
         VALUES (1, 'T-LEGACY-0001', 1, 'SN001', 'B001', 'S1', '旧记录', 3, 1, '2026-09-01T00:00:00.0000000Z')

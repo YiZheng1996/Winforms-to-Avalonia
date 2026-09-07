@@ -38,6 +38,14 @@ public sealed class TestRecord
     /// </summary>
     public DeviceMode DeviceMode { get; init; }
     /// <summary>
+    /// 创建记录时使用的完整设备配置版本。
+    /// </summary>
+    public string? DeviceConfigurationRevision { get; init; }
+    /// <summary>
+    /// 创建记录时解析出的 SignalKey → PointId 映射 JSON 快照。
+    /// </summary>
+    public string? SignalBindingsSnapshot { get; init; }
+    /// <summary>
     /// 操作员用户编号。
     /// </summary>
     public int OperatorUserId { get; init; }

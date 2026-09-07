@@ -28,7 +28,33 @@ public sealed class FakeAuditLog : IAuditLog
     }
 
     public Task<IReadOnlyList<AuditEntry>> ListRecentAsync(int limit, CancellationToken ct = default)
-        => Task.FromResult<IReadOnlyList<AuditEntry>>(Entries.Select((e, i) => new AuditEntry(i + 1, string.Empty, string.Empty, null, e, DateTime.UtcNow)).Reverse().Take(limit).ToList());
+        => SearchAsync(new AuditLogQuery(Limit: limit), ct);
+
+    public Task<IReadOnlyList<AuditEntry>> SearchAsync(AuditLogQuery query, CancellationToken ct = default)
+    {
+        var entries = Entries.Select((value, index) =>
+        {
+            var fields = value.Split('|', 4);
+            return new AuditEntry(
+                index + 1,
+                fields.ElementAtOrDefault(0) ?? string.Empty,
+                fields.ElementAtOrDefault(1) ?? string.Empty,
+                fields.ElementAtOrDefault(2),
+                fields.ElementAtOrDefault(3),
+                DateTime.UtcNow);
+        });
+
+        if (!string.IsNullOrWhiteSpace(query.Actor))
+            entries = entries.Where(entry => entry.Actor.Contains(query.Actor, StringComparison.OrdinalIgnoreCase));
+        if (!string.IsNullOrWhiteSpace(query.Action))
+            entries = entries.Where(entry => string.Equals(entry.Action, query.Action, StringComparison.OrdinalIgnoreCase));
+        if (!string.IsNullOrWhiteSpace(query.Text))
+            entries = entries.Where(entry => (entry.Target ?? string.Empty).Contains(query.Text, StringComparison.OrdinalIgnoreCase)
+                || (entry.Detail ?? string.Empty).Contains(query.Text, StringComparison.OrdinalIgnoreCase));
+
+        var result = entries.Reverse().Take(Math.Clamp(query.Limit, 1, 1000)).ToList();
+        return Task.FromResult<IReadOnlyList<AuditEntry>>(result);
+    }
 }
 
 public sealed class FakeSessionManager : ISessionManager
@@ -68,6 +94,7 @@ public sealed class FakeUserRepository : IUserRepository
     public List<User> Users { get; } = new();
     public List<Role> Roles { get; } = new();
     private int _nextId = 1;
+    private int _nextRoleId = 1;
 
     public Task<User?> GetByLoginNameAsync(string loginName, CancellationToken ct = default)
         => Task.FromResult(Users.FirstOrDefault(u => u.LoginName == loginName));
@@ -81,6 +108,7 @@ public sealed class FakeUserRepository : IUserRepository
     public Task AddAsync(User user, CancellationToken ct = default)
     {
         if (user.Id == 0) user.Id = _nextId++;
+        else _nextId = Math.Max(_nextId, user.Id + 1);
         Users.Add(user);
         return Task.CompletedTask;
     }
@@ -92,6 +120,92 @@ public sealed class FakeUserRepository : IUserRepository
 
     public Task<IReadOnlyList<Role>> ListRolesAsync(CancellationToken ct = default)
         => Task.FromResult<IReadOnlyList<Role>>(Roles.ToList());
+
+    public Task<bool> RoleNameExistsAsync(string name, int? excludingRoleId = null, CancellationToken ct = default)
+        => Task.FromResult(Roles.Any(r => (!excludingRoleId.HasValue || r.Id != excludingRoleId.Value)
+            && string.Equals(r.Name, name, StringComparison.OrdinalIgnoreCase)));
+
+    public Task AddRoleAsync(Role role, CancellationToken ct = default)
+    {
+        if (role.Id == 0)
+        {
+            _nextRoleId = Math.Max(_nextRoleId, Roles.Select(item => item.Id).DefaultIfEmpty(0).Max() + 1);
+            role.Id = _nextRoleId++;
+        }
+        else _nextRoleId = Math.Max(_nextRoleId, role.Id + 1);
+        Roles.Add(role);
+        return Task.CompletedTask;
+    }
+
+    public Task RenameRoleAsync(int roleId, string name, CancellationToken ct = default)
+    {
+        var role = Roles.FirstOrDefault(r => r.Id == roleId) ?? throw new InvalidOperationException("角色不存在");
+        role.Name = name;
+        return Task.CompletedTask;
+    }
+
+    public Task DeleteRoleAsync(int roleId, CancellationToken ct = default)
+    {
+        Roles.RemoveAll(r => r.Id == roleId);
+        return Task.CompletedTask;
+    }
+
+    public Task ClearRolePermissionsAsync(int roleId, CancellationToken ct = default)
+    {
+        var role = Roles.FirstOrDefault(r => r.Id == roleId) ?? throw new InvalidOperationException("角色不存在");
+        role.Permissions.Clear();
+        return Task.CompletedTask;
+    }
+
+    public Task AddRolePermissionAsync(int roleId, PermissionCode permission, CancellationToken ct = default)
+    {
+        var role = Roles.FirstOrDefault(r => r.Id == roleId) ?? throw new InvalidOperationException("角色不存在");
+        role.Permissions.Add(permission);
+        return Task.CompletedTask;
+    }
+
+    public Task<int> CountUsersByRoleAsync(int roleId, CancellationToken ct = default)
+        => Task.FromResult(Users.Count(u => u.RoleId == roleId));
+}
+
+public sealed class FakeUnitOfWorkFactory : IUnitOfWorkFactory
+{
+    public int CreatedCount { get; private set; }
+    public FakeUnitOfWork Last { get; private set; } = new();
+
+    public IUnitOfWork Create()
+    {
+        CreatedCount++;
+        Last = new FakeUnitOfWork();
+        return Last;
+    }
+}
+
+public sealed class FakeUnitOfWork : IUnitOfWork
+{
+    public bool Begun { get; private set; }
+    public bool Committed { get; private set; }
+    public bool RolledBack { get; private set; }
+
+    public Task BeginTransactionAsync(CancellationToken ct = default)
+    {
+        Begun = true;
+        return Task.CompletedTask;
+    }
+
+    public Task CommitAsync(CancellationToken ct = default)
+    {
+        Committed = true;
+        return Task.CompletedTask;
+    }
+
+    public Task RollbackAsync(CancellationToken ct = default)
+    {
+        RolledBack = true;
+        return Task.CompletedTask;
+    }
+
+    public ValueTask DisposeAsync() => ValueTask.CompletedTask;
 }
 
 public sealed class FakeProductRepository : IProductRepository
@@ -350,17 +464,13 @@ public sealed class FakeReportGenerator : IReportGenerator
 public sealed class FakeTestParameterRepository : ITestParameterRepository
 {
     public ProjectTestParameter? Project { get; set; }
-    public List<ProductTypeTestParameter> TypeParameters { get; } = new();
-    public List<ProductModelTestParameter> ModelParameters { get; } = new();
+    public List<ProductTestParameter> ProductParameters { get; } = new();
 
     public Task<ProjectTestParameter?> GetProjectAsync(CancellationToken ct = default)
         => Task.FromResult(Project);
 
-    public Task<ProductTypeTestParameter?> GetTypeAsync(int productTypeId, CancellationToken ct = default)
-        => Task.FromResult(TypeParameters.FirstOrDefault(p => p.ProductTypeId == productTypeId));
-
-    public Task<ProductModelTestParameter?> GetModelAsync(int productModelId, CancellationToken ct = default)
-        => Task.FromResult(ModelParameters.FirstOrDefault(p => p.ProductModelId == productModelId));
+    public Task<ProductTestParameter?> GetProductAsync(int productTypeId, int productModelId, CancellationToken ct = default)
+        => Task.FromResult(ProductParameters.FirstOrDefault(p => p.ProductTypeId == productTypeId && p.ProductModelId == productModelId));
 
     public Task SaveProjectAsync(ProjectTestParameter value, CancellationToken ct = default)
     {
@@ -368,17 +478,10 @@ public sealed class FakeTestParameterRepository : ITestParameterRepository
         return Task.CompletedTask;
     }
 
-    public Task SaveTypeAsync(ProductTypeTestParameter value, CancellationToken ct = default)
+    public Task SaveProductAsync(ProductTestParameter value, CancellationToken ct = default)
     {
-        TypeParameters.RemoveAll(p => p.ProductTypeId == value.ProductTypeId);
-        TypeParameters.Add(value);
-        return Task.CompletedTask;
-    }
-
-    public Task SaveModelAsync(ProductModelTestParameter value, CancellationToken ct = default)
-    {
-        ModelParameters.RemoveAll(p => p.ProductModelId == value.ProductModelId);
-        ModelParameters.Add(value);
+        ProductParameters.RemoveAll(p => p.ProductTypeId == value.ProductTypeId && p.ProductModelId == value.ProductModelId);
+        ProductParameters.Add(value);
         return Task.CompletedTask;
     }
 }

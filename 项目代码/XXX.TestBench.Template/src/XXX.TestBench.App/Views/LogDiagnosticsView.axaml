@@ -1,20 +1,158 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:XXX.TestBench.App.ViewModels"
+             xmlns:icons="using:XXX.TestBench.App.Icons"
              x:Class="XXX.TestBench.App.Views.LogDiagnosticsView"
-             x:DataType="vm:LogDiagnosticsViewModel">
-  <DockPanel Margin="16">
-    <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Spacing="8" Margin="0,0,0,8">
-      <Button Content="刷新" Command="{Binding LoadCommand}" />
-    </StackPanel>
-    <DataGrid ItemsSource="{Binding Logs}" AutoGenerateColumns="False" IsReadOnly="True" RowHeight="42" HeadersVisibility="Column">
-      <DataGrid.Columns>
-        <DataGridTextColumn Header="时间" Binding="{Binding Time}" Width="1.3*" />
-        <DataGridTextColumn Header="操作者" Binding="{Binding Actor}" Width="1.1*" />
-        <DataGridTextColumn Header="操作" Binding="{Binding Action}" Width="1.2*" />
-        <DataGridTextColumn Header="对象" Binding="{Binding Target}" Width="1.2*" />
-        <DataGridTextColumn Header="详细信息" Binding="{Binding Detail}" Width="2*" />
-      </DataGrid.Columns>
-    </DataGrid>
-  </DockPanel>
+             x:DataType="vm:LogDiagnosticsViewModel"
+             UseLayoutRounding="True">
+  <UserControl.Styles>
+    <Style Selector="CalendarDatePicker.log-date-input">
+      <Setter Property="MinHeight" Value="40" />
+      <Setter Property="Padding" Value="11,0" />
+      <Setter Property="CornerRadius" Value="6" />
+    </Style>
+  </UserControl.Styles>
+
+  <Grid Background="{DynamicResource WorkspaceBrush}"
+        RowDefinitions="Auto,Auto,*"
+        RowSpacing="12"
+        Margin="16,14,16,8">
+    <!-- 页面标题：与参数管理、设备点位管理保持同一套蓝白卡片风格。 -->
+    <Border Grid.Row="0" Classes="parameter-surface" Padding="18,14">
+      <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="14">
+        <Border Classes="parameter-icon">
+          <icons:AppIcon Kind="Logs" Width="22" Height="22"
+                         Stroke="{DynamicResource BrandBlueBrush}"
+                         HorizontalAlignment="Center" VerticalAlignment="Center" />
+        </Border>
+        <StackPanel Grid.Column="1" Spacing="3" VerticalAlignment="Center">
+          <TextBlock Text="日志管理" FontSize="24" FontWeight="SemiBold"
+                     Foreground="{DynamicResource TextPrimaryBrush}" />
+          <TextBlock Text="查询系统操作记录，支持按时间、操作者、操作类型和关键字筛选"
+                     Classes="parameter-hint" />
+        </StackPanel>
+        <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="10"
+                    VerticalAlignment="Center">
+          <Border Classes="parameter-count">
+            <StackPanel Orientation="Horizontal" Spacing="6">
+              <Ellipse Width="8" Height="8" Fill="{DynamicResource BrandBlueBrush}"
+                       VerticalAlignment="Center" />
+              <TextBlock Text="只读审计记录" Foreground="#0758D7" FontSize="13"
+                         VerticalAlignment="Center" />
+            </StackPanel>
+          </Border>
+          <Button Classes="parameter-secondary" Command="{Binding LoadCommand}">
+            <StackPanel Orientation="Horizontal" Spacing="7">
+              <icons:AppIcon Kind="Refresh" Width="15" Height="15"
+                             Stroke="{Binding $parent[Button].Foreground}" />
+              <TextBlock Text="刷新数据" />
+            </StackPanel>
+          </Button>
+        </StackPanel>
+      </Grid>
+    </Border>
+
+    <!-- 查询条件：标签置于输入框上方，日期和操作按钮各自成组，避免控件拥挤。 -->
+    <Border Grid.Row="1" Classes="parameter-surface" Padding="16,14">
+      <Grid RowDefinitions="Auto,Auto" RowSpacing="14">
+        <Grid ColumnDefinitions="1.1*,0.9*,1.6*,2.1*" ColumnSpacing="12">
+          <Grid RowDefinitions="Auto,Auto" RowSpacing="6">
+            <TextBlock Text="操作者" Classes="parameter-label" />
+            <TextBox Grid.Row="1" Classes="parameter-input" HorizontalAlignment="Stretch"
+                     Text="{Binding ActorFilter, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                     Watermark="账号或系统名称（支持模糊）" />
+          </Grid>
+
+          <Grid Grid.Column="1" RowDefinitions="Auto,Auto" RowSpacing="6">
+            <TextBlock Text="操作类型" Classes="parameter-label" />
+            <ComboBox Grid.Row="1" Classes="parameter-input" HorizontalAlignment="Stretch"
+                      ItemsSource="{Binding ActionOptions}"
+                      SelectedItem="{Binding SelectedAction, Mode=TwoWay}"
+                      DisplayMemberBinding="{Binding DisplayName}" />
+          </Grid>
+
+          <Grid Grid.Column="2" RowDefinitions="Auto,Auto" RowSpacing="6">
+            <TextBlock Text="关键字" Classes="parameter-label" />
+            <TextBox Grid.Row="1" Classes="parameter-input" HorizontalAlignment="Stretch"
+                     Text="{Binding TextFilter, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                     Watermark="对象或详细信息（支持模糊）" />
+          </Grid>
+
+          <Grid Grid.Column="3" RowDefinitions="Auto,Auto" RowSpacing="6">
+            <TextBlock Text="日期范围" Classes="parameter-label" />
+            <Grid Grid.Row="1" ColumnDefinitions="*,Auto,*" ColumnSpacing="8">
+              <CalendarDatePicker Classes="log-date-input" HorizontalAlignment="Stretch"
+                                   SelectedDateFormat="Custom" CustomDateFormatString="yyyy-MM-dd"
+                                   SelectedDate="{Binding StartDate, Mode=TwoWay}" />
+              <TextBlock Grid.Column="1" Text="至" Classes="parameter-hint"
+                         VerticalAlignment="Center" />
+              <CalendarDatePicker Grid.Column="2" Classes="log-date-input" HorizontalAlignment="Stretch"
+                                   SelectedDateFormat="Custom" CustomDateFormatString="yyyy-MM-dd"
+                                   SelectedDate="{Binding EndDate, Mode=TwoWay}" />
+            </Grid>
+          </Grid>
+        </Grid>
+
+        <Grid Grid.Row="1" ColumnDefinitions="*,Auto" ColumnSpacing="12">
+          <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+            <TextBlock Text="查询提示" Classes="parameter-label" />
+            <Border Background="#F0F7FF" BorderBrush="#CFE0FF" BorderThickness="1"
+                    CornerRadius="14" Padding="11,5">
+              <TextBlock Text="默认查询最近 7 个自然日，结束日期包含当天"
+                         Foreground="#0758D7" FontSize="13" />
+            </Border>
+          </StackPanel>
+          <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+            <Button Classes="parameter-primary" Command="{Binding SearchCommand}">
+              <StackPanel Orientation="Horizontal" Spacing="7">
+                <icons:AppIcon Kind="Search" Width="15" Height="15"
+                               Stroke="{Binding $parent[Button].Foreground}" />
+                <TextBlock Text="查询" />
+              </StackPanel>
+            </Button>
+            <Button Classes="parameter-secondary" Command="{Binding ResetFiltersCommand}">
+              <StackPanel Orientation="Horizontal" Spacing="7">
+                <icons:AppIcon Kind="Reset" Width="15" Height="15"
+                               Stroke="{Binding $parent[Button].Foreground}" />
+                <TextBlock Text="恢复默认" />
+              </StackPanel>
+            </Button>
+          </StackPanel>
+        </Grid>
+      </Grid>
+    </Border>
+
+    <!-- 查询结果：使用参数管理页的白色工作面和轻量表头。 -->
+    <Border Grid.Row="2" Classes="parameter-surface" Padding="1">
+      <Grid RowDefinitions="Auto,*">
+        <Border Grid.Row="0" Background="#F8FAFD" Padding="16,11"
+                BorderBrush="#E2E8F0" BorderThickness="0,0,0,1">
+          <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+            <TextBlock Text="审计日志" FontWeight="SemiBold" Foreground="#344054" />
+            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="12">
+              <TextBlock Text="按创建时间倒序 · 最多显示 200 条"
+                         Classes="parameter-hint" VerticalAlignment="Center" />
+              <TextBlock Text="{Binding StatusMessage}" Foreground="#0758D7"
+                         VerticalAlignment="Center" />
+            </StackPanel>
+          </Grid>
+        </Border>
+        <DataGrid Grid.Row="1" Classes="parameter-grid"
+                  ItemsSource="{Binding Logs}"
+                  AutoGenerateColumns="False"
+                  IsReadOnly="True"
+                  RowHeight="48"
+                  HeadersVisibility="Column">
+          <DataGrid.Columns>
+            <DataGridTextColumn Header="时间" Binding="{Binding Time}" Width="1.3*" />
+            <DataGridTextColumn Header="操作者" Binding="{Binding Actor}" Width="1.1*" />
+            <DataGridTextColumn Header="操作" Binding="{Binding Action}" Width="1.2*" />
+            <DataGridTextColumn Header="对象" Binding="{Binding Target}" Width="1.2*" />
+            <DataGridTextColumn Header="详细信息" Binding="{Binding Detail}" Width="2*" />
+          </DataGrid.Columns>
+        </DataGrid>
+      </Grid>
+    </Border>
+
+  </Grid>
 </UserControl>

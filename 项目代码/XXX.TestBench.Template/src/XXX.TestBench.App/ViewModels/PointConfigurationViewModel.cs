@@ -27,6 +27,11 @@ public sealed partial class PointConfigurationViewModel : PageViewModel
     public override string Title => "项点配置";
 
     /// <summary>
+    /// 当前用户是否拥有项点配置写权限。
+    /// </summary>
+    public bool CanEdit => _actor.HasPermission(PermissionCode.ManageTestPoints);
+
+    /// <summary>
     /// 产品类型选项。
     /// </summary>
     public ObservableCollection<ProductType> TypeOptions { get; } = new();
@@ -145,7 +150,16 @@ public sealed partial class PointConfigurationViewModel : PageViewModel
     /// 把右侧选中项点移回左侧。
     /// </summary>
     [RelayCommand]
-    public Task RemoveSelectedAsync() => MovePointAsync(SelectedConfigured, fromAvailable: false, down: false);
+    private async Task RemoveSelectedAsync() => await RemoveSelectedFromPageAsync();
+
+    public Task<OperationFeedback> RemoveSelectedFromPageAsync()
+    {
+        if (SelectedConfigured is null)
+            return Task.FromResult(SetFeedback(false, "请先选择已配置项点"));
+
+        MovePointAsync(SelectedConfigured, fromAvailable: false, down: false);
+        return Task.FromResult(SetFeedback(true, "项点已移出配置序列"));
+    }
 
     /// <summary>
     /// 上移右侧选中项点。
@@ -197,7 +211,9 @@ public sealed partial class PointConfigurationViewModel : PageViewModel
     /// 保存当前右侧顺序为型号的自动试验序列。
     /// </summary>
     [RelayCommand]
-    public async Task SaveAsync()
+    private async Task SaveAsync() => await SaveFromDialogAsync();
+
+    public async Task<OperationFeedback> SaveFromDialogAsync()
     {
         StatusMessage = string.Empty;
         try
@@ -205,9 +221,15 @@ public sealed partial class PointConfigurationViewModel : PageViewModel
             if (SelectedModel is null) throw new Core.Common.DomainException("请选择产品型号");
             var ids = ConfiguredPoints.Select(p => p.Id).ToList();
             await _services.TestPoints.SaveConfigurationAsync(_actor, SelectedModel.Id, ids);
-            StatusMessage = "项点配置已保存";
             await LoadConfigurationAsync();
+            return SetFeedback(true, "项点配置已保存");
         }
-        catch (Exception ex) { StatusMessage = ex.Message; }
+        catch (Exception ex) { return SetFeedback(false, ex.Message); }
+    }
+
+    private OperationFeedback SetFeedback(bool succeeded, string message)
+    {
+        StatusMessage = message;
+        return new OperationFeedback(succeeded, message);
     }
 }

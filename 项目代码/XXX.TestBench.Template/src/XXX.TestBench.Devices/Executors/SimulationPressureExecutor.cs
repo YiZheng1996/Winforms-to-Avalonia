@@ -13,9 +13,23 @@ namespace XXX.TestBench.Devices.Executors;
 public sealed class SimulationPressureExecutor : ITestItemExecutor
 {
     /// <summary>
+    /// 现有仿真执行逻辑实际读取的点位编码；它现在作为固定 SignalKey 对外声明。
+    /// </summary>
+    public const string PressureSignalKey = "AI_Pressure";
+
+    /// <summary>
     /// 执行器代码。
     /// </summary>
     public string ExecutorCode => "PressureExecutor";
+
+    /// <summary>
+    /// 压力执行器的必需输入信号。实际点位由项目级绑定映射到 PointId。
+    /// </summary>
+    public IReadOnlyList<RequiredSignal> RequiredSignals { get; } =
+    [
+        new RequiredSignal(PressureSignalKey, SignalAccessKind.Read,
+            DevicePointDataType.Decimal, "MPa", TimeSpan.FromSeconds(2))
+    ];
 
     /// <summary>
     /// 校验参数快照并读取仿真压力点位，演示一次完整执行。
@@ -31,12 +45,23 @@ public sealed class SimulationPressureExecutor : ITestItemExecutor
         if (!validation.IsValid)
             return new ItemExecutionOutcome(ItemResultState.Failed, null, validation.Error);
 
-        var points = await context.Runtime.ListPointsAsync(ct);
-        var pressurePoint = points.FirstOrDefault(p => p.Code == "AI_Pressure");
-        if (pressurePoint is null)
-            return new ItemExecutionOutcome(ItemResultState.Failed, null, "仿真运行时缺少点位 AI_Pressure");
-
-        var read = await context.Runtime.ReadAsync(pressurePoint, ct);
+        PointValue read;
+        if (context.SignalResolver is not null)
+        {
+            if (context.ResolvedSignals is null)
+                return new ItemExecutionOutcome(ItemResultState.Failed, null, "缺少本次试验的信号解析快照");
+            read = await context.SignalResolver.ReadFreshAsync(
+                PressureSignalKey, context.ResolvedSignals, ct);
+        }
+        else
+        {
+            // 仅保留给 v1 兼容运行时；v2 必须经过固定绑定和 PointId 路由。
+            var points = await context.Runtime.ListPointsAsync(ct);
+            var pressurePoint = points.FirstOrDefault(p => p.Code == PressureSignalKey);
+            if (pressurePoint is null)
+                return new ItemExecutionOutcome(ItemResultState.Failed, null, $"仿真运行时缺少点位 {PressureSignalKey}");
+            read = await context.Runtime.ReadAsync(pressurePoint, ct);
+        }
         if (read.Quality != PointQuality.Good)
             return new ItemExecutionOutcome(ItemResultState.Failed, read.Value?.ToString(), $"点位质量异常（{read.Quality}）");
 

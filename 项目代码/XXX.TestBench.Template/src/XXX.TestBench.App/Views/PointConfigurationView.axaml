@@ -2,15 +2,16 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:XXX.TestBench.App.ViewModels"
              xmlns:tp="using:XXX.TestBench.Core.Domain.TestPoints"
+             xmlns:icons="using:XXX.TestBench.App.Icons"
              x:Class="XXX.TestBench.App.Views.PointConfigurationView"
              x:DataType="vm:PointConfigurationViewModel"
              UseLayoutRounding="True">
-  <Grid RowDefinitions="Auto,* ,Auto" RowSpacing="12" Margin="0,12,0,0">
+  <Grid RowDefinitions="Auto,*" RowSpacing="12" Margin="0,12,0,0">
     <Border Grid.Row="0" Classes="parameter-surface" Padding="16,14">
       <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="14">
         <Border Classes="parameter-icon">
-          <TextBlock Text="⇄" FontSize="22" Foreground="{DynamicResource BrandBlueBrush}"
-                     HorizontalAlignment="Center" VerticalAlignment="Center" />
+          <icons:AppIcon Kind="PointConfiguration" Width="22" Height="22" Stroke="{DynamicResource BrandBlueBrush}"
+                        HorizontalAlignment="Center" VerticalAlignment="Center" />
         </Border>
         <StackPanel Grid.Column="1" Spacing="10" VerticalAlignment="Center">
           <StackPanel Spacing="3">
@@ -34,7 +35,8 @@
           </StackPanel>
         </StackPanel>
         <Button Grid.Column="2" Classes="parameter-primary" Content="保存配置"
-                Command="{Binding SaveCommand}" VerticalAlignment="Center" />
+                Click="OnSaveClick" IsEnabled="{Binding CanEdit}"
+                VerticalAlignment="Center" />
       </Grid>
     </Border>
 
@@ -80,15 +82,35 @@
       </Border>
 
       <StackPanel Grid.Column="1" VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="8">
-        <Button Classes="parameter-secondary" Content="添加  →" MinWidth="78"
-                Command="{Binding AddSelectedCommand}" />
-        <Button Classes="parameter-secondary" Content="←  移除" MinWidth="78"
-                Command="{Binding RemoveSelectedCommand}" />
+        <Button Classes="parameter-secondary" MinWidth="78"
+                Command="{Binding AddSelectedCommand}" IsEnabled="{Binding CanEdit}">
+          <StackPanel Orientation="Horizontal" Spacing="6">
+            <TextBlock Text="添加" />
+            <icons:AppIcon Kind="ChevronRight" Width="12" Height="12" Stroke="{Binding $parent[Button].Foreground}" />
+          </StackPanel>
+        </Button>
+        <Button Classes="parameter-secondary" MinWidth="78"
+                Click="OnRemoveClick" IsEnabled="{Binding CanEdit}">
+          <StackPanel Orientation="Horizontal" Spacing="6">
+            <icons:AppIcon Kind="ChevronLeft" Width="12" Height="12" Stroke="{Binding $parent[Button].Foreground}" />
+            <TextBlock Text="移除" />
+          </StackPanel>
+        </Button>
         <Border Height="1" Width="54" Background="#DCE5F0" Margin="0,3" />
-        <Button Classes="parameter-secondary" Content="上移  ↑" MinWidth="78"
-                Command="{Binding MoveUpCommand}" />
-        <Button Classes="parameter-secondary" Content="下移  ↓" MinWidth="78"
-                Command="{Binding MoveDownCommand}" />
+        <Button Classes="parameter-secondary" MinWidth="78"
+                Command="{Binding MoveUpCommand}" IsEnabled="{Binding CanEdit}">
+          <StackPanel Orientation="Horizontal" Spacing="6">
+            <TextBlock Text="上移" />
+            <icons:AppIcon Kind="MoveUp" Width="13" Height="13" Stroke="{Binding $parent[Button].Foreground}" />
+          </StackPanel>
+        </Button>
+        <Button Classes="parameter-secondary" MinWidth="78"
+                Command="{Binding MoveDownCommand}" IsEnabled="{Binding CanEdit}">
+          <StackPanel Orientation="Horizontal" Spacing="6">
+            <TextBlock Text="下移" />
+            <icons:AppIcon Kind="MoveDown" Width="13" Height="13" Stroke="{Binding $parent[Button].Foreground}" />
+          </StackPanel>
+        </Button>
       </StackPanel>
 
       <Border Grid.Column="2" Classes="parameter-surface" Padding="1">
@@ -132,7 +154,5 @@
       </Border>
     </Grid>
 
-    <TextBlock Grid.Row="2" Text="{Binding StatusMessage}" Foreground="#1F618D" FontSize="13"
-               TextWrapping="Wrap" />
   </Grid>
 </UserControl>

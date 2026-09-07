@@ -43,11 +43,10 @@ public class FullLoopTests
         var model = new ProductModel { ProductTypeId = type.Id, Name = "型号1", CreatedAtUtc = clock.UtcNow };
         await productRepo.AddModelAsync(model);
 
-        // 直编参数：项目/类型/型号三级
+        // 直编参数：项目级 + 产品类型/产品型号组合级
         var parameters = new TestParameterService(paramRepo, productRepo, clock, audit);
         await parameters.SaveProjectAsync(actor, 60);
-        await parameters.SaveTypeAsync(actor, type.Id, 5000);
-        await parameters.SaveModelAsync(actor, model.Id, 100);
+        await parameters.SaveProductAsync(actor, type.Id, model.Id, 5000, 100);
         var effective = await parameters.LoadEffectiveAsync(model.Id);
         Assert.Equal(60, effective.TestTimeSeconds);
         Assert.Equal(5000, effective.TestVoltageV);

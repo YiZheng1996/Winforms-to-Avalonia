@@ -42,4 +42,54 @@ public class ConfigurationValidatorTests
         sim.InitialValues["sim.missing"] = 1.0;
         Assert.Throws<ConfigValidationException>(() => ConfigurationValidator.ValidateAll(app, device, points, sim));
     }
+
+    [Fact]
+    public void ReadOnlyHighRiskPoint_Throws()
+    {
+        var (app, device, points, sim) = Valid();
+        points.Points[0].RiskLevel = WriteRiskLevel.HighRisk;
+
+        var exception = Assert.Throws<ConfigValidationException>(() => ConfigurationValidator.ValidateAll(app, device, points, sim));
+
+        Assert.Contains("只读点位", exception.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void PointTypeCatalog_MapsChineseTemplateValuesToEnums()
+    {
+        Assert.True(DevicePointTypeCatalog.TryParseProtocol("仿真", out var protocol));
+        Assert.Equal(DevicePointProtocol.Simulation, protocol);
+        Assert.True(DevicePointTypeCatalog.TryParseDataType("小数", out var dataType));
+        Assert.Equal(DevicePointDataType.Decimal, dataType);
+        Assert.Equal("Simulation", DevicePointTypeCatalog.ToStorage(protocol));
+        Assert.Equal("Decimal", DevicePointTypeCatalog.ToStorage(dataType));
+    }
+
+    [Fact]
+    public void UnsupportedPointType_IsRejectedByConfigurationValidation()
+    {
+        var (app, device, points, sim) = Valid();
+        points.Points[0].DataType = "UnsupportedType";
+
+        var exception = Assert.Throws<ConfigValidationException>(() => ConfigurationValidator.ValidateAll(app, device, points, sim));
+
+        Assert.Contains("数据类型不受支持", exception.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void UnsupportedSimulationPattern_IsRejectedByConfigurationValidation()
+    {
+        var (app, device, points, sim) = Valid();
+        sim.ChangeRules.Add(new SimulationConfig.ChangeRule
+        {
+            Address = "sim.pressure",
+            Pattern = "triangle",
+            Min = 0,
+            Max = 10
+        });
+
+        var exception = Assert.Throws<ConfigValidationException>(() => ConfigurationValidator.ValidateAll(app, device, points, sim));
+
+        Assert.Contains("变化方式不受支持", exception.Message, StringComparison.Ordinal);
+    }
 }

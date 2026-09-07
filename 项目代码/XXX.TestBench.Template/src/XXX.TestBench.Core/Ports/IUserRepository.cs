@@ -35,4 +35,39 @@ public interface IUserRepository
     /// 更新用户信息。
     /// </summary>
     Task UpdateAsync(User user, CancellationToken ct = default);
+
+    /// <summary>
+    /// 检查角色名称是否已被其他角色使用。
+    /// </summary>
+    Task<bool> RoleNameExistsAsync(string name, int? excludingRoleId = null, CancellationToken ct = default);
+
+    /// <summary>
+    /// 新增角色并回填编号。
+    /// </summary>
+    Task AddRoleAsync(Role role, CancellationToken ct = default);
+
+    /// <summary>
+    /// 修改角色显示名称。
+    /// </summary>
+    Task RenameRoleAsync(int roleId, string name, CancellationToken ct = default);
+
+    /// <summary>
+    /// 删除角色。调用方需先完成内置角色和引用关系校验。
+    /// </summary>
+    Task DeleteRoleAsync(int roleId, CancellationToken ct = default);
+
+    /// <summary>
+    /// 删除角色当前全部权限。
+    /// </summary>
+    Task ClearRolePermissionsAsync(int roleId, CancellationToken ct = default);
+
+    /// <summary>
+    /// 添加角色权限。
+    /// </summary>
+    Task AddRolePermissionAsync(int roleId, PermissionCode permission, CancellationToken ct = default);
+
+    /// <summary>
+    /// 返回关联到指定角色的用户数。
+    /// </summary>
+    Task<int> CountUsersByRoleAsync(int roleId, CancellationToken ct = default);
 }

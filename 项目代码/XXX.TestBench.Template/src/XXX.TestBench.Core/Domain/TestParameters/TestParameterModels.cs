@@ -3,7 +3,7 @@ using System.Text.Json;
 namespace XXX.TestBench.Core.Domain.TestParameters;
 
 /// <summary>
-/// 自动试验最终使用的强类型参数（项目/产品类型/产品型号三级合并后的结果）。
+/// 自动试验最终使用的强类型参数（项目级与产品类型/产品型号组合级参数合并后的结果）。
 /// </summary>
 public sealed record EffectiveTestParameters
 {
@@ -38,13 +38,17 @@ public static class TestParameterValidator
     /// 校验试验电压（V）。合法返回 null，否则返回错误原因。
     /// </summary>
     public static string? ValidateTestVoltage(double voltage)
-        => voltage is <= 0 or > 5000 ? "试验电压必须大于 0 且不超过 5000 V。" : null;
+        => !double.IsFinite(voltage) || voltage is <= 0 or > 5000
+            ? "试验电压必须大于 0 且不超过 5000 V。"
+            : null;
 
     /// <summary>
     /// 校验保护电流（mA）。合法返回 null，否则返回错误原因。
     /// </summary>
     public static string? ValidateProtectCurrent(double current)
-        => current is <= 0 or > 1000 ? "保护电流必须大于 0 且不超过 1000 mA。" : null;
+        => !double.IsFinite(current) || current is <= 0 or > 1000
+            ? "保护电流必须大于 0 且不超过 1000 mA。"
+            : null;
 
     /// <summary>
     /// 校验合并后的全部有效参数。

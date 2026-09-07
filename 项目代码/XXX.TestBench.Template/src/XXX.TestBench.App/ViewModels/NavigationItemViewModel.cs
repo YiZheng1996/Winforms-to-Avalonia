@@ -1,4 +1,5 @@
 using CommunityToolkit.Mvvm.ComponentModel;
+using XXX.TestBench.App.Icons;
 
 namespace XXX.TestBench.App.ViewModels;
 
@@ -7,11 +8,11 @@ namespace XXX.TestBench.App.ViewModels;
 /// </summary>
 public sealed partial class NavigationItemViewModel : ObservableObject
 {
-    public NavigationItemViewModel(string title, string displayTitle, string iconGlyph, PageViewModel page)
+    public NavigationItemViewModel(string title, string displayTitle, AppIconKind icon, PageViewModel page)
     {
         Title = title;
         DisplayTitle = displayTitle;
-        IconGlyph = iconGlyph;
+        Icon = icon;
         Page = page;
     }
 
@@ -26,9 +27,9 @@ public sealed partial class NavigationItemViewModel : ObservableObject
     public string DisplayTitle { get; }
 
     /// <summary>
-    /// 导航项显示的图标字符。
+    /// 导航项显示的矢量图标语义。
     /// </summary>
-    public string IconGlyph { get; }
+    public AppIconKind Icon { get; }
 
     /// <summary>
     /// 该导航项对应的页面视图模型。

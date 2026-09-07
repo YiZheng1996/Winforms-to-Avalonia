@@ -10,6 +10,10 @@ public sealed class Role
     /// </summary>
     public int Id { get; set; }
     /// <summary>
+    /// 内置角色标识；自定义角色为空。该值用于保护内置角色，不作为显示名称使用。
+    /// </summary>
+    public string? SystemKey { get; set; }
+    /// <summary>
     /// 角色名称。
     /// </summary>
     public required string Name { get; set; }

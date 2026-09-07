@@ -67,8 +67,16 @@ public sealed class DeviceModeController
         {
             Runtime = await _factory.CreateAsync(mode, ct);
             await Runtime.StartAsync(ct);
-            Health = DeviceHealth.Healthy;
-            LastError = null;
+            Health = Runtime.Status.Health;
+            LastError = Runtime.Status.LastError;
+            if (Health is DeviceHealth.Faulted or DeviceHealth.Unknown)
+            {
+                var error = string.IsNullOrWhiteSpace(LastError)
+                    ? $"设备模式 {mode} 启动后没有可用设备"
+                    : LastError;
+                await _audit.WriteAsync("system", "DeviceModeInitFailed", mode.ToString(), error, ct);
+                return new DeviceModeResult(false, error);
+            }
             await _audit.WriteAsync("system", "DeviceModeInitialized", mode.ToString(), null, ct);
             return new DeviceModeResult(true, null);
         }
@@ -104,8 +112,10 @@ public sealed class DeviceModeController
         {
             await Runtime.StopAsync(ct);
             await Runtime.StartAsync(ct);
-            Health = DeviceHealth.Healthy;
-            LastError = null;
+            Health = Runtime.Status.Health;
+            LastError = Runtime.Status.LastError;
+            if (Health is DeviceHealth.Faulted or DeviceHealth.Unknown)
+                return new DeviceModeResult(false, LastError ?? "设备重连后没有可用设备");
             return new DeviceModeResult(true, null);
         }
         catch (Exception ex)
@@ -115,6 +125,20 @@ public sealed class DeviceModeController
             _logger.Error("设备重连失败", ex);
             return new DeviceModeResult(false, $"重连失败：{ex.Message}");
         }
+    }
+
+    /// <summary>
+    /// 发布一个已经由完整配置应用服务启动并验收过的运行时实例。
+    /// 该方法只替换门面引用，不停止或释放旧实例；旧实例的清理由配置应用事务负责。
+    /// </summary>
+    public Task PublishStartedRuntimeAsync(IDeviceRuntime runtime)
+    {
+        ArgumentNullException.ThrowIfNull(runtime);
+        Runtime = runtime;
+        CurrentMode = runtime.Mode;
+        Health = runtime.Status.Health;
+        LastError = runtime.Status.LastError;
+        return Task.CompletedTask;
     }
 
     /// <summary>

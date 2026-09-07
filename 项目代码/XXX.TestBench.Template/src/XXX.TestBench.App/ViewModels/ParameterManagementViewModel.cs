@@ -13,7 +13,7 @@ namespace XXX.TestBench.App.ViewModels;
 
 /// <summary>
 /// 参数管理页面：产品类型、产品型号、试验项点、项点配置与试验参数。设备点位已独立为左侧导航菜单页。
-/// 试验参数为代码固定字段（项目/类型/型号三级），不做动态定义表；主数据通过数据库 ID 关联。
+/// 试验参数为代码固定字段（项目级 + 产品类型/产品型号组合级），不做动态定义表；主数据通过数据库 ID 关联。
 /// </summary>
 public sealed partial class ParameterManagementViewModel : PageViewModel
 {
@@ -26,9 +26,25 @@ public sealed partial class ParameterManagementViewModel : PageViewModel
         _actor = actor;
         TestPointTab = new TestPointManagementViewModel(services, actor);
         PointConfigTab = new PointConfigurationViewModel(services, actor);
+        _selectedTabIndex = CanManageProducts ? 0 : CanManageTestPoints ? 2 : 4;
     }
 
     public override string Title => "参数管理";
+
+    /// <summary>
+    /// 当前用户是否可以维护产品类型和产品型号。
+    /// </summary>
+    public bool CanManageProducts => _actor.HasPermission(PermissionCode.ManageProducts);
+
+    /// <summary>
+    /// 当前用户是否可以维护试验项点及其型号配置。
+    /// </summary>
+    public bool CanManageTestPoints => _actor.HasPermission(PermissionCode.ManageTestPoints);
+
+    /// <summary>
+    /// 当前用户是否可以维护项目级和产品组合级试验参数。
+    /// </summary>
+    public bool CanManageTestDefinitions => _actor.HasPermission(PermissionCode.ManageTestDefinitions);
 
     /// <summary>
     /// 试验项点标签页的视图模型。
@@ -117,7 +133,7 @@ public sealed partial class ParameterManagementViewModel : PageViewModel
     [ObservableProperty]
     private ProductModel? _selectedParamModel;
 
-    partial void OnSelectedParamModelChanged(ProductModel? value) => _ = LoadModelParameterAsync();
+    partial void OnSelectedParamModelChanged(ProductModel? value) => _ = LoadProductParameterAsync();
 
     /// <summary>
     /// 项目参数：试验时间输入文字。
@@ -126,13 +142,13 @@ public sealed partial class ParameterManagementViewModel : PageViewModel
     private string _testTimeInput = string.Empty;
 
     /// <summary>
-    /// 类型参数：试验电压输入文字。
+    /// 产品参数：试验电压输入文字。
     /// </summary>
     [ObservableProperty]
     private string _testVoltageInput = string.Empty;
 
     /// <summary>
-    /// 型号参数：保护电流输入文字。
+    /// 产品参数：保护电流输入文字。
     /// </summary>
     [ObservableProperty]
     private string _protectCurrentInput = string.Empty;
@@ -154,6 +170,10 @@ public sealed partial class ParameterManagementViewModel : PageViewModel
         await LoadModelTypeOptionsAsync();
         await LoadParamTypeOptionsAsync();
         await LoadProjectParameterAsync();
+        if (SelectedTabIndex == 2)
+            await TestPointTab.LoadAsync(ct);
+        else if (SelectedTabIndex == 3)
+            await PointConfigTab.LoadAsync(ct);
     }
 
     private async Task OnTabChangedAsync()
@@ -199,9 +219,9 @@ public sealed partial class ParameterManagementViewModel : PageViewModel
         ParamModelOptions.Clear();
         SelectedParamModel = null;
         TestVoltageInput = string.Empty;
+        ProtectCurrentInput = string.Empty;
         if (SelectedParamType is null) return;
         foreach (var m in await _services.ProductRepository.ListModelsAsync(SelectedParamType.Id, includeDisabled: true)) ParamModelOptions.Add(m);
-        await LoadTypeParameterAsync();
     }
 
     private async Task LoadProjectParameterAsync()
@@ -210,128 +230,123 @@ public sealed partial class ParameterManagementViewModel : PageViewModel
         TestTimeInput = value?.TestTimeSeconds.ToString(CultureInfo.InvariantCulture) ?? string.Empty;
     }
 
-    private async Task LoadTypeParameterAsync()
-    {
-        if (SelectedParamType is null)
-        {
-            TestVoltageInput = string.Empty;
-            return;
-        }
-        var value = await _services.TestParameterRepository.GetTypeAsync(SelectedParamType.Id);
-        TestVoltageInput = value?.TestVoltageV.ToString(CultureInfo.InvariantCulture) ?? string.Empty;
-    }
-
-    private async Task LoadModelParameterAsync()
+    private async Task LoadProductParameterAsync()
     {
         if (SelectedParamModel is null)
         {
+            TestVoltageInput = string.Empty;
             ProtectCurrentInput = string.Empty;
             return;
         }
-        var value = await _services.TestParameterRepository.GetModelAsync(SelectedParamModel.Id);
+        var value = await _services.TestParameterRepository.GetProductAsync(
+            SelectedParamModel.ProductTypeId,
+            SelectedParamModel.Id);
+        TestVoltageInput = value?.TestVoltageV.ToString(CultureInfo.InvariantCulture) ?? string.Empty;
         ProtectCurrentInput = value?.ProtectCurrentMa.ToString(CultureInfo.InvariantCulture) ?? string.Empty;
     }
 
     /// <summary>
-    /// 保存项目级参数（试验时间）。
+    /// 通过页面编辑弹窗保存项目级参数（试验时间）。
     /// </summary>
     [RelayCommand]
-    private async Task SaveProjectParameterAsync()
+    private async Task SaveProjectParameterAsync() => await SaveProjectParameterFromDialogAsync(TestTimeInput);
+
+    public async Task<OperationFeedback> SaveProjectParameterFromDialogAsync(string value)
     {
         try
         {
-            if (!int.TryParse(TestTimeInput, NumberStyles.Integer, CultureInfo.InvariantCulture, out var seconds))
+            if (!int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var seconds))
                 throw new Core.Common.DomainException("试验时间必须为整数。");
             await _services.Parameters.SaveProjectAsync(_actor, seconds);
-            Status = "项目参数已保存";
             await LoadProjectParameterAsync();
+            return SetFeedback(true, "项目参数已保存");
         }
-        catch (Exception ex) { Status = ex.Message; }
+        catch (Exception ex) { return SetFeedback(false, ex.Message); }
     }
 
     /// <summary>
-    /// 保存产品类型级参数（试验电压）。
+    /// 通过页面编辑弹窗保存产品级参数（产品类型 + 产品型号）。
     /// </summary>
     [RelayCommand]
-    private async Task SaveTypeParameterAsync()
-    {
-        try
-        {
-            if (SelectedParamType is null) throw new Core.Common.DomainException("请选择产品类型");
-            if (!double.TryParse(TestVoltageInput, NumberStyles.Float, CultureInfo.InvariantCulture, out var voltage))
-                throw new Core.Common.DomainException("试验电压必须为数值。");
-            await _services.Parameters.SaveTypeAsync(_actor, SelectedParamType.Id, voltage);
-            Status = "类型参数已保存";
-            await LoadTypeParameterAsync();
-        }
-        catch (Exception ex) { Status = ex.Message; }
-    }
+    private async Task SaveProductParameterAsync()
+        => await SaveProductParameterFromDialogAsync(TestVoltageInput, ProtectCurrentInput);
 
-    /// <summary>
-    /// 保存产品型号级参数（保护电流）。
-    /// </summary>
-    [RelayCommand]
-    private async Task SaveModelParameterAsync()
+    public async Task<OperationFeedback> SaveProductParameterFromDialogAsync(string voltageValue, string currentValue)
     {
         try
         {
             if (SelectedParamModel is null) throw new Core.Common.DomainException("请选择产品型号");
-            if (!double.TryParse(ProtectCurrentInput, NumberStyles.Float, CultureInfo.InvariantCulture, out var current))
+            if (!double.TryParse(voltageValue, NumberStyles.Float, CultureInfo.InvariantCulture, out var voltage))
+                throw new Core.Common.DomainException("试验电压必须为数值。");
+            if (!double.TryParse(currentValue, NumberStyles.Float, CultureInfo.InvariantCulture, out var current))
                 throw new Core.Common.DomainException("保护电流必须为数值。");
-            await _services.Parameters.SaveModelAsync(_actor, SelectedParamModel.Id, current);
-            Status = "型号参数已保存";
-            await LoadModelParameterAsync();
+            await _services.Parameters.SaveProductAsync(
+                _actor,
+                SelectedParamModel.ProductTypeId,
+                SelectedParamModel.Id,
+                voltage,
+                current);
+            await LoadProductParameterAsync();
+            return SetFeedback(true, "产品参数已保存");
         }
-        catch (Exception ex) { Status = ex.Message; }
+        catch (Exception ex) { return SetFeedback(false, ex.Message); }
     }
 
     /// <summary>
     /// 处理产品类型弹窗的提交结果并创建类型。
     /// </summary>
-    public async Task CreateTypeFromDialogAsync(ProductMasterDataDialogResult result)
+    public async Task<OperationFeedback> CreateTypeFromDialogAsync(ProductMasterDataDialogResult result)
         => await CreateTypeAsync(result.Name);
 
-    private async Task CreateTypeAsync(string name)
+    private async Task<OperationFeedback> CreateTypeAsync(string name)
     {
         try
         {
             await _services.Products.CreateTypeAsync(_actor, name);
-            Status = "产品类型已创建";
             await LoadTypesAsync();
             await LoadModelTypeOptionsAsync();
             await LoadParamTypeOptionsAsync();
+            return SetFeedback(true, "产品类型已创建");
         }
-        catch (Exception ex) { Status = ex.Message; }
+        catch (Exception ex) { return SetFeedback(false, ex.Message); }
     }
 
     /// <summary>
     /// 停用或启用当前选中的产品类型。
     /// </summary>
     [RelayCommand]
-    private async Task DisableSelectedTypeAsync()
+    private async Task DisableSelectedTypeAsync() => await ToggleSelectedTypeAsync();
+
+    public async Task<OperationFeedback> ToggleSelectedTypeAsync()
     {
         try
         {
-            if (SelectedType is null) return;
-            await _services.Products.SetTypeEnabledAsync(_actor, SelectedType.Id, !SelectedType.IsEnabled);
+            if (SelectedType is null)
+                return SetFeedback(false, "请先选择产品类型");
+
+            var isEnabled = !SelectedType.IsEnabled;
+            await _services.Products.SetTypeEnabledAsync(_actor, SelectedType.Id, isEnabled);
             await LoadTypesAsync();
+            return SetFeedback(true, isEnabled ? "产品类型已启用" : "产品类型已停用");
         }
-        catch (Exception ex) { Status = ex.Message; }
+        catch (Exception ex) { return SetFeedback(false, ex.Message); }
     }
 
     /// <summary>
     /// 删除选中的产品类型；存在型号或试验项点时由服务拒绝。
     /// </summary>
     [RelayCommand]
-    private async Task DeleteSelectedTypeAsync()
+    private async Task DeleteSelectedTypeAsync() => await DeleteSelectedTypeCoreAsync();
+
+    public async Task<OperationFeedback> DeleteSelectedTypeFromDialogAsync()
+        => await DeleteSelectedTypeCoreAsync();
+
+    private async Task<OperationFeedback> DeleteSelectedTypeCoreAsync()
     {
         try
         {
             if (SelectedType is null)
-            {
-                Status = "请先选择产品类型";
-                return;
-            }
+                return SetFeedback(false, "请先选择产品类型");
 
             var typeId = SelectedType.Id;
             await _services.Products.DeleteTypeAsync(_actor, typeId);
@@ -339,105 +354,119 @@ public sealed partial class ParameterManagementViewModel : PageViewModel
             SelectedModelType = null;
             SelectedParamType = null;
             SelectedParamModel = null;
-            Status = "产品类型已删除";
             await LoadTypesAsync();
             await LoadModelTypeOptionsAsync();
             await LoadParamTypeOptionsAsync();
             await LoadModelsAsync();
             await LoadParamModelOptionsAsync();
+            return SetFeedback(true, "产品类型已删除");
         }
-        catch (Exception ex) { Status = ex.Message; }
+        catch (Exception ex) { return SetFeedback(false, ex.Message); }
     }
 
     /// <summary>
     /// 处理产品型号弹窗的提交结果并创建型号。
     /// </summary>
-    public async Task CreateModelFromDialogAsync(ProductMasterDataDialogResult result)
+    public async Task<OperationFeedback> CreateModelFromDialogAsync(ProductMasterDataDialogResult result)
     {
         try
         {
             if (result.ProductTypeId is null) throw new Core.Common.DomainException("请选择产品类型");
             await _services.Products.CreateModelAsync(_actor, result.ProductTypeId.Value, result.Name);
-            Status = "产品型号已创建";
             SelectedModelType = ModelTypeOptions.FirstOrDefault(type => type.Id == result.ProductTypeId.Value);
             await LoadModelsAsync();
+            return SetFeedback(true, "产品型号已创建");
         }
-        catch (Exception ex) { Status = ex.Message; }
+        catch (Exception ex) { return SetFeedback(false, ex.Message); }
     }
 
     /// <summary>
     /// 处理产品类型弹窗的编辑提交结果并更新类型名称。
     /// </summary>
-    public async Task UpdateTypeFromDialogAsync(int typeId, ProductMasterDataDialogResult result)
+    public async Task<OperationFeedback> UpdateTypeFromDialogAsync(int typeId, ProductMasterDataDialogResult result)
     {
         try
         {
             await _services.Products.RenameTypeAsync(_actor, typeId, result.Name);
-            Status = "产品类型已更新";
             await LoadTypesAsync();
             await LoadModelTypeOptionsAsync();
             await LoadParamTypeOptionsAsync();
             if (Types.FirstOrDefault(type => type.Id == typeId) is { } updatedType)
                 SelectedType = updatedType;
+            return SetFeedback(true, "产品类型已更新");
         }
-        catch (Exception ex) { Status = ex.Message; }
+        catch (Exception ex) { return SetFeedback(false, ex.Message); }
     }
 
     /// <summary>
     /// 处理产品型号弹窗的编辑提交结果并更新型号名称。
     /// </summary>
-    public async Task UpdateModelFromDialogAsync(int modelId, ProductMasterDataDialogResult result)
+    public async Task<OperationFeedback> UpdateModelFromDialogAsync(int modelId, ProductMasterDataDialogResult result)
     {
         try
         {
             await _services.Products.RenameModelAsync(_actor, modelId, result.Name);
-            Status = "产品型号已更新";
             await LoadModelsAsync();
             await LoadParamModelOptionsAsync();
             if (Models.FirstOrDefault(model => model.Id == modelId) is { } updatedModel)
                 SelectedModel = updatedModel;
+            return SetFeedback(true, "产品型号已更新");
         }
-        catch (Exception ex) { Status = ex.Message; }
+        catch (Exception ex) { return SetFeedback(false, ex.Message); }
     }
 
     /// <summary>
     /// 停用或启用当前选中的产品型号。
     /// </summary>
     [RelayCommand]
-    private async Task DisableSelectedModelAsync()
+    private async Task DisableSelectedModelAsync() => await ToggleSelectedModelAsync();
+
+    public async Task<OperationFeedback> ToggleSelectedModelAsync()
     {
         try
         {
-            if (SelectedModel is null) return;
-            await _services.Products.SetModelEnabledAsync(_actor, SelectedModel.Id, !SelectedModel.IsEnabled);
+            if (SelectedModel is null)
+                return SetFeedback(false, "请先选择产品型号");
+
+            var isEnabled = !SelectedModel.IsEnabled;
+            await _services.Products.SetModelEnabledAsync(_actor, SelectedModel.Id, isEnabled);
             await LoadModelsAsync();
+            return SetFeedback(true, isEnabled ? "产品型号已启用" : "产品型号已停用");
         }
-        catch (Exception ex) { Status = ex.Message; }
+        catch (Exception ex) { return SetFeedback(false, ex.Message); }
     }
 
     /// <summary>
     /// 删除选中的产品型号；存在试验记录时由服务拒绝。
     /// </summary>
     [RelayCommand]
-    private async Task DeleteSelectedModelAsync()
+    private async Task DeleteSelectedModelAsync() => await DeleteSelectedModelCoreAsync();
+
+    public async Task<OperationFeedback> DeleteSelectedModelFromDialogAsync()
+        => await DeleteSelectedModelCoreAsync();
+
+    private async Task<OperationFeedback> DeleteSelectedModelCoreAsync()
     {
         try
         {
             if (SelectedModel is null)
-            {
-                Status = "请先选择产品型号";
-                return;
-            }
+                return SetFeedback(false, "请先选择产品型号");
 
             var modelId = SelectedModel.Id;
             await _services.Products.DeleteModelAsync(_actor, modelId);
             SelectedModel = null;
             if (SelectedParamModel?.Id == modelId)
                 SelectedParamModel = null;
-            Status = "产品型号已删除";
             await LoadModelsAsync();
             await LoadParamModelOptionsAsync();
+            return SetFeedback(true, "产品型号已删除");
         }
-        catch (Exception ex) { Status = ex.Message; }
+        catch (Exception ex) { return SetFeedback(false, ex.Message); }
+    }
+
+    private OperationFeedback SetFeedback(bool succeeded, string message)
+    {
+        Status = message;
+        return new OperationFeedback(succeeded, message);
     }
 }

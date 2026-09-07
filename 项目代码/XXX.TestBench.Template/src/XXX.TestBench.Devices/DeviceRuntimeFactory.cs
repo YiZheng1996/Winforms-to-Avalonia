@@ -3,6 +3,7 @@ using XXX.TestBench.Core.Configuration;
 using XXX.TestBench.Core.Domain.Devices;
 using XXX.TestBench.Core.Ports;
 using XXX.TestBench.Devices.Simulation;
+using XXX.TestBench.Devices.Runtime;
 
 namespace XXX.TestBench.Devices;
 
@@ -28,16 +29,32 @@ public sealed class DeviceRuntimeFactory : IDeviceRuntimeFactory
     /// 时间来源。
     /// </summary>
     private readonly IClock _clock;
+    /// <summary>
+    /// 当前完整配置快照版本；旧版运行时使用兼容默认值。
+    /// </summary>
+    private readonly string _revision;
+    /// <summary>
+    /// 当前完整配置中的项目级业务信号绑定。
+    /// </summary>
+    private readonly SignalBindingsConfig _signalBindings;
 
     /// <summary>
     /// 创建运行时工厂。
     /// </summary>
-    public DeviceRuntimeFactory(DeviceConfig deviceConfig, PointsConfig pointsConfig, SimulationConfig simulationConfig, IClock clock)
+    public DeviceRuntimeFactory(
+        DeviceConfig deviceConfig,
+        PointsConfig pointsConfig,
+        SimulationConfig simulationConfig,
+        IClock clock,
+        string? revision = null,
+        SignalBindingsConfig? signalBindings = null)
     {
         _deviceConfig = deviceConfig;
         _pointsConfig = pointsConfig;
         _simulationConfig = simulationConfig;
         _clock = clock;
+        _revision = string.IsNullOrWhiteSpace(revision) ? "runtime-v2" : revision.Trim();
+        _signalBindings = signalBindings ?? new SignalBindingsConfig();
     }
 
     /// <summary>
@@ -47,6 +64,20 @@ public sealed class DeviceRuntimeFactory : IDeviceRuntimeFactory
     {
         if (mode == DeviceMode.Simulation)
         {
+            if (_deviceConfig.SchemaVersion == DeviceConfig.CurrentSchemaVersion
+                && _pointsConfig.SchemaVersion == PointsConfig.CurrentSchemaVersion
+                && _simulationConfig.SchemaVersion == SimulationConfig.CurrentSchemaVersion)
+            {
+                var snapshot = new DeviceConfigurationSnapshot
+                {
+                    Revision = _revision,
+                    Device = _deviceConfig,
+                    Points = _pointsConfig,
+                    Simulation = _simulationConfig,
+                    SignalBindings = _signalBindings
+                };
+                return Task.FromResult<IDeviceRuntime>(new MultiDeviceRuntime(snapshot, _clock));
+            }
             var points = _pointsConfig.Points.Select(p => p.ToDomain()).ToList();
             var device = _deviceConfig.Devices.FirstOrDefault(d => d.Enabled) ?? throw new DomainException("device.json 没有启用的仿真设备");
             return Task.FromResult<IDeviceRuntime>(new SimulationDeviceRuntime(device.Name, points, _simulationConfig, _clock));

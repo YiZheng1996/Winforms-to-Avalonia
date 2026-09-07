@@ -1,0 +1,87 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:XXX.TestBench.App.ViewModels"
+        x:Class="XXX.TestBench.App.Views.DevicePointImportPreviewWindow"
+        x:DataType="vm:DevicePointImportPreviewViewModel"
+        Title="导入设备点位预览"
+        Width="1040"
+        Height="680"
+        MinWidth="860"
+        MinHeight="560"
+        CanResize="False"
+        WindowStartupLocation="CenterScreen"
+        SystemDecorations="None"
+        TransparencyLevelHint="Transparent"
+        Background="Transparent"
+        UseLayoutRounding="True">
+  <Window.Styles>
+    <Style Selector="Button.dialog-secondary">
+      <Setter Property="Background" Value="White" />
+      <Setter Property="Foreground" Value="#344054" />
+      <Setter Property="BorderBrush" Value="#C9D3E0" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="MinWidth" Value="104" />
+    </Style>
+    <Style Selector="Button.dialog-danger">
+      <Setter Property="Background" Value="#F5222D" />
+      <Setter Property="Foreground" Value="White" />
+      <Setter Property="BorderBrush" Value="#F5222D" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="MinWidth" Value="120" />
+    </Style>
+  </Window.Styles>
+
+  <Border Background="White" BorderBrush="#C9D3E0" BorderThickness="1" CornerRadius="8">
+    <Grid RowDefinitions="Auto,Auto,*,Auto">
+      <Border Grid.Row="0"
+              Background="#FFF8F7"
+              BorderBrush="#F2D0CB"
+              BorderThickness="0,0,0,1"
+              CornerRadius="8,8,0,0"
+              Padding="24,14"
+              PointerPressed="OnTitleBarPointerPressed">
+        <StackPanel Spacing="2">
+              <TextBlock Text="导入设备点位预览" FontSize="20" FontWeight="Bold" Foreground="#9F2D25" />
+          <TextBlock Text="确认前检查新增、更新、更新分组和冲突，避免误修改其他设备点位" Foreground="#667085" FontSize="12" />
+        </StackPanel>
+      </Border>
+
+      <Border Grid.Row="1" Background="#FFF9EB" BorderBrush="#F2C94C" BorderThickness="1"
+              CornerRadius="6" Padding="14" Margin="18,14,18,10">
+        <StackPanel Spacing="5">
+          <TextBlock Text="{Binding SummaryText}" Foreground="#344054" FontWeight="SemiBold" />
+          <TextBlock Text="{Binding ReplacementText}" Foreground="#7A5B00" TextWrapping="Wrap" />
+          <TextBlock Text="{Binding SafetyText}" Foreground="#7A5B00" TextWrapping="Wrap" />
+        </StackPanel>
+      </Border>
+
+      <Border Grid.Row="2" BorderBrush="#E2E8F0" BorderThickness="1" Margin="18,0,18,14">
+        <DataGrid Classes="parameter-grid"
+                  ItemsSource="{Binding Rows}"
+                  AutoGenerateColumns="False"
+                  IsReadOnly="True"
+                  HeadersVisibility="Column"
+                  SelectionMode="Single">
+          <DataGrid.Columns>
+            <DataGridTextColumn Header="设备" Binding="{Binding Device}" Width="1.05*" />
+            <DataGridTextColumn Header="分组" Binding="{Binding Group}" Width="1.1*" />
+            <DataGridTextColumn Header="点位编码" Binding="{Binding Code}" Width="1.1*" />
+            <DataGridTextColumn Header="名称" Binding="{Binding Name}" Width="1.2*" />
+            <DataGridTextColumn Header="通信方式" Binding="{Binding Protocol}" Width="100" />
+            <DataGridTextColumn Header="设备地址" Binding="{Binding Address}" Width="1.35*" />
+            <DataGridTextColumn Header="数据类型" Binding="{Binding DataType}" Width="100" />
+            <DataGridTextColumn Header="写入权限" Binding="{Binding WritePolicy}" Width="140" />
+            <DataGridTextColumn Header="状态" Binding="{Binding Enabled}" Width="80" />
+            <DataGridTextColumn Header="操作" Binding="{Binding Operation}" Width="70" />
+            <DataGridTextColumn Header="冲突说明" Binding="{Binding Conflict}" Width="1.5*" />
+          </DataGrid.Columns>
+        </DataGrid>
+      </Border>
+
+      <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10" Margin="18,0,18,20">
+        <Button Classes="dialog-secondary" Content="取消" Click="OnCancelClick" />
+        <Button Classes="dialog-danger" Content="确认应用" IsEnabled="{Binding CanApply}" Click="OnConfirmClick" />
+      </StackPanel>
+    </Grid>
+  </Border>
+</Window>

@@ -1,0 +1,368 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:XXX.TestBench.App.ViewModels"
+        x:Class="XXX.TestBench.App.Views.DeviceConfigurationDialogWindow"
+        x:DataType="vm:DeviceConfigurationEditorViewModel"
+        Title="设备与通道配置"
+        Width="1240"
+        Height="820"
+        MinWidth="1080"
+        MinHeight="700"
+        CanResize="False"
+        WindowStartupLocation="CenterScreen"
+        SystemDecorations="None"
+        TransparencyLevelHint="Transparent"
+        Background="Transparent"
+        UseLayoutRounding="True">
+  <Window.Styles>
+    <Style Selector="Button.dialog-secondary">
+      <Setter Property="Background" Value="White" />
+      <Setter Property="Foreground" Value="#344054" />
+      <Setter Property="BorderBrush" Value="#C9D3E0" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="MinWidth" Value="82" />
+    </Style>
+    <Style Selector="Button.dialog-primary">
+      <Setter Property="Background" Value="#0868F7" />
+      <Setter Property="Foreground" Value="White" />
+      <Setter Property="BorderBrush" Value="#0868F7" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="MinWidth" Value="120" />
+    </Style>
+    <Style Selector="TextBlock.field-label">
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="Foreground" Value="#344054" />
+    </Style>
+    <Style Selector="TextBox.field-input">
+      <Setter Property="MinHeight" Value="36" />
+      <Setter Property="Padding" Value="9,0" />
+    </Style>
+    <Style Selector="ComboBox.field-input">
+      <Setter Property="MinHeight" Value="36" />
+      <Setter Property="Padding" Value="9,0" />
+    </Style>
+  </Window.Styles>
+
+  <Border Background="White" BorderBrush="#C9D3E0" BorderThickness="1" CornerRadius="8">
+    <Grid RowDefinitions="Auto,Auto,*,Auto">
+      <Border Grid.Row="0" Background="#F8FAFD" BorderBrush="#E4EAF2"
+              BorderThickness="0,0,0,1" CornerRadius="8,8,0,0" Padding="24,14"
+              PointerPressed="OnTitleBarPointerPressed">
+        <StackPanel Spacing="2">
+          <TextBlock Text="设备与通道配置" FontSize="20" FontWeight="Bold" Foreground="#151A24" />
+          <TextBlock Text="{Binding DeviceModeText}" Foreground="#667085" FontSize="12" />
+        </StackPanel>
+      </Border>
+
+      <Border Grid.Row="1" Background="#FFF9EB" BorderBrush="#F2C94C"
+              BorderThickness="1" CornerRadius="6" Padding="12" Margin="18,14,18,10">
+        <StackPanel Spacing="3">
+          <TextBlock Text="{Binding SummaryText}" Foreground="#344054" />
+          <TextBlock Text="通道和设备只在候选中编辑；保存时会检查引用、驱动实现状态、传输参数和权限，并以完整配置版本原子应用。"
+                     Foreground="#7A5B00" FontSize="12" TextWrapping="Wrap" />
+        </StackPanel>
+      </Border>
+
+      <Grid Grid.Row="2" ColumnDefinitions="*,*" ColumnSpacing="14" Margin="18,0,18,14">
+        <Border Grid.Column="0" BorderBrush="#E2E8F0" BorderThickness="1" Padding="12">
+          <Grid RowDefinitions="Auto,*,Auto,Auto,*">
+            <Grid ColumnDefinitions="*,Auto">
+              <StackPanel Spacing="2">
+                <TextBlock Text="通信通道" FontSize="16" FontWeight="SemiBold" Foreground="#344054" />
+                <TextBlock Text="共享 TCP / 串口 / 仿真资源；同一串口只能由一个启用通道占用"
+                           Foreground="#667085" FontSize="11" TextWrapping="Wrap" />
+              </StackPanel>
+              <TextBlock Grid.Column="1" Text="{Binding Channels.Count, StringFormat='{}{0} 个'}"
+                         Foreground="#0868F7" VerticalAlignment="Center" />
+            </Grid>
+
+            <ListBox Grid.Row="1" Margin="0,10,0,8"
+                     ItemsSource="{Binding Channels}"
+                     SelectedItem="{Binding SelectedChannel, Mode=TwoWay}"
+                     SelectionMode="Single">
+              <ListBox.ItemTemplate>
+                <DataTemplate x:DataType="vm:ChannelConfigurationRow">
+                  <Border Padding="8,7" Margin="0,2" CornerRadius="5">
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                      <StackPanel Spacing="2">
+                        <TextBlock Text="{Binding Code}" Foreground="#344054" FontWeight="SemiBold" />
+                        <TextBlock Text="{Binding Name}" Foreground="#526071" FontSize="12" />
+                        <TextBlock Text="{Binding DetailsText}" Foreground="#7A8492" FontSize="11" />
+                      </StackPanel>
+                      <StackPanel Grid.Column="1" Spacing="2" HorizontalAlignment="Right">
+                        <TextBlock Text="{Binding TransportText}" Foreground="#153B72" HorizontalAlignment="Right" />
+                        <TextBlock Text="{Binding EnabledText}" Foreground="#7A8492" FontSize="11"
+                                   HorizontalAlignment="Right" />
+                      </StackPanel>
+                    </Grid>
+                  </Border>
+                </DataTemplate>
+              </ListBox.ItemTemplate>
+            </ListBox>
+
+            <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="8">
+              <Button Classes="dialog-secondary" Content="新增通道" Click="OnAddChannelClick"
+                      IsEnabled="{Binding CanEdit}" />
+              <Button Classes="dialog-secondary" Content="编辑通道" Click="OnEditChannelClick"
+                      IsEnabled="{Binding CanEdit}" />
+              <Button Classes="dialog-secondary" Content="删除通道" Click="OnDeleteChannelClick"
+                      IsEnabled="{Binding CanEdit}" />
+            </StackPanel>
+
+            <TextBlock Grid.Row="3" Text="通道编辑" Margin="0,12,0,5" Classes="field-label"
+                       IsVisible="{Binding ChannelEditor, Converter={x:Static ObjectConverters.IsNotNull}}" />
+            <ScrollViewer Grid.Row="4" VerticalScrollBarVisibility="Auto">
+              <ContentControl Content="{Binding ChannelEditor}">
+                <ContentControl.DataTemplates>
+                  <DataTemplate x:DataType="vm:ChannelEditorViewModel">
+                    <StackPanel Spacing="9">
+                      <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+                        <StackPanel Spacing="4">
+                          <TextBlock Text="通道编码 *" Classes="field-label" />
+                          <TextBox Classes="field-input" Text="{Binding Code, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="1" Spacing="4">
+                          <TextBlock Text="显示名称 *" Classes="field-label" />
+                          <TextBox Classes="field-input" Text="{Binding Name, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                        </StackPanel>
+                      </Grid>
+                      <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+                        <StackPanel Spacing="4">
+                          <TextBlock Text="传输类型 *" Classes="field-label" />
+                          <ComboBox Classes="field-input" ItemsSource="{Binding TransportOptions}"
+                                    SelectedItem="{Binding SelectedTransportOption, Mode=TwoWay}">
+                            <ComboBox.ItemTemplate>
+                              <DataTemplate x:DataType="vm:ChannelTransportChoice">
+                                <StackPanel Spacing="1">
+                                  <TextBlock Text="{Binding DisplayName}" />
+                                  <TextBlock Text="{Binding Description}" Foreground="#667085" FontSize="11" />
+                                </StackPanel>
+                              </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                          </ComboBox>
+                        </StackPanel>
+                        <StackPanel Grid.Column="1" Spacing="4">
+                          <TextBlock Text="参数说明" Classes="field-label" />
+                          <TextBlock Text="{Binding TransportHelpText}" Foreground="#667085" FontSize="12"
+                                     TextWrapping="Wrap" VerticalAlignment="Center" />
+                        </StackPanel>
+                      </Grid>
+                      <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+                        <StackPanel Spacing="4">
+                          <TextBlock Text="超时时间（毫秒） *" Classes="field-label" />
+                          <TextBox Classes="field-input" Text="{Binding TimeoutMsText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="1" Spacing="4">
+                          <TextBlock Text="重试次数 *" Classes="field-label" />
+                          <TextBox Classes="field-input" Text="{Binding RetryCountText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                        </StackPanel>
+                      </Grid>
+                      <Grid IsVisible="{Binding IsTcp}" ColumnDefinitions="*,*" ColumnSpacing="10">
+                        <StackPanel Spacing="4">
+                          <TextBlock Text="Host *" Classes="field-label" />
+                          <TextBox Classes="field-input" Text="{Binding TcpHost, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="1" Spacing="4">
+                          <TextBlock Text="Port *" Classes="field-label" />
+                          <TextBox Classes="field-input" Text="{Binding TcpPortText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                        </StackPanel>
+                      </Grid>
+                      <Grid IsVisible="{Binding IsSerial}" ColumnDefinitions="*,*" ColumnSpacing="10">
+                        <StackPanel Spacing="4">
+                          <TextBlock Text="串口 *" Classes="field-label" />
+                          <TextBox Classes="field-input" Text="{Binding SerialPortName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Watermark="如 COM3" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="1" Spacing="4">
+                          <TextBlock Text="波特率 *" Classes="field-label" />
+                          <TextBox Classes="field-input" Text="{Binding BaudRateText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                        </StackPanel>
+                      </Grid>
+                      <Grid IsVisible="{Binding IsSerial}" ColumnDefinitions="*,*" ColumnSpacing="10">
+                        <StackPanel Spacing="4">
+                          <TextBlock Text="数据位" Classes="field-label" />
+                          <ComboBox Classes="field-input" ItemsSource="{Binding DataBitsOptions}"
+                                    SelectedItem="{Binding DataBits, Mode=TwoWay}" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="1" Spacing="4">
+                          <TextBlock Text="校验 / 停止位" Classes="field-label" />
+                          <Grid ColumnDefinitions="*,*" ColumnSpacing="6">
+                            <ComboBox Classes="field-input" ItemsSource="{Binding ParityOptions}"
+                                      SelectedItem="{Binding Parity, Mode=TwoWay}" />
+                            <ComboBox Grid.Column="1" Classes="field-input" ItemsSource="{Binding StopBitsOptions}"
+                                      SelectedItem="{Binding StopBits, Mode=TwoWay}" />
+                          </Grid>
+                        </StackPanel>
+                      </Grid>
+                      <StackPanel IsVisible="{Binding IsSimulation}" Spacing="4">
+                        <TextBlock Text="仿真实例标识 *" Classes="field-label" />
+                        <TextBox Classes="field-input" Text="{Binding SimulationInstanceKey, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                 Watermark="如 simulation-main" />
+                      </StackPanel>
+                      <CheckBox Content="启用通道" IsChecked="{Binding IsEnabled, Mode=TwoWay}" />
+                      <TextBlock Text="{Binding ValidationMessage}" Foreground="#D92D20" FontSize="12"
+                                 TextWrapping="Wrap" />
+                      <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+                        <Button Classes="dialog-secondary" Content="取消编辑" Click="OnCancelEditorClick" />
+                        <Button Classes="dialog-primary" Content="完成通道编辑"
+                                IsEnabled="{Binding CanSave}" Click="OnCommitChannelClick" />
+                      </StackPanel>
+                    </StackPanel>
+                  </DataTemplate>
+                </ContentControl.DataTemplates>
+              </ContentControl>
+            </ScrollViewer>
+          </Grid>
+        </Border>
+
+        <Border Grid.Column="1" BorderBrush="#E2E8F0" BorderThickness="1" Padding="12">
+          <Grid RowDefinitions="Auto,*,Auto,Auto,*">
+            <Grid ColumnDefinitions="*,Auto">
+              <StackPanel Spacing="2">
+                <TextBlock Text="设备" FontSize="16" FontWeight="SemiBold" Foreground="#344054" />
+                <TextBlock Text="设备选择驱动，点位只引用设备；未实现驱动只能保留为停用草稿"
+                           Foreground="#667085" FontSize="11" TextWrapping="Wrap" />
+              </StackPanel>
+              <TextBlock Grid.Column="1" Text="{Binding Devices.Count, StringFormat='{}{0} 个'}"
+                         Foreground="#0868F7" VerticalAlignment="Center" />
+            </Grid>
+
+            <ListBox Grid.Row="1" Margin="0,10,0,8"
+                     ItemsSource="{Binding Devices}"
+                     SelectedItem="{Binding SelectedDevice, Mode=TwoWay}"
+                     SelectionMode="Single">
+              <ListBox.ItemTemplate>
+                <DataTemplate x:DataType="vm:DeviceConfigurationRow">
+                  <Border Padding="8,7" Margin="0,2" CornerRadius="5">
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                      <StackPanel Spacing="2">
+                        <TextBlock Text="{Binding Code}" Foreground="#344054" FontWeight="SemiBold" />
+                        <TextBlock Text="{Binding Name}" Foreground="#526071" FontSize="12" />
+                        <TextBlock Text="{Binding DetailsText}" Foreground="#7A8492" FontSize="11"
+                                   TextWrapping="Wrap" />
+                      </StackPanel>
+                      <TextBlock Grid.Column="1" Text="{Binding EnabledText}" Foreground="#7A8492"
+                                 FontSize="11" VerticalAlignment="Top" />
+                    </Grid>
+                  </Border>
+                </DataTemplate>
+              </ListBox.ItemTemplate>
+            </ListBox>
+
+            <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="8">
+              <Button Classes="dialog-secondary" Content="新增设备" Click="OnAddDeviceClick"
+                      IsEnabled="{Binding CanEdit}" />
+              <Button Classes="dialog-secondary" Content="编辑设备" Click="OnEditDeviceClick"
+                      IsEnabled="{Binding CanEdit}" />
+              <Button Classes="dialog-secondary" Content="删除设备" Click="OnDeleteDeviceClick"
+                      IsEnabled="{Binding CanEdit}" />
+            </StackPanel>
+
+            <TextBlock Grid.Row="3" Text="设备编辑" Margin="0,12,0,5" Classes="field-label"
+                       IsVisible="{Binding DeviceEditor, Converter={x:Static ObjectConverters.IsNotNull}}" />
+            <ScrollViewer Grid.Row="4" VerticalScrollBarVisibility="Auto">
+              <ContentControl Content="{Binding DeviceEditor}">
+                <ContentControl.DataTemplates>
+                  <DataTemplate x:DataType="vm:DeviceEditorViewModel">
+                    <StackPanel Spacing="9">
+                      <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+                        <StackPanel Spacing="4">
+                          <TextBlock Text="设备编码 *" Classes="field-label" />
+                          <TextBox Classes="field-input" Text="{Binding Code, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="1" Spacing="4">
+                          <TextBlock Text="显示名称 *" Classes="field-label" />
+                          <TextBox Classes="field-input" Text="{Binding Name, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                        </StackPanel>
+                      </Grid>
+                      <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+                        <StackPanel Spacing="4">
+                          <TextBlock Text="所属通道 *" Classes="field-label" />
+                          <ComboBox Classes="field-input" ItemsSource="{Binding ChannelOptions}"
+                                    SelectedItem="{Binding SelectedChannel, Mode=TwoWay}"
+                                    MaxDropDownHeight="260">
+                            <ComboBox.ItemTemplate>
+                              <DataTemplate x:DataType="vm:ChannelReferenceChoice">
+                                <StackPanel Spacing="1">
+                                  <TextBlock Text="{Binding DisplayName}" />
+                                  <TextBlock Text="{Binding SummaryText}" Foreground="#667085" FontSize="11" />
+                                </StackPanel>
+                              </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                          </ComboBox>
+                        </StackPanel>
+                        <StackPanel Grid.Column="1" Spacing="4">
+                          <TextBlock Text="设备驱动 *" Classes="field-label" />
+                          <ComboBox Classes="field-input" ItemsSource="{Binding DriverOptions}"
+                                    SelectedItem="{Binding SelectedDriver, Mode=TwoWay}"
+                                    MaxDropDownHeight="260">
+                            <ComboBox.ItemTemplate>
+                              <DataTemplate x:DataType="vm:DeviceDriverChoice">
+                                <StackPanel Spacing="1">
+                                  <TextBlock Text="{Binding DisplayName}" />
+                                  <TextBlock Text="{Binding SummaryText}" Foreground="#667085" FontSize="11" />
+                                </StackPanel>
+                              </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                          </ComboBox>
+                        </StackPanel>
+                      </Grid>
+                      <TextBlock Text="{Binding DriverHelpText}" Foreground="#667085" FontSize="12"
+                                 TextWrapping="Wrap" />
+                      <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+                        <StackPanel Spacing="4">
+                          <TextBlock Text="厂商" Classes="field-label" />
+                          <TextBox Classes="field-input" Text="{Binding Manufacturer, Mode=TwoWay}" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="1" Spacing="4">
+                          <TextBlock Text="型号" Classes="field-label" />
+                          <TextBox Classes="field-input" Text="{Binding Model, Mode=TwoWay}" />
+                        </StackPanel>
+                      </Grid>
+                      <StackPanel IsVisible="{Binding IsS7}" Spacing="4">
+                        <TextBlock Text="CPU Profile *" Classes="field-label" />
+                        <TextBox Classes="field-input" Text="{Binding CpuProfile, Mode=TwoWay}" Watermark="必须与目标型号和驱动支持矩阵一致" />
+                      </StackPanel>
+                      <StackPanel IsVisible="{Binding IsModbus}" Spacing="4">
+                        <TextBlock Text="Modbus 站号 *" Classes="field-label" />
+                        <TextBox Classes="field-input" Text="{Binding ModbusUnitIdText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                 Watermark="1-247；首版不支持广播写" />
+                      </StackPanel>
+                      <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+                        <StackPanel Spacing="4">
+                          <TextBlock Text="轮询周期（毫秒） *" Classes="field-label" />
+                          <TextBox Classes="field-input" Text="{Binding PollIntervalMsText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="1" Spacing="4">
+                          <TextBlock Text="陈旧判定时间（毫秒） *" Classes="field-label" />
+                          <TextBox Classes="field-input" Text="{Binding StaleAfterMsText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                        </StackPanel>
+                      </Grid>
+                      <CheckBox Content="启用设备" IsChecked="{Binding IsEnabled, Mode=TwoWay}" />
+                      <TextBlock Text="{Binding ValidationMessage}" Foreground="#D92E20" FontSize="12"
+                                 TextWrapping="Wrap" />
+                      <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+                        <Button Classes="dialog-secondary" Content="取消编辑" Click="OnCancelEditorClick" />
+                        <Button Classes="dialog-primary" Content="完成设备编辑"
+                                IsEnabled="{Binding CanSave}" Click="OnCommitDeviceClick" />
+                      </StackPanel>
+                    </StackPanel>
+                  </DataTemplate>
+                </ContentControl.DataTemplates>
+              </ContentControl>
+            </ScrollViewer>
+          </Grid>
+        </Border>
+      </Grid>
+
+      <Grid Grid.Row="3" ColumnDefinitions="*,Auto" ColumnSpacing="14" Margin="18,0,18,20">
+        <TextBlock Text="{Binding ValidationMessage}" Foreground="#D92D20" FontSize="13"
+                   TextWrapping="Wrap" VerticalAlignment="Center" />
+        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="10">
+          <Button Classes="dialog-secondary" Content="取消" Click="OnCancelClick" />
+          <Button Classes="dialog-primary" Content="保存并应用"
+                  IsEnabled="{Binding CanSave}" Click="OnSaveClick" />
+        </StackPanel>
+      </Grid>
+    </Grid>
+  </Border>
+</Window>

@@ -10,6 +10,8 @@ public class ShellViewModelTests
     {
         using var harness = AppTestHarness.Create();
         var shell = new ShellViewModel(harness.Services);
+        var authenticationSucceeded = false;
+        shell.AuthenticationSucceeded += (_, _) => authenticationSucceeded = true;
 
         Assert.False(shell.IsAuthenticated);
         Assert.Equal("未登录", shell.CurrentUserText);
@@ -32,6 +34,7 @@ public class ShellViewModelTests
         Assert.NotNull(shell.CurrentPage);
         Assert.Equal("运行总览", shell.CurrentPage!.Title);
         Assert.NotEqual("未登录", shell.CurrentUserText);
+        Assert.True(authenticationSucceeded);
     }
 
     [Fact]

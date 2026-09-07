@@ -6,6 +6,7 @@ using XXX.TestBench.Core.Domain.Devices;
 using XXX.TestBench.Core.Ports;
 using XXX.TestBench.Devices;
 using XXX.TestBench.Devices.Executors;
+using XXX.TestBench.Devices.Drivers;
 using XXX.TestBench.Infrastructure.Configuration;
 using XXX.TestBench.Infrastructure.Identity;
 using XXX.TestBench.Infrastructure.Logging;
@@ -63,6 +64,14 @@ public sealed class AppComposition
     /// 报表服务。
     /// </summary>
     public ReportService? Reports { get; private set; }
+    /// <summary>
+    /// 设备配置应用和试验/写入共用的操作门。
+    /// </summary>
+    public DeviceOperationCoordinator? DeviceOperations { get; private set; }
+    /// <summary>
+    /// 完整设备配置快照服务。
+    /// </summary>
+    public DeviceConfigurationService? DeviceConfigurations { get; private set; }
 
     /// <summary>
     /// 创建并完成全部依赖装配。
@@ -87,10 +96,20 @@ public sealed class AppComposition
             // 加载并校验四份配置。
             var store = new JsonConfigStore(configRoot);
             var appConfig = store.LoadAsync<AppConfig>("app.json").GetAwaiter().GetResult();
-            var deviceConfig = store.LoadAsync<DeviceConfig>("device.json").GetAwaiter().GetResult();
-            var pointsConfig = store.LoadAsync<PointsConfig>("points.json").GetAwaiter().GetResult();
-            var simulationConfig = store.LoadAsync<SimulationConfig>("simulation.json").GetAwaiter().GetResult();
-            ConfigurationValidator.ValidateAll(appConfig, deviceConfig, pointsConfig, simulationConfig);
+            appConfig.Validate();
+            var driverRegistry = DriverRegistry.CreateDefault();
+            var executorFactory = new ExecutorFactory();
+            var deviceConfigurationStore = new DeviceConfigurationStore(configRoot);
+            var bootstrapper = new DeviceConfigurationBootstrapper(configRoot, store, deviceConfigurationStore);
+            var bootstrap = bootstrapper.LoadAsync().GetAwaiter().GetResult();
+            var snapshot = bootstrap.Snapshot;
+            var deviceConfig = snapshot.Device;
+            var pointsConfig = snapshot.Points;
+            var simulationConfig = snapshot.Simulation;
+            MultiDeviceConfigurationValidator.EnsureValid(
+                snapshot,
+                driverRegistry.Descriptors,
+                executorFactory.Codes.SelectMany(code => executorFactory.Get(code).RequiredSignals).ToList());
 
             // 创建数据库并执行初始化。
             var clock = new SystemClock();
@@ -110,28 +129,48 @@ public sealed class AppComposition
             var audit = new SqliteAuditLog(factory);
             var sessions = new InMemorySessionManager();
             var unitOfWork = new SqliteUnitOfWork(factory);
-            var devicePoints = new DevicePointCatalogService(store, pointsConfig, audit);
+            DeviceOperations = new DeviceOperationCoordinator();
+            DeviceConfigurations = new DeviceConfigurationService(
+                deviceConfigurationStore,
+                DeviceOperations,
+                audit,
+                driverRegistry.Descriptors,
+                hasActiveRun: () => recordRepo.GetActiveRunningRecordAsync().GetAwaiter().GetResult() is not null,
+                runtimeFactory: (candidate, ct) => new DeviceRuntimeFactory(
+                    candidate.Device, candidate.Points, candidate.Simulation, clock, candidate.Revision,
+                    candidate.SignalBindings)
+                    .CreateAsync(candidate.Device.DeviceMode, ct),
+                currentRuntime: () => DeviceModes?.Runtime,
+                publishRuntime: runtime => DeviceModes is null
+                    ? Task.FromException(new InvalidOperationException("设备模式控制器尚未创建"))
+                    : DeviceModes.PublishStartedRuntimeAsync(runtime),
+                requiredSignals: executorFactory.Codes
+                    .SelectMany(code => executorFactory.Get(code).RequiredSignals)
+                    .ToList());
+            var devicePoints = new DevicePointCatalogService(store, pointsConfig, audit, deviceConfig);
             var devicePointImporter = new DevicePointImporter();
             var devicePointTemplateExporter = new DevicePointTemplateExporter();
 
             // 创建业务服务并组装主视图模型。
             Authentication = new AuthenticationService(userRepo, hasher, sessions, clock, audit);
             var uowFactory = new SqliteUnitOfWorkFactory(factory);
+            var identityAdministration = new IdentityAdministrationService(userRepo, hasher, clock, audit, uowFactory);
             var testParameters = new TestParameterService(testParameterRepo, productRepo, clock, audit);
-            var executorFactory = new ExecutorFactory();
             var testPoints = new TestPointService(pointRepo, configRepo, productRepo, executorFactory, clock, audit);
-            var writePipeline = new DeviceWritePipeline(audit, Logger);
-            var runtimeFactory = new DeviceRuntimeFactory(deviceConfig, pointsConfig, simulationConfig, clock);
+            var writePipeline = new DeviceWritePipeline(audit, Logger, DeviceOperations);
+            var runtimeFactory = new DeviceRuntimeFactory(
+                deviceConfig, pointsConfig, simulationConfig, clock, snapshot.Revision, snapshot.SignalBindings);
             DeviceModes = new DeviceModeController(runtimeFactory, Logger, audit);
             DeviceModes.InitializeAsync(deviceConfig.DeviceMode).GetAwaiter().GetResult();
 
             var reportRepository = new ReportRepository(factory);
             var reportGenerator = new ClosedXmlReportGenerator();
-            TestExecution = new TestExecutionService(recordRepo, productRepo, executorFactory, testPoints, testParameters, clock, audit, uowFactory);
+            TestExecution = new TestExecutionService(recordRepo, productRepo, executorFactory, testPoints, testParameters, clock, audit, uowFactory, DeviceOperations);
             Reports = new ReportService(recordRepo, productRepo, userRepo, reportRepository, reportGenerator, clock, audit);
 
             var services = new ShellServices(
                 Authentication,
+                identityAdministration,
                 testPoints,
                 TestExecution,
                 new ProductService(productRepo, clock, audit),
@@ -154,7 +193,9 @@ public sealed class AppComposition
                 appConfig,
                 deviceConfig,
                 dbPath,
-                typeof(AppComposition).Assembly.GetName().Version?.ToString(3) ?? "0.1.0");
+                typeof(AppComposition).Assembly.GetName().Version?.ToString(3) ?? "0.1.0",
+                DeviceConfigurations,
+                driverRegistry.Descriptors.ToList());
 
             Shell = new ShellViewModel(services);
         }

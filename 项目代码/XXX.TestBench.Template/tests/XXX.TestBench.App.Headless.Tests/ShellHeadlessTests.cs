@@ -2,6 +2,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
+using Avalonia.Threading;
 using Avalonia.VisualTree;
 using XXX.TestBench.App;
 using XXX.TestBench.App.Composition;
@@ -82,6 +83,16 @@ public class ShellHeadlessTests
 
         Assert.Null(composition.StartupError);
         var shell = composition.Shell!;
+
+        var loginWindow = new LoginWindow(shell);
+        loginWindow.Show();
+        Dispatcher.UIThread.RunJobs(DispatcherPriority.Input);
+        var loginView = loginWindow.GetVisualDescendants().OfType<LoginView>().Single();
+        var loginNameBox = loginView.FindControl<TextBox>("LoginNameBox");
+        Assert.NotNull(loginNameBox);
+        Assert.Same(loginNameBox, loginWindow.FocusManager?.GetFocusedElement());
+        loginWindow.Close();
+
         var window = new MainWindow { DataContext = shell };
         window.Show();
 
@@ -103,6 +114,17 @@ public class ShellHeadlessTests
         Assert.Equal(9, shell.NavItems.Count);
         Assert.NotNull(shell.CurrentPage);
         Assert.Equal("运行总览", shell.CurrentPage!.Title);
+
+        var devicePointNav = shell.NavItems.Single(item => item.Title == "设备点位");
+        await shell.NavigateCommand.ExecuteAsync(devicePointNav);
+        window.UpdateLayout();
+        var devicePointViewModel = Assert.IsType<DevicePointManagementViewModel>(devicePointNav.Page);
+        Assert.Single(devicePointViewModel.TreeNodes);
+        Assert.Equal("设备与通道", devicePointViewModel.TreeNodes[0].Code);
+        var devicePointView = window.GetVisualDescendants().OfType<DevicePointManagementView>().Single();
+        Assert.NotNull(devicePointView.GetVisualDescendants().OfType<TreeView>().SingleOrDefault());
+        await shell.NavigateCommand.ExecuteAsync(shell.NavItems[0]);
+        window.UpdateLayout();
 
         VerifyResponsiveLayout(window, 1440, 900, "main-1440x900.png");
 
@@ -126,29 +148,35 @@ public class ShellHeadlessTests
         Assert.True(frame.PixelSize.Height > 0);
 
         var shellRoot = window.FindControl<Grid>("ShellRoot");
+        var topHeader = window.FindControl<Border>("TopHeader");
         var productBar = window.FindControl<Border>("ProductInfoBar");
         var workspace = window.FindControl<Border>("WorkspaceRegion");
         var bottomBar = window.FindControl<Border>("BottomControlBar");
         var statusBar = window.FindControl<Border>("StatusBar");
+        var exitButton = window.FindControl<Button>("ExitButton");
         var overview = window.GetVisualDescendants().OfType<OverviewView>().Single();
         var schematic = overview.FindControl<Border>("PipeSchematicHost");
         var taskPanel = overview.FindControl<Border>("PointPanel");
         var measurementPanel = overview.FindControl<Border>("MeasurementPanel");
 
         Assert.NotNull(shellRoot);
+        Assert.NotNull(topHeader);
         Assert.NotNull(productBar);
         Assert.NotNull(workspace);
         Assert.NotNull(bottomBar);
         Assert.NotNull(statusBar);
+        Assert.NotNull(exitButton);
         Assert.NotNull(schematic);
         Assert.NotNull(taskPanel);
         Assert.NotNull(measurementPanel);
         Assert.True(shellRoot.Bounds.Width > 900);
+        Assert.InRange(topHeader.Bounds.Height, 76, 80);
         Assert.True(productBar.Bounds.Height >= 68);
         Assert.True(workspace.Bounds.Height > 350);
-        Assert.True(bottomBar.Bounds.Height >= 110);
+        Assert.InRange(bottomBar.Bounds.Height, 74, 78);
         Assert.True(statusBar.IsVisible);
-        Assert.True(statusBar.Bounds.Height >= 62);
+        Assert.InRange(statusBar.Bounds.Height, 46, 50);
+        Assert.InRange(exitButton.Bounds.Height, 46, 50);
         Assert.True(statusBar.Bounds.Top >= workspace.Bounds.Bottom - 1);
         Assert.True(statusBar.Bounds.Bottom >= shellRoot.Bounds.Height - 1);
         Assert.True(schematic.Bounds.Width > 300);

@@ -29,6 +29,11 @@ public sealed partial class TestPointManagementViewModel : PageViewModel
     public override string Title => "试验项点";
 
     /// <summary>
+    /// 当前用户是否拥有试验项点写权限。
+    /// </summary>
+    public bool CanEdit => _actor.HasPermission(PermissionCode.ManageTestPoints);
+
+    /// <summary>
     /// 可筛选的产品类型列表。
     /// </summary>
     public ObservableCollection<ProductType> TypeOptions { get; } = new();
@@ -102,66 +107,85 @@ public sealed partial class TestPointManagementViewModel : PageViewModel
     /// <summary>
     /// 新增弹窗提交后创建试验项点。
     /// </summary>
-    public async Task CreateFromDialogAsync(TestPointDialogResult result)
+    public async Task<OperationFeedback> CreateFromDialogAsync(TestPointDialogResult result)
     {
         StatusMessage = string.Empty;
         try
         {
-            if (SelectedType is null) throw new Core.Common.DomainException("请先选择产品类型");
+            if (SelectedType is null)
+                return SetFeedback(false, "请先选择产品类型");
+
             await _services.TestPoints.CreatePointAsync(_actor, SelectedType.Id, result.Name, result.ExecutorCode, result.ResultKind, result.SortOrder);
-            StatusMessage = "试验项点已创建";
             await LoadPointsAsync();
+            return SetFeedback(true, "试验项点已创建");
         }
-        catch (Exception ex) { StatusMessage = ex.Message; }
+        catch (Exception ex) { return SetFeedback(false, ex.Message); }
     }
 
     /// <summary>
     /// 编辑弹窗提交后更新试验项点。
     /// </summary>
-    public async Task UpdateFromDialogAsync(int pointId, TestPointDialogResult result)
+    public async Task<OperationFeedback> UpdateFromDialogAsync(int pointId, TestPointDialogResult result)
     {
         StatusMessage = string.Empty;
         try
         {
             await _services.TestPoints.UpdatePointAsync(_actor, pointId, result.Name, result.ExecutorCode, result.ResultKind, result.IsEnabled, result.SortOrder);
-            StatusMessage = "试验项点已更新";
             await LoadPointsAsync();
+            return SetFeedback(true, "试验项点已更新");
         }
-        catch (Exception ex) { StatusMessage = ex.Message; }
+        catch (Exception ex) { return SetFeedback(false, ex.Message); }
     }
 
     /// <summary>
     /// 启用/停用选中项点。
     /// </summary>
     [RelayCommand]
-    public async Task TogglePointAsync()
+    private async Task TogglePointAsync() => await TogglePointFromDialogAsync();
+
+    public async Task<OperationFeedback> TogglePointFromDialogAsync()
     {
         StatusMessage = string.Empty;
-        if (SelectedPoint is null) { StatusMessage = "请先选择试验项点"; return; }
+        if (SelectedPoint is null)
+            return SetFeedback(false, "请先选择试验项点");
+
         try
         {
             var p = SelectedPoint;
             await _services.TestPoints.UpdatePointAsync(_actor, p.Id, p.Name, p.ExecutorCode, p.ResultKind, !p.IsEnabled, p.SortOrder);
-            StatusMessage = p.IsEnabled ? "试验项点已停用" : "试验项点已启用";
             await LoadPointsAsync();
+            return SetFeedback(true, p.IsEnabled ? "试验项点已停用" : "试验项点已启用");
         }
-        catch (Exception ex) { StatusMessage = ex.Message; }
+        catch (Exception ex) { return SetFeedback(false, ex.Message); }
     }
 
     /// <summary>
     /// 删除选中项点（被型号配置或记录引用的项点由服务拒绝）。
     /// </summary>
     [RelayCommand]
-    public async Task DeletePointAsync()
+    private async Task DeletePointAsync() => await DeletePointCoreAsync();
+
+    public async Task<OperationFeedback> DeletePointFromDialogAsync()
+        => await DeletePointCoreAsync();
+
+    private async Task<OperationFeedback> DeletePointCoreAsync()
     {
         StatusMessage = string.Empty;
-        if (SelectedPoint is null) { StatusMessage = "请先选择试验项点"; return; }
+        if (SelectedPoint is null)
+            return SetFeedback(false, "请先选择试验项点");
+
         try
         {
             await _services.TestPoints.DeletePointAsync(_actor, SelectedPoint.Id);
-            StatusMessage = "试验项点已删除";
             await LoadPointsAsync();
+            return SetFeedback(true, "试验项点已删除");
         }
-        catch (Exception ex) { StatusMessage = ex.Message; }
+        catch (Exception ex) { return SetFeedback(false, ex.Message); }
+    }
+
+    private OperationFeedback SetFeedback(bool succeeded, string message)
+    {
+        StatusMessage = message;
+        return new OperationFeedback(succeeded, message);
     }
 }

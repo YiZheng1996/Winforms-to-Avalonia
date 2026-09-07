@@ -86,9 +86,10 @@ public sealed class AppTestHarness : IDisposable
         var reportRepository = new ReportRepository(factory);
         var execution = new TestExecutionService(recordRepo, productRepo, executorFactory, testPoints, testParameters, clock, audit);
         var reports = new ReportService(recordRepo, productRepo, userRepo, reportRepository, new ClosedXmlReportGenerator(), clock, audit);
+        var identityAdministration = new IdentityAdministrationService(userRepo, hasher, clock, audit, new SqliteUnitOfWorkFactory(factory));
 
         var services = new ShellServices(
-            auth, testPoints, execution, new ProductService(productRepo, clock, audit),
+            auth, identityAdministration, testPoints, execution, new ProductService(productRepo, clock, audit),
             testParameters, reports, deviceModes, writePipeline,
             recordRepo, pointRepo, configRepo, productRepo, testParameterRepo, userRepo, reportRepository, audit, executorFactory,
             devicePoints, devicePointImporter, devicePointTemplateExporter,

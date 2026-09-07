@@ -1,3 +1,4 @@
+using XXX.TestBench.Core.Configuration;
 using XXX.TestBench.Core.Domain.Devices;
 
 namespace XXX.TestBench.Core.Ports;
@@ -43,4 +44,43 @@ public interface IDeviceRuntime : IAsyncDisposable
     /// 列出设备支持的全部点位。
     /// </summary>
     Task<IReadOnlyList<DevicePoint>> ListPointsAsync(CancellationToken ct = default);
+
+    /// <summary>
+    /// 当前完整配置快照的生效版本。旧运行时返回空字符串，表示尚未接入版本门面。
+    /// </summary>
+    string ActiveRevision => string.Empty;
+
+    /// <summary>
+    /// 当前运行时所使用的项目级信号绑定。旧兼容运行时没有绑定快照。
+    /// </summary>
+    SignalBindingsConfig SignalBindings => new();
+
+    /// <summary>
+    /// 强制从目标设备读取一次新鲜样本，不能用旧缓存冒充回读。
+    /// </summary>
+    async Task<PointValue> ReadFreshAsync(string pointId, CancellationToken ct = default)
+    {
+        var point = (await ListPointsAsync(ct)).FirstOrDefault(item =>
+            string.Equals(item.PointId, pointId, StringComparison.OrdinalIgnoreCase));
+        if (point is null)
+            throw new Common.DomainException($"点位 {pointId} 不在当前运行时");
+        return await ReadAsync(point, ct);
+    }
+
+    /// <summary>
+    /// 返回单台设备状态；单设备兼容运行时使用自身状态。
+    /// </summary>
+    DeviceRuntimeInfo GetDeviceStatus(string deviceId) => Status with { DeviceId = deviceId };
+
+    /// <summary>
+    /// 返回当前全部设备状态。
+    /// </summary>
+    IReadOnlyList<DeviceRuntimeInfo> ListDeviceStatuses() => new[] { Status };
+
+    /// <summary>
+    /// 按稳定 PointId 获取当前点位定义。
+    /// </summary>
+    DevicePoint? GetPoint(string pointId)
+        => ListPointsAsync().GetAwaiter().GetResult().FirstOrDefault(point =>
+            string.Equals(point.PointId, pointId, StringComparison.OrdinalIgnoreCase));
 }
