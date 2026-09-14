@@ -5,172 +5,622 @@
              x:Class="XXX.TestBench.App.Views.DevicePointManagementView"
              x:DataType="vm:DevicePointManagementViewModel"
              UseLayoutRounding="True">
-  <Grid RowDefinitions="Auto,*,Auto" RowSpacing="12" Margin="16,14,16,8">
-    <Border Grid.Row="0" Classes="parameter-surface" Padding="16,14">
+  <UserControl.Styles>
+    <Style Selector="Border.point-page-banner">
+      <Setter Property="Background" Value="White" />
+      <Setter Property="BorderBrush" Value="#D8E1EC" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="10" />
+    </Style>
+    <Style Selector="Border.point-panel">
+      <Setter Property="Background" Value="White" />
+      <Setter Property="BorderBrush" Value="#D8E1EC" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="10" />
+    </Style>
+    <Style Selector="Border.point-title-icon">
+      <Setter Property="Width" Value="48" />
+      <Setter Property="Height" Value="48" />
+      <Setter Property="CornerRadius" Value="14" />
+      <Setter Property="Background" Value="#EAF2FF" />
+      <Setter Property="HorizontalAlignment" Value="Left" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+    <Style Selector="Border.point-meta-pill">
+      <Setter Property="Background" Value="#EEF5FF" />
+      <Setter Property="BorderBrush" Value="#CFE0FF" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="12" />
+      <Setter Property="Padding" Value="10,4" />
+    </Style>
+    <Style Selector="Border.point-search-box">
+      <Setter Property="Background" Value="#F8FAFD" />
+      <Setter Property="BorderBrush" Value="#D6DEEA" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="7" />
+      <Setter Property="MinHeight" Value="38" />
+    </Style>
+    <Style Selector="TextBox.point-search-input">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="MinHeight" Value="36" />
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
+    <Style Selector="Button.point-search-clear">
+      <Setter Property="Width" Value="28" />
+      <Setter Property="MinWidth" Value="28" />
+      <Setter Property="MinHeight" Value="30" />
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="Foreground" Value="#98A2B3" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="FontSize" Value="18" />
+    </Style>
+    <Style Selector="Button.point-search-clear:pointerover">
+      <Setter Property="Background" Value="#EAF2FF" />
+      <Setter Property="Foreground" Value="#0758D7" />
+    </Style>
+    <Style Selector="Button.point-primary-action">
+      <Setter Property="MinHeight" Value="38" />
+      <Setter Property="Padding" Value="14,0" />
+      <Setter Property="Background" Value="#0868F7" />
+      <Setter Property="Foreground" Value="White" />
+      <Setter Property="BorderBrush" Value="#0868F7" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="6" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+    <Style Selector="Button.point-primary-action:pointerover">
+      <Setter Property="Background" Value="#0758D7" />
+      <Setter Property="BorderBrush" Value="#0758D7" />
+    </Style>
+    <Style Selector="Button.point-secondary-action">
+      <Setter Property="MinHeight" Value="38" />
+      <Setter Property="Padding" Value="12,0" />
+      <Setter Property="Background" Value="White" />
+      <Setter Property="Foreground" Value="#344054" />
+      <Setter Property="BorderBrush" Value="#C9D3E0" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="6" />
+    </Style>
+    <Style Selector="Button.point-secondary-action:pointerover">
+      <Setter Property="Background" Value="#F5F8FC" />
+      <Setter Property="BorderBrush" Value="#AAB8CB" />
+    </Style>
+    <Style Selector="Button.point-icon-action">
+      <Setter Property="Width" Value="36" />
+      <Setter Property="MinWidth" Value="36" />
+      <Setter Property="Height" Value="36" />
+      <Setter Property="MinHeight" Value="36" />
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="Background" Value="White" />
+      <Setter Property="Foreground" Value="#0868F7" />
+      <Setter Property="BorderBrush" Value="#C9DFFF" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="7" />
+    </Style>
+    <Style Selector="Button.point-icon-action:pointerover">
+      <Setter Property="Background" Value="#EAF2FF" />
+      <Setter Property="BorderBrush" Value="#0868F7" />
+    </Style>
+    <Style Selector="Border.point-tree-node">
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="8" />
+      <Setter Property="Padding" Value="8,7" />
+      <Setter Property="Margin" Value="0,1" />
+    </Style>
+    <Style Selector="Border.point-tree-node:pointerover">
+      <Setter Property="Background" Value="#F5F8FC" />
+    </Style>
+    <Style Selector="Border.point-tree-icon">
+      <Setter Property="Width" Value="30" />
+      <Setter Property="Height" Value="30" />
+      <Setter Property="CornerRadius" Value="9" />
+      <Setter Property="HorizontalAlignment" Value="Left" />
+      <Setter Property="VerticalAlignment" Value="Top" />
+    </Style>
+    <Style Selector="Border.point-count-chip">
+      <Setter Property="Background" Value="#F5F8FC" />
+      <Setter Property="BorderBrush" Value="#E1E7EF" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="12" />
+      <Setter Property="Padding" Value="10,4" />
+    </Style>
+    <Style Selector="DataGrid.point-grid">
+      <Setter Property="Background" Value="White" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="GridLinesVisibility" Value="Horizontal" />
+      <Setter Property="HorizontalGridLinesBrush" Value="#EDF1F7" />
+      <Setter Property="VerticalGridLinesBrush" Value="Transparent" />
+      <Setter Property="RowBackground" Value="White" />
+      <Setter Property="RowHeight" Value="58" />
+    </Style>
+    <Style Selector="DataGrid.point-grid DataGridColumnHeader">
+      <Setter Property="Background" Value="#F6F8FB" />
+      <Setter Property="Foreground" Value="#526071" />
+      <Setter Property="BorderBrush" Value="#E2E8F0" />
+      <Setter Property="BorderThickness" Value="0,0,0,1" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="FontSize" Value="13" />
+      <Setter Property="Padding" Value="12,0" />
+      <Setter Property="MinHeight" Value="46" />
+    </Style>
+    <Style Selector="DataGrid.point-grid DataGridCell">
+      <Setter Property="Padding" Value="12,0" />
+      <Setter Property="Foreground" Value="#344054" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
+    <Style Selector="DataGrid.point-grid DataGridRow:pointerover">
+      <Setter Property="Background" Value="#F8FBFF" />
+    </Style>
+    <Style Selector="Border.point-info-panel">
+      <Setter Property="Background" Value="#FBFCFE" />
+    </Style>
+    <Style Selector="Border.point-info-note">
+      <Setter Property="Background" Value="#F0F7FF" />
+      <Setter Property="BorderBrush" Value="#CFE0FF" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="8" />
+      <Setter Property="Padding" Value="10" />
+    </Style>
+    <Style Selector="Border.point-status-badge">
+      <Setter Property="CornerRadius" Value="11" />
+      <Setter Property="Padding" Value="9,4" />
+      <Setter Property="HorizontalAlignment" Value="Left" />
+    </Style>
+    <Style Selector="TextBlock.point-info-label">
+      <Setter Property="Foreground" Value="#7A8492" />
+      <Setter Property="FontSize" Value="12" />
+    </Style>
+    <Style Selector="TextBlock.point-info-value">
+      <Setter Property="Foreground" Value="#344054" />
+      <Setter Property="FontSize" Value="13" />
+      <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+    </Style>
+    <Style Selector="ContextMenu.tree-context-menu">
+      <Setter Property="Padding" Value="4" />
+      <Setter Property="Background" Value="White" />
+      <Setter Property="BorderBrush" Value="#C9D3E0" />
+      <Setter Property="BorderThickness" Value="1" />
+    </Style>
+    <Style Selector="MenuItem.tree-context-menu-item">
+      <Setter Property="MinHeight" Value="34" />
+      <Setter Property="Padding" Value="12,0" />
+      <Setter Property="Foreground" Value="#344054" />
+    </Style>
+    <Style Selector="MenuItem.tree-context-menu-item:pointerover">
+      <Setter Property="Background" Value="#EDF4FF" />
+    </Style>
+    <Style Selector="MenuItem.tree-context-menu-danger">
+      <Setter Property="Foreground" Value="#C9362B" />
+    </Style>
+    <Style Selector="ContextMenu.point-detail-context-menu">
+      <Setter Property="Padding" Value="4" />
+      <Setter Property="Background" Value="White" />
+      <Setter Property="BorderBrush" Value="#C9D3E0" />
+      <Setter Property="BorderThickness" Value="1" />
+    </Style>
+    <Style Selector="MenuItem.point-detail-context-menu-item">
+      <Setter Property="MinHeight" Value="34" />
+      <Setter Property="Padding" Value="12,0" />
+      <Setter Property="Foreground" Value="#344054" />
+    </Style>
+    <Style Selector="MenuItem.point-detail-context-menu-item:pointerover">
+      <Setter Property="Background" Value="#EDF4FF" />
+    </Style>
+    <Style Selector="MenuItem.point-detail-context-menu-danger">
+      <Setter Property="Foreground" Value="#C9362B" />
+    </Style>
+  </UserControl.Styles>
+
+  <Grid x:Name="DevicePointPageLayout" RowDefinitions="Auto,*,Auto" RowSpacing="12" Margin="0,0,0,12">
+    <Border Grid.Row="0" Classes="point-page-banner" Padding="16,14">
       <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="14">
-        <Border Classes="parameter-icon">
-          <icons:AppIcon Kind="Signal" Width="22" Height="22" Stroke="{DynamicResource BrandBlueBrush}"
-                        HorizontalAlignment="Center" VerticalAlignment="Center" />
+        <Border Classes="point-title-icon">
+          <icons:AppIcon Kind="Signal" Width="25" Height="25" Stroke="#0868F7"
+                         HorizontalAlignment="Center" VerticalAlignment="Center" />
         </Border>
         <StackPanel Grid.Column="1" Spacing="4" VerticalAlignment="Center">
-          <TextBlock Text="设备点位管理" Classes="parameter-section-title" />
-          <TextBlock Text="按通道、设备、分组和点位维护声明式配置；分组只用于组织和筛选"
-                     Classes="parameter-hint" />
-          <TextBlock Text="{Binding SourceText}" Classes="parameter-hint" />
-          <TextBlock Text="{Binding ActiveRevisionText}" Classes="parameter-hint" />
+          <StackPanel Orientation="Horizontal" Spacing="10">
+            <TextBlock Text="设备点位" FontSize="22" FontWeight="Bold" Foreground="#151A24" />
+            <Border Classes="point-meta-pill" VerticalAlignment="Center">
+              <TextBlock Text="{Binding ActiveRevisionText}" Foreground="#0758D7" FontSize="12" />
+            </Border>
+            <Border Classes="point-meta-pill" VerticalAlignment="Center">
+              <TextBlock Text="{Binding RuntimeStatusText}" Foreground="#147A45" FontSize="12" />
+            </Border>
+          </StackPanel>
+          <TextBlock Text="{Binding OrphanHint}" Foreground="#C9362B" FontSize="12"
+                     IsVisible="{Binding HasOrphanDevices}" TextWrapping="Wrap" />
         </StackPanel>
-        <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8"
-                    VerticalAlignment="Center">
-          <Border Classes="parameter-count">
-            <StackPanel Orientation="Horizontal" Spacing="5">
-              <TextBlock Text="{Binding Points.Count}" Foreground="{DynamicResource BrandBlueBrush}"
-                         FontSize="15" FontWeight="SemiBold" />
-              <TextBlock Text="个点位" Classes="parameter-label" />
-            </StackPanel>
+        <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+          <Border Classes="point-search-box" Width="250">
+            <Grid ColumnDefinitions="32,*,Auto">
+              <icons:AppIcon Kind="Search" Grid.Column="0" Width="18" Height="18" Stroke="#7A8492"
+                             HorizontalAlignment="Center" VerticalAlignment="Center" />
+              <TextBox Grid.Column="1" Classes="point-search-input"
+                       Text="{Binding PointSearchText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                       Watermark="搜索点位名称、地址或编码" />
+              <Button Grid.Column="2" Classes="point-search-clear" Content="×"
+                      IsVisible="{Binding HasPointSearch}" Click="OnClearPointSearchClick"
+                      AutomationProperties.Name="清除点位搜索条件" />
+            </Grid>
           </Border>
-          <Button Classes="parameter-secondary" Content="信号绑定"
-                  IsVisible="{Binding CanManageSignalBindings}" Click="OnSignalBindingsClick" />
-          <Button Classes="parameter-secondary" Content="编辑点位"
-                  IsVisible="{Binding CanEdit}" IsEnabled="{Binding CanEditSelectedPoint}" Click="OnEditPointClick" />
-          <Button Classes="parameter-danger" Content="删除点位"
-                  IsVisible="{Binding CanEdit}" IsEnabled="{Binding CanEditSelectedPoint}" Click="OnDeletePointClick" />
-          <Button Classes="parameter-secondary" IsEnabled="{Binding !IsBusy}" Click="OnDownloadTemplateClick">
-            <StackPanel Orientation="Horizontal" Spacing="7">
-              <icons:AppIcon Kind="Export" Width="15" Height="15" Stroke="{Binding $parent[Button].Foreground}" />
-              <TextBlock Text="下载导入模板" />
-            </StackPanel>
-          </Button>
-          <Button Classes="parameter-secondary" IsVisible="{Binding CanEdit}" IsEnabled="{Binding CanEdit}" Click="OnImportClick">
-            <StackPanel Orientation="Horizontal" Spacing="7">
-              <icons:AppIcon Kind="Import" Width="15" Height="15" Stroke="{Binding $parent[Button].Foreground}" />
-              <TextBlock Text="按模板导入" />
-            </StackPanel>
-          </Button>
-          <Button Classes="parameter-primary" IsVisible="{Binding CanEdit}" IsEnabled="{Binding CanAddPoint}" Click="OnAddPointClick">
-            <StackPanel Orientation="Horizontal" Spacing="7">
-              <icons:AppIcon Kind="Add" Width="15" Height="15" Stroke="{Binding $parent[Button].Foreground}" />
-              <TextBlock Text="新增点位" />
-            </StackPanel>
+          <Button Classes="point-primary-action" Content="{Binding AddActionText}"
+                  IsVisible="{Binding CanShowAddAction}" Click="OnAddClick"
+                  AutomationProperties.Name="新增当前范围对象" />
+          <Button Classes="point-secondary-action" Content="导入/导出"
+                  IsVisible="{Binding CanEdit}" Click="OnImportExportClick"
+                  AutomationProperties.Name="导入或导出设备点位模板" />
+          <Button Classes="point-secondary-action" Content="测试连接"
+                  Command="{Binding TestSelectedConnectionCommand}"
+                  IsEnabled="{Binding CanTestSelectedConnection}"
+                  AutomationProperties.Name="测试当前设备连接" />
+          <Button Classes="point-secondary-action" Content="读取当前范围"
+                  Command="{Binding ReadCurrentScopeCommand}"
+                  IsEnabled="{Binding CanStartPageOperation}"
+                  AutomationProperties.Name="读取当前范围点位" />
+          <Button Classes="point-icon-action" Click="OnMoreClick" ToolTip.Tip="更多操作"
+                  AutomationProperties.Name="设备点位更多操作">
+            <icons:AppIcon Kind="ChevronDown" Width="17" Height="17" Stroke="#344054" />
           </Button>
         </StackPanel>
       </Grid>
     </Border>
 
-    <Grid Grid.Row="1" ColumnDefinitions="310,*" ColumnSpacing="10">
-      <Border Grid.Column="0" Classes="parameter-surface" Padding="12">
-        <DockPanel LastChildFill="True">
-          <StackPanel DockPanel.Dock="Top" Spacing="7" Margin="4,3,4,10">
-            <TextBlock Text="设备与通道" FontWeight="SemiBold" Foreground="#344054" />
-            <TextBox Text="{Binding TreeSearchText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                     Watermark="搜索设备、分组或点位" MinHeight="36" />
-            <TextBlock Text="树状层级：通道 → 设备 → 分组 → 点位；分组不承载通信地址"
-                       Classes="parameter-hint" TextWrapping="Wrap" />
-          </StackPanel>
-
-          <StackPanel DockPanel.Dock="Bottom" Spacing="7" Margin="4,10,4,2">
-            <Grid ColumnDefinitions="*,*" ColumnSpacing="7">
-              <Button Grid.Column="0" Classes="parameter-secondary" Content="新增通道" IsVisible="{Binding CanEdit}"
-                      IsEnabled="{Binding CanAddChannel}" Click="OnAddChannelClick" />
-              <Button Grid.Column="1" Classes="parameter-secondary" Content="新增设备" IsVisible="{Binding CanEdit}"
-                      IsEnabled="{Binding CanAddDevice}" Click="OnAddDeviceClick" />
+    <Grid Grid.Row="1" ColumnDefinitions="400,8,*,8,292">
+      <Border Grid.Column="0" Classes="point-panel" Padding="12">
+        <Grid RowDefinitions="Auto,Auto,*">
+          <Grid Grid.Row="0" ColumnDefinitions="*,Auto" ColumnSpacing="8" Margin="2,0,2,4">
+            <StackPanel Spacing="2">
+              <TextBlock Text="设备树" FontSize="16" FontWeight="SemiBold" Foreground="#1F2937" />
+            </StackPanel>
+            <Button Grid.Column="1" Classes="point-icon-action" Click="OnAddClick"
+                    IsVisible="{Binding CanShowAddAction}" ToolTip.Tip="{Binding AddActionText}"
+                    AutomationProperties.Name="新增当前范围对象">
+              <icons:AppIcon Kind="Add" Width="17" Height="17" Stroke="#0868F7" />
+            </Button>
+          </Grid>
+          <Border Grid.Row="1" Classes="point-search-box" Margin="0,8,0,10">
+            <Grid ColumnDefinitions="32,*">
+              <icons:AppIcon Kind="Search" Grid.Column="0" Width="18" Height="18" Stroke="#7A8492"
+                             HorizontalAlignment="Center" VerticalAlignment="Center" />
+              <TextBox Grid.Column="1" Classes="point-search-input"
+                       Text="{Binding TreeSearchText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                       Watermark="搜索通道、设备或分组" />
             </Grid>
-            <Grid ColumnDefinitions="*,*" ColumnSpacing="7">
-              <Button Grid.Column="0" Classes="parameter-secondary" Content="新增分组" IsVisible="{Binding CanEdit}"
-                      IsEnabled="{Binding CanAddGroup}" Click="OnAddGroupClick" />
-              <Button Grid.Column="1" Classes="parameter-secondary" Content="编辑节点" IsVisible="{Binding CanEdit}"
-                      IsEnabled="{Binding CanEditSelectedNode}" Click="OnEditSelectedNodeClick" />
-            </Grid>
-            <Button Classes="parameter-danger" Content="删除节点"
-                    IsVisible="{Binding CanEdit}" IsEnabled="{Binding CanDeleteSelectedNode}" Click="OnDeleteSelectedNodeClick" />
-            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="7"
-                  IsVisible="{Binding CanMoveSelectedPoint}">
-              <ComboBox Grid.Column="0" ItemsSource="{Binding MoveGroupOptions}"
-                        SelectedItem="{Binding SelectedMoveGroup, Mode=TwoWay}"
-                        PlaceholderText="目标分组">
-                <ComboBox.ItemTemplate>
-                  <DataTemplate x:DataType="vm:DevicePointGroupChoice">
-                    <TextBlock Text="{Binding DisplayName}" />
-                  </DataTemplate>
-                </ComboBox.ItemTemplate>
-              </ComboBox>
-              <Button Grid.Column="1" Classes="parameter-secondary" Content="移动"
-                      IsEnabled="{Binding CanApplyMoveSelectedPoint}" Click="OnMovePointClick" />
-            </Grid>
-          </StackPanel>
-
-          <TreeView ItemsSource="{Binding TreeNodes}"
+          </Border>
+          <TreeView Grid.Row="2" ItemsSource="{Binding TreeNodes}"
                     SelectedItem="{Binding SelectedTreeNode, Mode=TwoWay}"
-                    SelectionMode="Single">
+                    SelectionMode="Single"
+                    KeyDown="OnTreeKeyDown"
+                    ContextRequested="OnTreeContextRequested">
+            <TreeView.Styles>
+              <Style Selector="TreeViewItem" x:CompileBindings="False">
+                <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=OneWay}" />
+                <Setter Property="Padding" Value="0" />
+                <Setter Property="Margin" Value="0" />
+              </Style>
+            </TreeView.Styles>
             <TreeView.ItemTemplate>
               <TreeDataTemplate x:DataType="vm:DevicePointTreeNodeViewModel" ItemsSource="{Binding Children}">
-                <Border Padding="7,6" Margin="0,1" CornerRadius="5">
-                  <Grid ColumnDefinitions="24,*,Auto" ColumnSpacing="5">
-                    <TextBlock Text="{Binding IconGlyph}" FontSize="15" Foreground="#1769AA"
-                               HorizontalAlignment="Center" VerticalAlignment="Top" />
-                    <StackPanel Grid.Column="1" Spacing="1">
-                      <TextBlock Text="{Binding DisplayText}" Foreground="#344054" />
-                      <TextBlock Text="{Binding SummaryText}" Classes="parameter-hint" FontSize="11"
-                                 TextWrapping="Wrap" />
+                <Border Classes="point-tree-node"
+                        Background="{Binding SelectionBackground}"
+                        BorderBrush="{Binding SelectionBorderBrush}"
+                        Focusable="True"
+                        ContextRequested="OnTreeNodeContextRequested">
+                  <Grid ColumnDefinitions="30,*" ColumnSpacing="8">
+                    <Border Classes="point-tree-icon" Background="{Binding NodeIconBackground}">
+                      <Grid>
+                        <icons:AppIcon Kind="Connection" Width="18" Height="18"
+                                       Stroke="{Binding NodeIconForeground}"
+                                       IsVisible="{Binding IsChannel}"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        <icons:AppIcon Kind="DeviceMode" Width="18" Height="18"
+                                       Stroke="{Binding NodeIconForeground}"
+                                       IsVisible="{Binding IsDevice}"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        <icons:AppIcon Kind="Folder" Width="18" Height="18"
+                                       Stroke="{Binding NodeIconForeground}"
+                                       IsVisible="{Binding IsGroup}"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        <TextBlock Text="{Binding IconGlyph}" FontSize="15"
+                                   Foreground="{Binding NodeIconForeground}"
+                                   IsVisible="{Binding !IsVectorIcon}"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center" />
+                      </Grid>
+                    </Border>
+                    <StackPanel Grid.Column="1" Spacing="1" VerticalAlignment="Center">
+                      <TextBlock Text="{Binding DisplayText}" Foreground="{Binding SelectionForeground}"
+                                 FontSize="13" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                      <TextBlock Text="{Binding TreeSummaryText}" Foreground="#8A94A3" FontSize="11"
+                                 IsVisible="{Binding IsTreeSummaryVisible}" TextWrapping="Wrap" />
                     </StackPanel>
-                    <TextBlock Grid.Column="2" Text="{Binding Children.Count, StringFormat='{}{0}'}"
-                               Foreground="#98A2B3" FontSize="11" VerticalAlignment="Top" />
                   </Grid>
                 </Border>
               </TreeDataTemplate>
             </TreeView.ItemTemplate>
           </TreeView>
-        </DockPanel>
+        </Grid>
       </Border>
 
-      <Border Grid.Column="1" Classes="parameter-surface" Padding="1">
-        <Grid RowDefinitions="Auto,*">
-          <Border Grid.Row="0" Background="#F8FAFD" Padding="16,11"
-                  BorderBrush="#E2E8F0" BorderThickness="0,0,0,1">
-            <Grid ColumnDefinitions="*,Auto">
-              <StackPanel Spacing="2">
-                <TextBlock Text="{Binding SelectedScopeTitle}" FontWeight="SemiBold" Foreground="#344054" />
-                <TextBlock Text="{Binding SelectedScopeText}" Classes="parameter-hint" TextWrapping="Wrap" />
+      <GridSplitter Grid.Column="1" Width="8" Background="#E7ECF3"
+                    ResizeDirection="Columns" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+                    AutomationProperties.Name="调整设备树与点位清单宽度" />
+
+      <Border Grid.Column="2" Classes="point-panel" Padding="0">
+        <Grid RowDefinitions="Auto,Auto,*">
+          <Border Grid.Row="0" Background="#FBFCFE" BorderBrush="#E2E8F0"
+                  BorderThickness="0,0,0,1" CornerRadius="10,10,0,0" Padding="16,14">
+            <Grid ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="8">
+              <StackPanel Spacing="3">
+                <TextBlock Text="{Binding SelectedScopeTitle}" FontSize="17" FontWeight="SemiBold" Foreground="#1F2937" />
+                <TextBlock Text="{Binding SelectedScopeText}" Foreground="#7A8492" FontSize="12"
+                           TextWrapping="Wrap" />
               </StackPanel>
-              <TextBlock Grid.Column="1"
-                         Text="点位归属设备；分组仅用于组织，地址和实时路由由设备驱动解释"
-                         Classes="parameter-hint" HorizontalAlignment="Right" />
+              <Button Grid.Column="1" Classes="point-secondary-action"
+                      Content="点位配置"
+                      Command="{Binding ShowConfigurationCommand}"
+                      IsEnabled="{Binding IsLiveMonitorMode}"
+                      AutomationProperties.Name="切换到点位配置" />
+              <Button Grid.Column="2" Classes="point-secondary-action"
+                      Content="实时监视"
+                      Command="{Binding ShowLiveMonitorCommand}"
+                      IsEnabled="{Binding IsConfigurationMode}"
+                      AutomationProperties.Name="切换到实时监视" />
+              <Border Grid.Column="3" Classes="point-count-chip" VerticalAlignment="Center">
+                <StackPanel Orientation="Horizontal" Spacing="5">
+                  <TextBlock Text="{Binding Points.Count}" Foreground="#0868F7" FontSize="16" FontWeight="SemiBold" />
+                  <TextBlock Text="个点位" Foreground="#667085" FontSize="12" VerticalAlignment="Center" />
+                </StackPanel>
+              </Border>
             </Grid>
           </Border>
-          <Grid Grid.Row="1">
-            <DataGrid Classes="parameter-grid"
+          <Grid Grid.Row="1" ColumnDefinitions="*,Auto" ColumnSpacing="8" Margin="16,10,16,10">
+            <TextBlock Text="右键、双击或按 Enter 可编辑点位；点位保存后仍需经过配置应用检查。"
+                       Foreground="#98A2B3" FontSize="12" VerticalAlignment="Center"
+                       TextWrapping="Wrap" />
+            <Button Grid.Column="1" Classes="point-primary-action" Content="新增点位"
+                    IsVisible="{Binding CanAddPoint}" Click="OnAddPointClick" />
+          </Grid>
+          <Grid Grid.Row="2">
+            <DataGrid x:Name="PointGrid" Classes="point-grid"
                       ItemsSource="{Binding Points}"
                       SelectedItem="{Binding SelectedPoint, Mode=TwoWay}"
+                      IsVisible="{Binding IsConfigurationMode}"
                       AutoGenerateColumns="False"
                       IsReadOnly="True"
                       HeadersVisibility="Column"
-                      SelectionMode="Single">
+                      ColumnHeaderHeight="46"
+                      SelectionMode="Single"
+                      ContextRequested="OnPointListContextRequested"
+                      DoubleTapped="OnPointListDoubleTapped"
+                      KeyDown="OnPointListKeyDown">
               <DataGrid.Columns>
-                <DataGridTextColumn Header="设备" Binding="{Binding DeviceCode}" Width="1.1*" />
-                <DataGridTextColumn Header="分组" Binding="{Binding GroupText}" Width="1.1*" />
-                <DataGridTextColumn Header="点位编码" Binding="{Binding Code}" Width="1.1*" />
-                <DataGridTextColumn Header="名称" Binding="{Binding Name}" Width="1.25*" />
-                <DataGridTextColumn Header="通信方式" Binding="{Binding ProtocolText}" Width="110" />
-                <DataGridTextColumn Header="地址" Binding="{Binding Address}" Width="1.45*" />
-                <DataGridTextColumn Header="数据类型" Binding="{Binding DataTypeText}" Width="100" />
-                <DataGridTextColumn Header="单位" Binding="{Binding Unit}" Width="80" />
-                <DataGridTextColumn Header="量程" Binding="{Binding ScaleText}" Width="1.55*" />
-                <DataGridTextColumn Header="写入权限" Binding="{Binding WritePolicyText}" Width="150" />
-                <DataGridTextColumn Header="状态" Binding="{Binding EnabledText}" Width="80" />
+                <DataGridTemplateColumn Header="点位名称" Width="1.2*">
+                  <DataGridTemplateColumn.CellTemplate>
+                    <DataTemplate x:DataType="vm:DevicePointRow">
+                      <StackPanel Spacing="1" VerticalAlignment="Center">
+                        <TextBlock Text="{Binding PointName}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                        <TextBlock Text="{Binding DeviceText}" Foreground="#98A2B3" FontSize="11"
+                                   TextTrimming="CharacterEllipsis" />
+                      </StackPanel>
+                    </DataTemplate>
+                  </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTextColumn Header="设备地址" Binding="{Binding Address}" Width="1.25*" />
+                <DataGridTextColumn Header="数据类型" Binding="{Binding DataTypeText}" Width="1.0*" />
+                <DataGridTemplateColumn Header="访问权限" Width="1.15*">
+                  <DataGridTemplateColumn.CellTemplate>
+                    <DataTemplate x:DataType="vm:DevicePointRow">
+                      <Border Background="{Binding WritePolicyBackground}" CornerRadius="10" Padding="8,3"
+                              HorizontalAlignment="Left">
+                        <TextBlock Text="{Binding WritePolicyText}" Foreground="{Binding WritePolicyForeground}"
+                                   FontSize="12" />
+                      </Border>
+                    </DataTemplate>
+                  </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTemplateColumn Header="点位备注" Width="1.35*">
+                  <DataGridTemplateColumn.CellTemplate>
+                    <DataTemplate x:DataType="vm:DevicePointRow">
+                      <TextBlock Text="{Binding Description}" TextTrimming="CharacterEllipsis"
+                                 ToolTip.Tip="{Binding Description}" VerticalAlignment="Center" />
+                    </DataTemplate>
+                  </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
               </DataGrid.Columns>
             </DataGrid>
-            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="6"
+            <DataGrid x:Name="LivePointGrid" Classes="point-grid"
+                      ItemsSource="{Binding Points}"
+                      SelectedItem="{Binding SelectedPoint, Mode=TwoWay}"
+                      IsVisible="{Binding IsLiveMonitorMode}"
+                      AutoGenerateColumns="False"
+                      IsReadOnly="True"
+                      HeadersVisibility="Column"
+                      ColumnHeaderHeight="46"
+                      SelectionMode="Single"
+                      ContextRequested="OnPointListContextRequested"
+                      KeyDown="OnPointListKeyDown">
+              <DataGrid.Columns>
+                <DataGridTemplateColumn Header="点位名称" Width="1.2*">
+                  <DataGridTemplateColumn.CellTemplate>
+                    <DataTemplate x:DataType="vm:DevicePointRow">
+                      <StackPanel Spacing="1" VerticalAlignment="Center">
+                        <TextBlock Text="{Binding PointName}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                        <TextBlock Text="{Binding DeviceText}" Foreground="#98A2B3" FontSize="11"
+                                   TextTrimming="CharacterEllipsis" />
+                      </StackPanel>
+                    </DataTemplate>
+                  </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTextColumn Header="地址" Binding="{Binding Address}" Width="1.15*" />
+                <DataGridTextColumn Header="类型" Binding="{Binding DataTypeText}" Width="0.9*" />
+                <DataGridTemplateColumn Header="当前值" Width="1.1*">
+                  <DataGridTemplateColumn.CellTemplate>
+                    <DataTemplate x:DataType="vm:DevicePointRow">
+                      <TextBlock Text="{Binding CurrentValueText}" ToolTip.Tip="{Binding RawValueText}"
+                                 VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                    </DataTemplate>
+                  </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTemplateColumn Header="质量" Width="0.85*">
+                  <DataGridTemplateColumn.CellTemplate>
+                    <DataTemplate x:DataType="vm:DevicePointRow">
+                      <Border Background="{Binding QualityBackground}" CornerRadius="10" Padding="8,3"
+                              HorizontalAlignment="Left">
+                        <TextBlock Text="{Binding QualityText}" Foreground="{Binding QualityForeground}"
+                                   FontSize="12" />
+                      </Border>
+                    </DataTemplate>
+                  </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTextColumn Header="更新时间" Binding="{Binding TimestampText}" Width="0.9*" />
+                <DataGridTemplateColumn Header="访问权限" Width="0.95*">
+                  <DataGridTemplateColumn.CellTemplate>
+                    <DataTemplate x:DataType="vm:DevicePointRow">
+                      <Border Background="{Binding WritePolicyBackground}" CornerRadius="10" Padding="8,3"
+                              HorizontalAlignment="Left">
+                        <TextBlock Text="{Binding WritePolicyText}" Foreground="{Binding WritePolicyForeground}"
+                                   FontSize="12" />
+                      </Border>
+                    </DataTemplate>
+                  </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+              </DataGrid.Columns>
+            </DataGrid>
+            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="8"
                         IsVisible="{Binding !HasPoints}">
-              <TextBlock Text="当前范围暂无设备点位" FontSize="16" FontWeight="SemiBold"
+              <Border Width="44" Height="44" CornerRadius="14" Background="#F0F5FC"
+                      HorizontalAlignment="Center">
+                <icons:AppIcon Kind="Signal" Width="22" Height="22" Stroke="#7A8492"
+                               HorizontalAlignment="Center" VerticalAlignment="Center" />
+              </Border>
+              <TextBlock Text="{Binding EmptyPointsTitle}" FontSize="16" FontWeight="SemiBold"
                          Foreground="#526071" HorizontalAlignment="Center" />
-              <TextBlock Text="可切换树节点，或先下载固定中文模板填写后导入"
-                         Classes="parameter-hint" />
+              <TextBlock Text="{Binding EmptyPointsHint}" Foreground="#98A2B3" FontSize="12"
+                         HorizontalAlignment="Center" />
+              <Button Classes="point-secondary-action" Content="清除搜索"
+                      IsVisible="{Binding HasPointSearch}" Click="OnClearPointSearchClick"
+                      AutomationProperties.Name="清除点位搜索条件" />
             </StackPanel>
           </Grid>
         </Grid>
       </Border>
-    </Grid>
 
-    <TextBlock Grid.Row="2" Text="{Binding StatusMessage}" Foreground="#1F618D" FontSize="13"
-               TextWrapping="Wrap" />
+      <GridSplitter Grid.Column="3" Width="8" Background="#E7ECF3"
+                    ResizeDirection="Columns" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+                    AutomationProperties.Name="调整点位清单与范围详情宽度" />
+
+      <Border Grid.Column="4" Classes="point-panel point-info-panel" Padding="0">
+        <Grid RowDefinitions="Auto,Auto,*,Auto">
+          <Border Grid.Row="0" Background="White" BorderBrush="#E2E8F0" BorderThickness="0,0,0,1"
+                  CornerRadius="10,10,0,0" Padding="16,14">
+            <Grid ColumnDefinitions="*,Auto">
+              <StackPanel Spacing="2">
+                <TextBlock Text="属性与状态" FontSize="16" FontWeight="SemiBold" Foreground="#1F2937" />
+                <TextBlock Text="当前选择的只读摘要" Foreground="#98A2B3" FontSize="12" />
+              </StackPanel>
+              <icons:AppIcon Grid.Column="1" Kind="DeviceMode" Width="20" Height="20" Stroke="#0868F7"
+                             VerticalAlignment="Center" />
+            </Grid>
+          </Border>
+          <StackPanel Grid.Row="1" Margin="16,16,16,4" Spacing="6">
+            <TextBlock Text="{Binding ScopeDetailsName}" FontSize="20" FontWeight="Bold"
+                       Foreground="#151A24" TextTrimming="CharacterEllipsis" />
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <Border Background="#EAF2FF" CornerRadius="11" Padding="9,4">
+                <TextBlock Text="{Binding ScopeDetailsTypeText}" Foreground="#0758D7" FontSize="12" />
+              </Border>
+              <Border Classes="point-status-badge"
+                      Background="{Binding ScopeDetailsStatusBackground}">
+                <TextBlock Text="{Binding ScopeDetailsStatusText}"
+                           Foreground="{Binding ScopeDetailsStatusForeground}" FontSize="12" />
+              </Border>
+            </StackPanel>
+          </StackPanel>
+          <StackPanel Grid.Row="2" Margin="16,12,16,8" Spacing="0">
+            <Grid ColumnDefinitions="Auto,*" Margin="0,0,0,14">
+              <TextBlock Text="通信方式" Classes="point-info-label" />
+              <TextBlock Grid.Column="1" Text="{Binding ScopeDetailsTransportText}" Classes="point-info-value"
+                         HorizontalAlignment="Right" />
+            </Grid>
+            <Grid ColumnDefinitions="Auto,*" Margin="0,0,0,14">
+              <TextBlock Text="驱动" Classes="point-info-label" />
+              <TextBlock Grid.Column="1" Text="{Binding ScopeDetailsDriverText}" Classes="point-info-value"
+                         HorizontalAlignment="Right" />
+            </Grid>
+             <Grid ColumnDefinitions="Auto,*" Margin="0,0,0,14">
+               <TextBlock Text="运行模式" Classes="point-info-label" />
+               <TextBlock Grid.Column="1" Text="{Binding ScopeDetailsModeText}" Classes="point-info-value"
+                          HorizontalAlignment="Right" />
+             </Grid>
+             <Grid ColumnDefinitions="Auto,*" Margin="0,0,0,14">
+               <TextBlock Text="点位数量" Classes="point-info-label" />
+              <TextBlock Grid.Column="1" Text="{Binding ScopeDetailsPointCountText}" Classes="point-info-value"
+                         HorizontalAlignment="Right" />
+            </Grid>
+            <Grid ColumnDefinitions="Auto,*" Margin="0,0,0,14">
+              <TextBlock Text="采集周期" Classes="point-info-label" />
+              <TextBlock Grid.Column="1" Text="{Binding ScopeDetailsPollIntervalText}" Classes="point-info-value"
+                         HorizontalAlignment="Right" />
+            </Grid>
+            <Grid ColumnDefinitions="Auto,*">
+              <TextBlock Text="连接地址" Classes="point-info-label" />
+              <TextBlock Grid.Column="1" Text="{Binding ScopeDetailsEndpointText}" Classes="point-info-value"
+                         HorizontalAlignment="Right" />
+            </Grid>
+          </StackPanel>
+          <Border Grid.Row="3" Classes="point-info-note" Margin="16,8,16,16">
+            <StackPanel Spacing="5">
+              <TextBlock Text="配置提示" Foreground="#0758D7" FontSize="12" FontWeight="SemiBold" />
+              <TextBlock Text="{Binding ScopeDetailsDescription}" Foreground="#526071" FontSize="12"
+                         TextWrapping="Wrap" />
+              <Border Background="#FFF4E5" BorderBrush="#F2C94C" BorderThickness="1" CornerRadius="4"
+                      Padding="8,6" IsVisible="{Binding HasS7OptimizedBlockAccessScopeNotice}">
+                <TextBlock Text="{Binding S7OptimizedBlockAccessScopeNotice}" Foreground="#7A5B00"
+                           FontSize="12" TextWrapping="Wrap" />
+              </Border>
+            </StackPanel>
+          </Border>
+        </Grid>
+      </Border>
+    </Grid>
+    <Border Grid.Row="2" Classes="point-panel" Height="170" Padding="12"
+            IsVisible="{Binding EventLog.IsExpanded}">
+      <Grid RowDefinitions="Auto,*">
+        <Grid Grid.Row="0" ColumnDefinitions="*,Auto,Auto" ColumnSpacing="10" Margin="2,0,2,8">
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <TextBlock Text="设备事件日志" FontSize="14" FontWeight="SemiBold" Foreground="#1F2937" />
+            <TextBlock Text="{Binding EventLog.ScopeText}" FontSize="11" Foreground="#98A2B3"
+                       VerticalAlignment="Center" />
+          </StackPanel>
+          <ComboBox Grid.Column="1" Width="86" ItemsSource="{Binding EventLog.FilterOptions}"
+                    SelectedItem="{Binding EventLog.SelectedFilter, Mode=TwoWay}" />
+          <Button Grid.Column="2" Classes="point-secondary-action" Content="{Binding EventLog.ToggleText}"
+                  Command="{Binding EventLog.ToggleExpandedCommand}" MinHeight="30" />
+        </Grid>
+        <DataGrid Grid.Row="1" Classes="point-grid" ItemsSource="{Binding EventLog.VisibleEvents}"
+                  AutoGenerateColumns="False" IsReadOnly="True" HeadersVisibility="Column"
+                  ColumnHeaderHeight="32">
+          <DataGrid.Columns>
+            <DataGridTextColumn Header="时间" Binding="{Binding TimestampUtc}" Width="1.0*" />
+            <DataGridTextColumn Header="级别" Binding="{Binding Severity}" Width="0.7*" />
+            <DataGridTextColumn Header="事件" Binding="{Binding EventCode}" Width="1.1*" />
+            <DataGridTextColumn Header="消息" Binding="{Binding Message}" Width="3.0*" />
+          </DataGrid.Columns>
+        </DataGrid>
+      </Grid>
+    </Border>
+    <Border Grid.Row="2" Classes="point-panel" Height="36" Padding="12"
+            IsVisible="{Binding !EventLog.IsExpanded}">
+      <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+        <TextBlock Text="设备事件日志" FontSize="14" FontWeight="SemiBold"
+                   Foreground="#1F2937" VerticalAlignment="Center" />
+        <Button Grid.Column="1" Classes="point-secondary-action" Content="展开"
+                Command="{Binding EventLog.ToggleExpandedCommand}" MinHeight="28" />
+      </Grid>
+    </Border>
   </Grid>
 </UserControl>

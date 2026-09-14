@@ -115,24 +115,33 @@ public sealed partial class ProcessMonitorViewModel : PageViewModel
     }
 
     /// <summary>
-    /// 刷新命令：重新读取全部点位的实时值与质量。
+    /// 刷新命令：只读取运行时缓存，不直接访问设备。
     /// </summary>
     [RelayCommand]
-    public async Task RefreshAsync()
+    public Task RefreshAsync()
     {
         var runtime = _services.DeviceModes.Runtime;
-        if (runtime is null) return;
-        var points = await runtime.ListPointsAsync();
+        if (runtime is null) return Task.CompletedTask;
         foreach (var row in Points)
         {
-            var point = !string.IsNullOrWhiteSpace(row.PointId)
-                ? points.FirstOrDefault(p => string.Equals(p.PointId, row.PointId, StringComparison.OrdinalIgnoreCase))
-                : points.FirstOrDefault(p => p.Code == row.Code);
-            if (point is null) continue;
-            var value = await runtime.ReadAsync(point);
-            row.Value = value.Value?.ToString() ?? string.Empty;
-            row.Quality = value.Quality.ToString();
+            if (runtime.TryGetCachedValue(row.PointId, out var value))
+            {
+                row.Value = value.Value?.ToString() ?? string.Empty;
+                row.Quality = value.Quality switch
+                {
+                    PointQuality.Good => "正常",
+                    PointQuality.Stale => "陈旧",
+                    PointQuality.Bad => "无效",
+                    _ => "未读取"
+                };
+            }
+            else
+            {
+                row.Value = string.Empty;
+                row.Quality = "未读取";
+            }
         }
+        return Task.CompletedTask;
     }
 
     /// <summary>
@@ -156,7 +165,7 @@ public sealed partial class ProcessMonitorViewModel : PageViewModel
                     : p.Code == row.Code) ?? throw new Core.Common.DomainException("点位不存在");
             object? value = bool.TryParse(WriteValue, out var b) ? b : (decimal.TryParse(WriteValue, out var d) ? d : WriteValue);
             var activeRun = await _services.RecordRepository.GetActiveRunningRecordAsync() is not null;
-            await _services.WritePipeline.ExecuteAsync(new WriteCommand(_actor, point, value, _services.DeviceConfig.DeviceMode, runtime, activeRun, RiskConfirmed,
+            await _services.WritePipeline.ExecuteAsync(new WriteCommand(_actor, point, value, runtime.Mode, runtime, activeRun, RiskConfirmed,
                 ExpectedRevision: runtime.ActiveRevision));
             StatusMessage = $"已写入 {row.Code}={value}";
             await RefreshAsync();

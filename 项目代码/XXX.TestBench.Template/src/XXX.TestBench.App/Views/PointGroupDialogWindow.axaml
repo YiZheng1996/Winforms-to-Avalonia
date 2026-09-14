@@ -5,9 +5,9 @@
         x:DataType="vm:PointGroupDialogViewModel"
         Title="{Binding DialogTitle}"
         Width="520"
-        Height="470"
+        Height="450"
         MinWidth="480"
-        MinHeight="420"
+        MinHeight="360"
         CanResize="False"
         WindowStartupLocation="CenterScreen"
         SystemDecorations="None"
@@ -50,36 +50,21 @@
         </StackPanel>
       </Border>
 
-      <StackPanel Grid.Row="1" Spacing="14" Margin="24,22,24,18">
-        <Border Background="#F8FAFD" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="6" Padding="12">
-          <StackPanel Spacing="4">
-            <TextBlock Text="所属设备" Classes="field-label" />
-            <TextBlock Text="{Binding DeviceHelpText}" Foreground="#667085" FontSize="12" TextWrapping="Wrap" />
-          </StackPanel>
-        </Border>
+      <StackPanel Grid.Row="1" Spacing="14" Margin="24,20,24,12">
         <StackPanel Spacing="5">
-          <TextBlock Text="分组编码 *" Classes="field-label" />
-          <TextBox Classes="field-input" Text="{Binding Code, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                   Watermark="如：PRESSURE" />
+          <TextBlock Text="所属设备" Classes="field-label" />
+          <TextBox Classes="field-input" Text="{Binding OwnerDeviceText}" IsReadOnly="True" />
+          <TextBlock Text="{Binding DeviceHelpText}" Classes="parameter-hint" TextWrapping="Wrap" />
         </StackPanel>
         <StackPanel Spacing="5">
           <TextBlock Text="分组名称 *" Classes="field-label" />
-          <TextBox Classes="field-input" Text="{Binding Name, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                   Watermark="如：压力采集" />
+          <TextBox Classes="field-input" Text="{Binding GroupName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                   Watermark="如：压力采集" IsEnabled="{Binding !IsDefaultGroup}" />
         </StackPanel>
-        <Grid ColumnDefinitions="*,*" ColumnSpacing="14">
-          <StackPanel Spacing="5">
-            <TextBlock Text="排序号" Classes="field-label" />
-            <TextBox Classes="field-input" Text="{Binding SortOrderText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
-          </StackPanel>
-          <TextBlock Grid.Column="1" Text="排序号越小越靠前；分组最多支持一层。"
-                     Foreground="#667085" FontSize="12" VerticalAlignment="Center" TextWrapping="Wrap" />
-        </Grid>
-        <StackPanel Spacing="5">
-          <TextBlock Text="说明" Classes="field-label" />
+        <Expander Header="高级说明（可选）" IsExpanded="False">
           <TextBox Text="{Binding Description, Mode=TwoWay}" AcceptsReturn="True" TextWrapping="Wrap"
                    MinHeight="66" VerticalContentAlignment="Top" Watermark="填写分组用途" />
-        </StackPanel>
+        </Expander>
         <TextBlock Text="{Binding ValidationMessage}" Foreground="#D92D20" FontSize="13" TextWrapping="Wrap" />
       </StackPanel>
 

@@ -78,7 +78,7 @@ public sealed partial class DeviceCalibrationViewModel : PageViewModel
         try
         {
             var runtime = _services.DeviceModes.Runtime;
-            DeviceStatus = runtime is null ? "未初始化" : $"{runtime.Name}（{runtime.Status.Health} / {(runtime.Status.IsConnected ? "已连接" : "未连接")}）";
+            DeviceStatus = runtime is null ? "未初始化" : $"{runtime.Name}（{FormatHealth(runtime.Status.Health)} / {(runtime.Status.IsConnected ? "已连接" : "未连接")}）";
             Points.Clear();
             if (runtime is null) return;
             foreach (var p in await runtime.ListPointsAsync(ct))
@@ -138,11 +138,21 @@ public sealed partial class DeviceCalibrationViewModel : PageViewModel
                     : p.Code == row.Code) ?? throw new Core.Common.DomainException("点位不存在");
             object? value = bool.TryParse(WriteValue, out var b) ? b : (decimal.TryParse(WriteValue, out var d) ? d : WriteValue);
             var activeRun = await _services.RecordRepository.GetActiveRunningRecordAsync() is not null;
-            await _services.WritePipeline.ExecuteAsync(new WriteCommand(_actor, point, value, _services.DeviceConfig.DeviceMode, runtime, activeRun, Confirmed,
+            await _services.WritePipeline.ExecuteAsync(new WriteCommand(_actor, point, value, runtime.Mode, runtime, activeRun, Confirmed,
                 ExpectedRevision: runtime.ActiveRevision));
             StatusMessage = $"已写入 {row.Code}={value}";
             await RefreshAsync();
         }
         catch (Exception ex) { StatusMessage = ex.Message; }
     }
+
+    private static string FormatHealth(DeviceHealth health)
+        => health switch
+        {
+            DeviceHealth.Healthy => "正常",
+            DeviceHealth.Degraded => "降级运行",
+            DeviceHealth.Faulted => "故障",
+            DeviceHealth.Disconnected => "已断开",
+            _ => "未知"
+        };
 }

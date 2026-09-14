@@ -57,7 +57,7 @@ public sealed class SignalResolver
             if (result.TryGetValue(signalKey, out var alreadyResolved))
             {
                 if (alreadyResolved.Requirement != requirement)
-                    errors.Add($"执行器对信号 {signalKey} 声明了不一致的类型、单位或用途");
+                    errors.Add($"执行器对信号 {signalKey} 声明了不一致的类型或用途");
                 continue;
             }
             if (requirement.Access is not (SignalAccessKind.Read or SignalAccessKind.Write))
@@ -89,7 +89,7 @@ public sealed class SignalResolver
             }
             if (!pointById.TryGetValue(binding, out var point))
             {
-                errors.Add($"信号 {signalKey} 绑定的点位不存在或未启用：{binding}");
+                errors.Add($"信号 {signalKey} 绑定的点位不存在：{binding}");
                 continue;
             }
             var compatible = true;
@@ -101,12 +101,6 @@ public sealed class SignalResolver
             if (requirement.Access == SignalAccessKind.Write && !point.IsWritable)
             {
                 errors.Add($"信号 {signalKey} 声明为写入信号，但目标点位不可写：{point.Code}");
-                compatible = false;
-            }
-            if (!string.IsNullOrWhiteSpace(requirement.Unit)
-                && !string.Equals(requirement.Unit.Trim(), point.Unit?.Trim(), StringComparison.OrdinalIgnoreCase))
-            {
-                errors.Add($"信号 {signalKey} 单位不匹配：期望 {requirement.Unit}，实际 {point.Unit}");
                 compatible = false;
             }
             if (!compatible) continue;

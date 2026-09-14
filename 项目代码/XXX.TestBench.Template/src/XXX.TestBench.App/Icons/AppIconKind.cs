@@ -26,6 +26,7 @@ public enum AppIconKind
     Play,
     Stop,
     Connection,
+    Folder,
     ShieldCheck,
     DeviceMode,
     Check,

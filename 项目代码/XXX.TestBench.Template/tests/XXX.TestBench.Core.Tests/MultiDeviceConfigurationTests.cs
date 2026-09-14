@@ -17,11 +17,10 @@ public sealed class MultiDeviceConfigurationTests
             Code = "AI_PRESSURE_2",
             DeviceId = device2.Id,
             GroupId = snapshot.Points.Groups.Single(group => group.DeviceId == device2.Id).Id,
-            Address = "40001",
+            Address = "DB1.DBD0",
             DataType = "Float32",
             RawDataType = "Float32",
-            Protocol = "",
-            AddressDefinition = new PointAddressDefinition { Area = "HoldingRegister", Offset = 0 }
+            Protocol = "SiemensS7"
         });
 
         var issues = MultiDeviceConfigurationValidator.Validate(snapshot);
@@ -38,11 +37,10 @@ public sealed class MultiDeviceConfigurationTests
             Id = Guid.NewGuid().ToString("D"),
             Code = "AI_PRESSURE_DUP",
             DeviceId = snapshot.Device.Devices[0].Id,
-            Address = "sim.pressure",
+            Address = "DB1.DBD0",
             DataType = "Float32",
             RawDataType = "Float32",
-            Protocol = "",
-            AddressDefinition = new PointAddressDefinition { LogicalAddress = "sim.pressure" }
+            Protocol = "SiemensS7"
         });
 
         var issues = MultiDeviceConfigurationValidator.Validate(snapshot);
@@ -82,7 +80,6 @@ public sealed class MultiDeviceConfigurationTests
         snapshot.Device.Channels.Add(CreateSerialChannel("com3"));
         snapshot.Device.Devices[0].ChannelId = snapshot.Device.Channels[0].Id;
         snapshot.Device.Devices[1].ChannelId = snapshot.Device.Channels[1].Id;
-        snapshot.Device.DeviceMode = DeviceMode.Hardware;
         snapshot.Device.Devices[0].DriverKey = DriverKeyCatalog.ModbusTcp;
         snapshot.Device.Devices[1].DriverKey = DriverKeyCatalog.ModbusTcp;
 
@@ -139,8 +136,8 @@ public sealed class MultiDeviceConfigurationTests
             Id = Guid.NewGuid().ToString("D"),
             Code = "SIM",
             Name = "仿真通道",
-            TransportKind = ChannelTransportKind.Simulation,
-            Simulation = new SimulationChannelParameters { InstanceKey = "test" }
+            TransportKind = ChannelTransportKind.Tcp,
+            Tcp = new TcpChannelParameters { Host = "127.0.0.1", Port = 102 }
         };
         var device1 = new DeviceConfig.DeviceEntry
         {
@@ -148,10 +145,11 @@ public sealed class MultiDeviceConfigurationTests
             Code = "PLC1",
             Name = "PLC1",
             ChannelId = channel.Id,
-            DriverKey = DriverKeyCatalog.Simulation,
+            DriverKey = DriverKeyCatalog.SiemensS7,
+            Model = "S7-1500",
+            DeviceMode = DeviceMode.Simulation,
             PollIntervalMs = 500,
-            StaleAfterMs = 2000,
-            Enabled = true
+            StaleAfterMs = 2000
         };
         var device2 = new DeviceConfig.DeviceEntry
         {
@@ -159,10 +157,11 @@ public sealed class MultiDeviceConfigurationTests
             Code = "PLC2",
             Name = "PLC2",
             ChannelId = channel.Id,
-            DriverKey = DriverKeyCatalog.Simulation,
+            DriverKey = DriverKeyCatalog.SiemensS7,
+            Model = "S7-1500",
+            DeviceMode = DeviceMode.Simulation,
             PollIntervalMs = 500,
-            StaleAfterMs = 2000,
-            Enabled = true
+            StaleAfterMs = 2000
         };
         var point = new PointsConfig.PointEntry
         {
@@ -170,11 +169,10 @@ public sealed class MultiDeviceConfigurationTests
             Code = "AI_PRESSURE_1",
             DeviceId = device1.Id,
             GroupId = "40000000-0000-5000-8000-000000000001",
-            Address = "sim.pressure",
+            Address = "DB1.DBD0",
             DataType = "Float32",
             RawDataType = "Float32",
-            Protocol = "",
-            AddressDefinition = new PointAddressDefinition { LogicalAddress = "sim.pressure" }
+            Protocol = "SiemensS7"
         };
         var simulation = new SimulationConfig
         {
@@ -201,7 +199,6 @@ public sealed class MultiDeviceConfigurationTests
             Device = new DeviceConfig
             {
                 SchemaVersion = DeviceConfig.CurrentSchemaVersion,
-                DeviceMode = DeviceMode.Simulation,
                 Channels = new List<ChannelEntry> { channel },
                 Devices = new List<DeviceConfig.DeviceEntry> { device1, device2 }
             },

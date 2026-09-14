@@ -78,7 +78,13 @@ public sealed partial class OverviewViewModel : PageViewModel
         IsBusy = true;
         try
         {
-            DeviceModeText = _services.DeviceConfig.DeviceMode == DeviceMode.Simulation ? "Simulation（仿真）" : "Hardware（硬件）";
+            DeviceModeText = _services.DeviceModes.Runtime?.Mode switch
+            {
+                DeviceMode.Simulation => "仿真模式",
+                DeviceMode.Hardware => "硬件模式",
+                DeviceMode.Mixed => "按设备配置",
+                _ => "按设备配置"
+            };
             HealthText = _services.DeviceModes.Health.ToString();
             var running = await _services.RecordRepository.GetActiveRunningRecordAsync(ct);
             ActiveRecordText = running is null ? "无" : $"{running.RecordNumber}（{running.State}）";

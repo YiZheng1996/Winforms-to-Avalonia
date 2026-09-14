@@ -30,9 +30,12 @@ public sealed record ShellServices(
     DevicePointCatalogService DevicePoints,
     IDevicePointImporter DevicePointImporter,
     IDevicePointTemplateExporter DevicePointTemplateExporter,
+    IDevicePointCatalogExporter DevicePointCatalogExporter,
     AppConfig AppConfig,
     DeviceConfig DeviceConfig,
     string DatabasePath,
     string Version,
     DeviceConfigurationService? DeviceConfigurations = null,
-    IReadOnlyList<IDeviceDriverDescriptor>? DriverDescriptors = null);
+    IReadOnlyList<IDeviceDriverDescriptor>? DriverDescriptors = null,
+    IDeviceConnectionTester? DeviceConnectionTester = null,
+    IDeviceEventSink? DeviceEvents = null);

@@ -30,14 +30,10 @@ public sealed partial class ShellViewModel : ObservableObject
         SystemName = services?.AppConfig.SystemName ?? "XXX 试验台通用上位机";
         Version = services?.Version ?? string.Empty;
         DatabasePath = services?.DatabasePath ?? string.Empty;
-        DeviceModeText = services is null ? "未知" : (services.DeviceConfig.DeviceMode == DeviceMode.Simulation ? "Simulation（仿真）" : "Hardware（硬件）");
-        IsSimulationMode = services?.DeviceConfig.DeviceMode == DeviceMode.Simulation;
-        DeviceModeDisplayText = services is null ? "模式未知" : (IsSimulationMode ? "仿真模式" : "硬件模式");
-        ConnectionStatusText = isFaulted ? "故障" : services is null ? "未知" : (services.DeviceModes.Health == DeviceHealth.Healthy ? "运行正常" : services.DeviceModes.LastError ?? "运行正常");
-        ConnectionDisplayText = isFaulted ? "PLC连接异常" : services is null ? "PLC状态未知" : (services.DeviceModes.Health == DeviceHealth.Healthy ? "PLC连接正常" : "PLC连接异常");
-        BottomStatusText = $"数据库：{DatabasePath}  设备：{DeviceModeText}  版本：{Version}";
         IsFaulted = isFaulted;
         FaultMessage = faultMessage;
+        if (services is not null)
+            services.DeviceModes.StateChanged += OnDeviceModeStateChanged;
     }
 
     /// <summary>
@@ -58,32 +54,62 @@ public sealed partial class ShellViewModel : ObservableObject
     /// <summary>
     /// 是否处于仿真模式。
     /// </summary>
-    public bool IsSimulationMode { get; }
+    public bool IsSimulationMode => _services?.DeviceModes.CurrentMode == DeviceMode.Simulation;
 
     /// <summary>
     /// 设备模式的完整显示文字。
     /// </summary>
-    public string DeviceModeText { get; }
+    public string DeviceModeText => _services is null
+        ? "未知"
+        : _services.DeviceModes.CurrentMode switch
+        {
+            DeviceMode.Simulation => "仿真模式",
+            DeviceMode.Hardware => "硬件模式",
+            DeviceMode.Mixed => "按设备配置",
+            _ => "模式未知"
+        };
 
     /// <summary>
     /// 设备模式的徽标显示文字。
     /// </summary>
-    public string DeviceModeDisplayText { get; }
+    public string DeviceModeDisplayText => _services is null
+        ? "模式未知"
+        : DeviceModeText;
 
     /// <summary>
     /// 设备连接状态的短显示文字。
     /// </summary>
-    public string ConnectionStatusText { get; }
+    public string ConnectionStatusText => IsFaulted
+        ? "故障"
+        : _services is null
+            ? "未知"
+            : _services.DeviceModes.Health == DeviceHealth.Healthy
+                ? "运行正常"
+                : _services.DeviceModes.LastError ?? "运行异常";
 
     /// <summary>
     /// 设备连接状态的长显示文字。
     /// </summary>
-    public string ConnectionDisplayText { get; }
+    public string ConnectionDisplayText => IsFaulted
+        ? "PLC连接异常"
+        : _services is null
+            ? "PLC状态未知"
+            : _services.DeviceModes.Health == DeviceHealth.Healthy ? "PLC连接正常" : "PLC连接异常";
 
     /// <summary>
     /// 底部状态栏的组合文字。
     /// </summary>
-    public string BottomStatusText { get; }
+    public string BottomStatusText => $"运行模式：{DeviceModeText}";
+
+    private void OnDeviceModeStateChanged(object? sender, EventArgs e)
+    {
+        OnPropertyChanged(nameof(IsSimulationMode));
+        OnPropertyChanged(nameof(DeviceModeText));
+        OnPropertyChanged(nameof(DeviceModeDisplayText));
+        OnPropertyChanged(nameof(ConnectionStatusText));
+        OnPropertyChanged(nameof(ConnectionDisplayText));
+        OnPropertyChanged(nameof(BottomStatusText));
+    }
 
     /// <summary>
     /// 头部显示的当前日期文字，每次读取时取当前日期。

@@ -1,4 +1,5 @@
 using XXX.TestBench.Core.Common;
+using System.Text.Json.Serialization;
 
 namespace XXX.TestBench.Core.Configuration;
 
@@ -17,8 +18,21 @@ public enum ChannelTransportKind
 /// </summary>
 public sealed class TcpChannelParameters
 {
+    /// <summary>
+    /// v3 及更早版本的兼容目标地址。v4 的目标地址归 DeviceEntry.SiemensS7 所有。
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
     public string Host { get; set; } = string.Empty;
+    /// <summary>
+    /// v3 及更早版本的兼容目标端口。v4 的目标端口归 DeviceEntry.SiemensS7 所有。
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
     public int Port { get; set; }
+    /// <summary>
+    /// 可选的本地网卡绑定提示，不用于决定远端 PLC 端点。
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public string LocalInterface { get; set; } = string.Empty;
 }
 
 /// <summary>
@@ -60,7 +74,7 @@ public sealed class ChannelEntry
     /// <summary>
     /// 校验通道自身字段以及“传输类型与参数恰好匹配”约束。
     /// </summary>
-    public IReadOnlyList<ConfigurationIssue> Validate(string path)
+    public IReadOnlyList<ConfigurationIssue> Validate(string path, bool allowLegacyTargetEndpoint = true)
     {
         var issues = new List<ConfigurationIssue>();
         if (!Guid.TryParse(Id, out _)) issues.Add(new(path + ".id", "必须是有效 GUID"));
@@ -85,8 +99,15 @@ public sealed class ChannelEntry
                 if (Serial is not null || Simulation is not null) issues.Add(new(path, "TCP 通道不能同时配置其他传输参数"));
                 if (Tcp is not null)
                 {
-                    if (string.IsNullOrWhiteSpace(Tcp.Host)) issues.Add(new(path + ".tcp.host", "不能为空"));
-                    if (Tcp.Port is < 1 or > 65535) issues.Add(new(path + ".tcp.port", "必须在 1-65535 范围内"));
+                    if (allowLegacyTargetEndpoint)
+                    {
+                        if (string.IsNullOrWhiteSpace(Tcp.Host)) issues.Add(new(path + ".tcp.host", "不能为空"));
+                        if (Tcp.Port is < 1 or > 65535) issues.Add(new(path + ".tcp.port", "必须在 1-65535 范围内"));
+                    }
+                    else if (!string.IsNullOrWhiteSpace(Tcp.Host) || Tcp.Port != 0)
+                    {
+                        issues.Add(new(path + ".tcp", "v4 通道不能持有远端目标地址；请把 Host/Port 配置到设备端点"));
+                    }
                 }
                 break;
             case ChannelTransportKind.Serial:

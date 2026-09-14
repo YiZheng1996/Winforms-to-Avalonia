@@ -23,14 +23,11 @@ public sealed record SignalBindingPointChoice(
 
     public string DetailsText
         => IsUnbound ? "开始试验前会因缺少必需信号而被拒绝" : $"{DevicePointTypeCatalog.ToDisplayName(Entry.RawDataTypeKind, Entry.RawDataType)}"
-           + (string.IsNullOrWhiteSpace(Entry.Unit) ? string.Empty : $" · {Entry.Unit}")
-           + $" · {(Entry.IsEnabled ? "启用" : "停用")}";
+           + " · 配置点位";
 
     public bool IsCompatible(RequiredSignal requirement)
         => IsUnbound
            || (IsTypeCompatible(requirement.ExpectedDataType, Entry.RawDataTypeKind)
-           && (string.IsNullOrWhiteSpace(requirement.Unit)
-               || string.Equals(requirement.Unit.Trim(), Entry.Unit?.Trim(), StringComparison.OrdinalIgnoreCase))
            && (requirement.Access != SignalAccessKind.Write || Entry.IsWritable));
 
     private static bool IsTypeCompatible(DevicePointDataType expected, DevicePointDataType actual)
@@ -87,11 +84,9 @@ public sealed partial class SignalBindingRow : ObservableObject
         {
             if (SelectedPoint is null || SelectedPoint.IsUnbound)
                 return "未绑定；开始试验前会被拒绝";
-            if (!SelectedPoint.Entry.IsEnabled)
-                return "已绑定，但点位已停用；启动预检会拒绝";
             if (!SelectedPoint.IsCompatible(Requirement))
-                return "类型、单位或写入能力不匹配；保存会被拒绝";
-            return $"已绑定 PointId：{SelectedPoint.PointId}";
+                return "类型或写入能力不匹配；保存会被拒绝";
+            return "已建立关联";
         }
     }
 
@@ -121,7 +116,7 @@ public sealed partial class SignalBindingsDialogViewModel : ObservableObject
     {
         _configurationService = configurationService;
         _actor = actor;
-        CurrentRevision = string.IsNullOrWhiteSpace(currentRevision) ? "未读取" : currentRevision;
+        CurrentRevision = string.IsNullOrWhiteSpace(currentRevision) ? "未读取" : "已加载";
 
         var deviceCodeById = (devices ?? Array.Empty<DeviceConfig.DeviceEntry>())
             .Where(device => device is not null && !string.IsNullOrWhiteSpace(device.Id))
@@ -164,7 +159,7 @@ public sealed partial class SignalBindingsDialogViewModel : ObservableObject
     public string CurrentRevision { get; }
 
     public string HintText
-        => "SignalKey 由已注册执行器声明；未绑定或不匹配的必需信号会在保存/开始试验前被拦截。停用点位可以保留绑定，但不能通过启动预检。";
+        => "业务信号由试验流程预先定义；未绑定或不匹配的必需信号会在保存或开始试验前被拦截。已配置点位均参与运行。";
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(CanSave))]
@@ -183,13 +178,15 @@ public sealed partial class SignalBindingsDialogViewModel : ObservableObject
     /// <summary>
     /// 将当前选择保存为项目级 SignalKey → PointId 绑定。
     /// </summary>
-    public async Task<DeviceConfigurationApplyResult> SaveAsync(CancellationToken ct = default)
+    public async Task<DeviceConfigurationApplyResult> SaveAsync(
+        CancellationToken ct = default,
+        bool s7OptimizedBlockAccessConfirmed = false)
     {
         var invalid = Rows.FirstOrDefault(row =>
             row.SelectedPoint is not null && !row.IsSelectedPointCompatible);
         if (invalid is not null)
         {
-            var message = $"信号 {invalid.SignalKey} 的绑定不满足类型、单位或写入能力要求";
+            var message = "业务信号关联不满足类型或写入能力要求";
             ValidationMessage = message;
             return new DeviceConfigurationApplyResult(false, string.Empty, message);
         }
@@ -211,7 +208,8 @@ public sealed partial class SignalBindingsDialogViewModel : ObservableObject
                     SchemaVersion = SignalBindingsConfig.CurrentSchemaVersion,
                     Bindings = bindings
                 },
-                ct);
+                ct,
+                s7OptimizedBlockAccessConfirmed);
             if (!result.Ok)
                 ValidationMessage = result.Error ?? "信号绑定应用失败";
             return result;

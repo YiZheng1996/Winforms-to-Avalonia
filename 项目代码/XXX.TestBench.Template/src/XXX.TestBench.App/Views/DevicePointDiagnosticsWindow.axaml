@@ -1,0 +1,152 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:XXX.TestBench.App.ViewModels"
+        x:Class="XXX.TestBench.App.Views.DevicePointDiagnosticsWindow"
+        x:DataType="vm:DevicePointDiagnosticsViewModel"
+        Title="设备点位诊断"
+        Width="1080"
+        Height="700"
+        MinWidth="900"
+        MinHeight="560"
+        CanResize="True"
+        WindowStartupLocation="CenterScreen"
+        SystemDecorations="None"
+        TransparencyLevelHint="Transparent"
+        Background="Transparent"
+        KeyDown="OnWindowKeyDown"
+        UseLayoutRounding="True">
+  <Window.Styles>
+    <Style Selector="DataGrid.diagnostics-grid">
+      <Setter Property="Background" Value="White" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="GridLinesVisibility" Value="Horizontal" />
+      <Setter Property="HorizontalGridLinesBrush" Value="#EDF1F7" />
+      <Setter Property="VerticalGridLinesBrush" Value="Transparent" />
+      <Setter Property="RowBackground" Value="White" />
+      <Setter Property="RowHeight" Value="44" />
+    </Style>
+    <Style Selector="DataGrid.diagnostics-grid DataGridColumnHeader">
+      <Setter Property="Background" Value="#F6F8FB" />
+      <Setter Property="Foreground" Value="#526071" />
+      <Setter Property="BorderBrush" Value="#E2E8F0" />
+      <Setter Property="BorderThickness" Value="0,0,0,1" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="FontSize" Value="13" />
+      <Setter Property="Padding" Value="10,0" />
+      <Setter Property="MinHeight" Value="44" />
+    </Style>
+    <Style Selector="DataGrid.diagnostics-grid DataGridCell">
+      <Setter Property="Padding" Value="10,0" />
+      <Setter Property="Foreground" Value="#344054" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
+    <Style Selector="Button.dialog-secondary">
+      <Setter Property="Background" Value="White" />
+      <Setter Property="Foreground" Value="#344054" />
+      <Setter Property="BorderBrush" Value="#C9D3E0" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="MinWidth" Value="104" />
+      <Setter Property="MinHeight" Value="38" />
+      <Setter Property="CornerRadius" Value="6" />
+    </Style>
+    <Style Selector="Button.dialog-primary">
+      <Setter Property="Background" Value="#0868F7" />
+      <Setter Property="Foreground" Value="White" />
+      <Setter Property="BorderBrush" Value="#0868F7" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="MinWidth" Value="120" />
+      <Setter Property="MinHeight" Value="38" />
+      <Setter Property="CornerRadius" Value="6" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+    <Style Selector="Button.dialog-primary:pointerover">
+      <Setter Property="Background" Value="#0758D7" />
+      <Setter Property="BorderBrush" Value="#0758D7" />
+    </Style>
+  </Window.Styles>
+
+  <Border Background="White" BorderBrush="#C9D3E0" BorderThickness="1" CornerRadius="10">
+    <Grid RowDefinitions="Auto,Auto,*,Auto">
+      <Border Grid.Row="0" Background="#FBFCFE" BorderBrush="#E2E8F0" BorderThickness="0,0,0,1"
+              CornerRadius="10,10,0,0" Padding="22,15" PointerPressed="OnTitleBarPointerPressed">
+        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
+          <Border Width="42" Height="42" CornerRadius="12" Background="#EAF2FF">
+            <TextBlock Text="诊断" Foreground="#0868F7" FontSize="12" FontWeight="Bold"
+                       HorizontalAlignment="Center" VerticalAlignment="Center" />
+          </Border>
+          <StackPanel Grid.Column="1" Spacing="2" VerticalAlignment="Center">
+            <TextBlock Text="只读点位诊断" FontSize="20" FontWeight="Bold" Foreground="#151A24" />
+            <TextBlock Text="复用当前运行时连接读取新鲜值，不创建第二套串口/TCP 会话"
+                       Foreground="#667085" FontSize="12" TextWrapping="Wrap" />
+          </StackPanel>
+          <TextBlock Grid.Column="2" Text="Esc 关闭" Foreground="#98A2B3" FontSize="12"
+                     VerticalAlignment="Center" />
+        </Grid>
+      </Border>
+
+      <Border Grid.Row="1" Background="#F8FAFD" BorderBrush="#E2E8F0" BorderThickness="1"
+              CornerRadius="8" Padding="14,10" Margin="18,14,18,10">
+        <Grid ColumnDefinitions="1.4*,1.4*,1.2*,0.8*" ColumnSpacing="14">
+          <StackPanel Spacing="2">
+            <TextBlock Text="诊断范围" Foreground="#98A2B3" FontSize="12" />
+            <TextBlock Text="{Binding ScopeName}" Foreground="#1F2937" FontWeight="SemiBold" TextWrapping="Wrap" />
+          </StackPanel>
+          <StackPanel Grid.Column="1" Spacing="2">
+            <TextBlock Text="运行模式" Foreground="#98A2B3" FontSize="12" />
+            <TextBlock Text="{Binding RuntimeSummary}" Foreground="#0758D7" FontWeight="SemiBold" TextWrapping="Wrap" />
+          </StackPanel>
+          <StackPanel Grid.Column="2" Spacing="2">
+            <TextBlock Text="配置版本" Foreground="#98A2B3" FontSize="12" />
+            <TextBlock Text="{Binding ActiveRevisionText}" Foreground="#344054" TextWrapping="Wrap" />
+          </StackPanel>
+          <StackPanel Grid.Column="3" Spacing="2">
+            <TextBlock Text="完成 / 总数" Foreground="#98A2B3" FontSize="12" />
+            <TextBlock Foreground="#1F2937" FontWeight="SemiBold">
+              <Run Text="{Binding CompletedCount}" />
+              <Run Text=" / " />
+              <Run Text="{Binding TotalCount}" />
+            </TextBlock>
+          </StackPanel>
+        </Grid>
+      </Border>
+
+      <Border Grid.Row="2" BorderBrush="#DDE5EF" BorderThickness="1" CornerRadius="8" Margin="18,0,18,10">
+        <DataGrid Classes="diagnostics-grid"
+                  ItemsSource="{Binding Points}"
+                  SelectedItem="{Binding SelectedPoint}"
+                  AutoGenerateColumns="False"
+                  IsReadOnly="True"
+                  HeadersVisibility="Column"
+                  SelectionMode="Single">
+          <DataGrid.Columns>
+            <DataGridTextColumn Header="点位名称" Binding="{Binding PointName}" Width="1.4*" />
+            <DataGridTextColumn Header="地址" Binding="{Binding Address}" Width="1.1*" />
+            <DataGridTextColumn Header="数据类型" Binding="{Binding DataTypeText}" Width="100" />
+            <DataGridTextColumn Header="当前值" Binding="{Binding ValueText}" Width="1.0*" />
+            <DataGridTextColumn Header="质量" Binding="{Binding QualityText}" Width="90" />
+            <DataGridTextColumn Header="采样时间" Binding="{Binding TimestampText}" Width="160" />
+            <DataGridTextColumn Header="状态" Binding="{Binding StatusText}" Width="90" />
+            <DataGridTextColumn Header="错误说明" Binding="{Binding ErrorText}" Width="1.5*" />
+          </DataGrid.Columns>
+        </DataGrid>
+      </Border>
+
+      <Border Grid.Row="3" Background="#FBFCFE" BorderBrush="#E2E8F0" BorderThickness="0,1,0,0"
+              CornerRadius="0,0,10,10" Padding="18,12">
+        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+          <TextBlock Text="{Binding FeedbackText}" Foreground="#7A8492" FontSize="12"
+                     VerticalAlignment="Center" TextWrapping="Wrap" />
+          <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="10">
+            <Button Classes="dialog-secondary" Content="读取选中点位"
+                    IsEnabled="{Binding CanReadSelected}" Click="OnReadSelectedClick" />
+            <Button Classes="dialog-primary" Content="读取当前范围"
+                    IsEnabled="{Binding CanReadScope}" Click="OnReadScopeClick" />
+            <Button Classes="dialog-secondary" Content="取消读取"
+                    IsEnabled="{Binding IsBusy}" Click="OnCancelReadClick" />
+            <Button Classes="dialog-secondary" Content="关闭" Click="OnCloseClick" />
+          </StackPanel>
+        </Grid>
+      </Border>
+    </Grid>
+  </Border>
+</Window>

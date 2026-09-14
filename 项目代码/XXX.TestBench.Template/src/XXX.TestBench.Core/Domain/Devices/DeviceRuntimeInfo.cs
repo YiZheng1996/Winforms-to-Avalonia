@@ -15,4 +15,10 @@ public sealed record DeviceRuntimeInfo(
     string ChannelId = "",
     string Revision = "",
     long ConnectionGeneration = 0,
-    DeviceConnectionState ConnectionState = DeviceConnectionState.Unknown);
+    DeviceConnectionState ConnectionState = DeviceConnectionState.Unknown,
+    DeviceMode Mode = DeviceMode.Hardware,
+    DateTime? LastSuccessUtc = null,
+    DateTime? LastFailureUtc = null,
+    int ConsecutiveFailures = 0,
+    DateTime? DemotedUntilUtc = null,
+    int? NegotiatedPduSize = null);

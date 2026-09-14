@@ -9,7 +9,7 @@ namespace XXX.TestBench.Integration.Tests;
 public sealed class MultiDeviceRuntimeTests
 {
     [Fact]
-    public async Task SameAddressOnTwoSimulationDevices_IsRoutedByPointId()
+    public async Task SamePhysicalAddressOnTwoDevices_InPerDeviceSimulationMode_IsRoutedByPointId()
     {
         var snapshot = CreateSnapshot();
         await using var runtime = new MultiDeviceRuntime(snapshot, new TestClock());
@@ -43,6 +43,10 @@ public sealed class MultiDeviceRuntimeTests
     public async Task SharedChannelSerializesRequests()
     {
         var snapshot = CreateSnapshot();
+        // 该用例只验证匿名通道操作的串行门；关闭设备固定轮询，
+        // 避免两个 TCP 设备各自的后台轮询干扰 MaxInFlight 指标。
+        foreach (var device in snapshot.Device.Devices)
+            device.ScanMode = DeviceScanMode.OnDemand;
         await using var runtime = new MultiDeviceRuntime(snapshot, new TestClock());
         await runtime.StartAsync();
 
@@ -81,7 +85,7 @@ public sealed class MultiDeviceRuntimeTests
             new TestClock(),
             snapshot.Revision,
             snapshot.SignalBindings);
-        await using var runtime = await factory.CreateAsync(DeviceMode.Simulation);
+        await using var runtime = await factory.CreateAsync();
 
         Assert.Equal(point.Id, runtime.SignalBindings.Bindings["AI_Pressure"]);
         Assert.Equal(snapshot.Revision, runtime.ActiveRevision);
@@ -92,10 +96,10 @@ public sealed class MultiDeviceRuntimeTests
         var channel = new ChannelEntry
         {
             Id = Guid.NewGuid().ToString("D"),
-            Code = "SIM_SHARED",
-            Name = "共享仿真通道",
-            TransportKind = ChannelTransportKind.Simulation,
-            Simulation = new SimulationChannelParameters { InstanceKey = "multi-test" }
+            Code = "PLC_SHARED",
+            Name = "PLC 网络通道",
+            TransportKind = ChannelTransportKind.Tcp,
+            Tcp = new TcpChannelParameters { Host = "127.0.0.1", Port = 102 }
         };
         var device1 = CreateDevice("PLC1", channel.Id);
         var device2 = CreateDevice("PLC2", channel.Id);
@@ -116,7 +120,6 @@ public sealed class MultiDeviceRuntimeTests
             Device = new DeviceConfig
             {
                 SchemaVersion = DeviceConfig.CurrentSchemaVersion,
-                DeviceMode = DeviceMode.Simulation,
                 Channels = new List<ChannelEntry> { channel },
                 Devices = new List<DeviceConfig.DeviceEntry> { device1, device2 }
             },
@@ -138,10 +141,11 @@ public sealed class MultiDeviceRuntimeTests
             Code = code,
             Name = code,
             ChannelId = channelId,
-            DriverKey = DriverKeyCatalog.Simulation,
+            DriverKey = DriverKeyCatalog.SiemensS7,
+            Model = "S7-1500",
+            DeviceMode = DeviceMode.Simulation,
             PollIntervalMs = 500,
-            StaleAfterMs = 2000,
-            Enabled = true
+            StaleAfterMs = 2000
         };
 
     private static PointsConfig.PointGroupEntry CreateGroup(string deviceId, string code)
@@ -161,12 +165,11 @@ public sealed class MultiDeviceRuntimeTests
             Name = code,
             DeviceId = deviceId,
             GroupId = groupId,
-            Address = "sim.pressure",
-            Protocol = string.Empty,
+            Address = "DB1.DBD0",
+            Protocol = "SiemensS7",
             DataType = "Float32",
             RawDataType = "Float32",
-            IsWritable = true,
-            AddressDefinition = new PointAddressDefinition { LogicalAddress = "sim.pressure" }
+            IsWritable = true
         };
 
     private static void InterlockedMax(ref int target, int value)

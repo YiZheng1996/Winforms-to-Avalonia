@@ -180,7 +180,7 @@
           </Grid>
         </Border>
 
-        <Border x:Name="WorkspaceRegion" Grid.Row="1" Background="#F5F8FC" Padding="12">
+        <Border x:Name="WorkspaceRegion" Grid.Row="1" Background="#F5F8FC" Padding="12,12,12,0">
           <ContentControl Content="{Binding CurrentPage}" />
         </Border>
 
@@ -254,11 +254,6 @@
               </Border>
               <TextBlock Text="急停回路正常" FontSize="16" VerticalAlignment="Center" />
             </StackPanel>
-            <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
-              <icons:AppIcon Kind="DeviceMode" Width="20" Height="20" Stroke="#0868F7" />
-              <TextBlock x:Name="ModeTextBlock" Text="{Binding DeviceModeDisplayText}" Foreground="#0868F7"
-                         FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center" />
-            </StackPanel>
           </StackPanel>
         </Border>
       </Grid>
@@ -274,7 +269,7 @@
             HorizontalAlignment="Stretch" VerticalAlignment="Top" Margin="18"
             x:Name="FaultBanner" IsVisible="{Binding IsFaulted}" ZIndex="20">
       <StackPanel Spacing="4">
-        <TextBlock Text="启动故障（Faulted）" FontWeight="Bold" Foreground="White" />
+        <TextBlock Text="启动故障" FontWeight="Bold" Foreground="White" />
         <TextBlock Text="{Binding FaultMessage}" Foreground="White" TextWrapping="Wrap" />
       </StackPanel>
     </Border>

@@ -25,6 +25,10 @@ public interface IDeviceRuntime : IAsyncDisposable
     /// </summary>
     DeviceRuntimeInfo Status { get; }
     /// <summary>
+    /// 启动时每台设备的激活结果；旧运行时默认视为尚未提供明细。
+    /// </summary>
+    RuntimeActivationReport ActivationReport => RuntimeActivationReport.Empty;
+    /// <summary>
     /// 启动设备通信。
     /// </summary>
     Task StartAsync(CancellationToken ct = default);
@@ -66,6 +70,33 @@ public interface IDeviceRuntime : IAsyncDisposable
             throw new Common.DomainException($"点位 {pointId} 不在当前运行时");
         return await ReadAsync(point, ct);
     }
+
+    /// <summary>
+    /// 强制从设备批量读取新鲜样本。默认实现保留旧运行时兼容性，具体驱动应覆盖以合并请求。
+    /// </summary>
+    async Task<IReadOnlyList<PointValue>> ReadManyFreshAsync(
+        IReadOnlyCollection<string> pointIds,
+        CancellationToken ct = default)
+    {
+        var result = new List<PointValue>(pointIds.Count);
+        foreach (var pointId in pointIds)
+            result.Add(await ReadFreshAsync(pointId, ct));
+        return result;
+    }
+
+    /// <summary>
+    /// 只从当前缓存读取，不触发任何硬件访问。
+    /// </summary>
+    bool TryGetCachedValue(string pointId, out PointValue value)
+    {
+        value = default!;
+        return false;
+    }
+
+    /// <summary>
+    /// 返回当前已缓存样本，不触发任何硬件访问。
+    /// </summary>
+    IReadOnlyList<PointValue> ListCachedValues() => Array.Empty<PointValue>();
 
     /// <summary>
     /// 返回单台设备状态；单设备兼容运行时使用自身状态。

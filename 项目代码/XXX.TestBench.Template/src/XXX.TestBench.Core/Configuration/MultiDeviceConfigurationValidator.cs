@@ -100,7 +100,7 @@ public static class MultiDeviceConfigurationValidator
     {
         var issues = Validate(snapshot, descriptors, requiredSignals);
         if (issues.Count > 0)
-            throw new ConfigValidationException(string.Join("；", issues));
+            throw new ConfigValidationException(string.Join("；", issues.Select(issue => issue.Message)));
     }
 
     private static void ValidateDeviceReferences(
@@ -124,29 +124,27 @@ public static class MultiDeviceConfigurationValidator
             var path = $"device.json.devices[{device.Code}]";
             if (!channelMap.TryGetValue(device.ChannelId?.Trim() ?? string.Empty, out var channel))
                 continue;
-            if (device.Enabled && !channel.Enabled)
-                issues.Add(new(path + ".channelId", "设备已启用但所属通道已禁用"));
+            if (device.DeviceMode == DeviceMode.Hardware && !channel.Enabled)
+                issues.Add(new(path + ".channelId", "硬件设备所属通道已禁用"));
 
             if (!drivers.TryGetValue(device.DriverKey?.Trim() ?? string.Empty, out var descriptor))
             {
-                if (device.Enabled && !string.Equals(device.DriverKey, DriverKeyCatalog.Simulation, StringComparison.OrdinalIgnoreCase))
-                    issues.Add(new(path + ".driverKey", $"未注册驱动：{device.DriverKey}"));
+                if (drivers.Count > 0)
+                    issues.Add(new(path + ".driverKey", $"设备“{DisplayDevice(device)}”的通信方式未注册"));
                 continue;
             }
 
             foreach (var issue in descriptor.ValidateChannel(channel))
                 issues.Add(new(path + ".channel." + issue.Path, issue.Message));
+            if (!descriptor.SupportedTransports.Contains(channel.TransportKind))
+                issues.Add(new(path + ".channel.transportKind",
+                    $"驱动“{descriptor.DisplayName}”不能使用当前通道传输类型：{channel.TransportKind}"));
             foreach (var issue in descriptor.ValidateDevice(device, channel))
                 issues.Add(new(path + "." + issue.Path, issue.Message));
-            if (device.Enabled && !descriptor.IsImplemented)
-                issues.Add(new(path + ".driverKey", $"驱动已注册但尚未实现，不能启用：{device.DriverKey}"));
-
-            if (deviceConfig.DeviceMode == DeviceMode.Simulation
-                && !string.Equals(device.DriverKey, DriverKeyCatalog.Simulation, StringComparison.OrdinalIgnoreCase))
-                issues.Add(new(path + ".driverKey", "全局 Simulation 模式只能启用 simulation 驱动"));
-            if (deviceConfig.DeviceMode == DeviceMode.Simulation
-                && channel.TransportKind != ChannelTransportKind.Simulation)
-                issues.Add(new(path + ".channelId", "全局 Simulation 模式只能使用仿真通道"));
+            if (device.DeviceMode == DeviceMode.Hardware && !descriptor.IsImplemented)
+                issues.Add(new(path + ".driverKey", $"设备“{DisplayDevice(device)}”当前不能在硬件模式使用"));
+            if (string.Equals(device.DriverKey, DriverKeyCatalog.Simulation, StringComparison.OrdinalIgnoreCase))
+                issues.Add(new(path + ".driverKey", "仿真不能作为设备驱动，请选择实际设备驱动并设置该设备的仿真模式"));
         }
     }
 
@@ -178,14 +176,11 @@ public static class MultiDeviceConfigurationValidator
 
             if (!drivers.TryGetValue(device.DriverKey?.Trim() ?? string.Empty, out var descriptor))
             {
-                if (point.IsEnabled && !string.Equals(device.DriverKey, DriverKeyCatalog.Simulation, StringComparison.OrdinalIgnoreCase))
-                    issues.Add(new(path + ".deviceId", $"设备驱动未注册：{device.DriverKey}"));
-                if (string.Equals(device.DriverKey, DriverKeyCatalog.Simulation, StringComparison.OrdinalIgnoreCase))
-                {
-                    var fallbackAddress = point.AddressDefinition?.ToCanonical(point.Address) ?? point.Address.Trim();
-                    if (!duplicateAddresses.Add($"{device.Id.Trim()}\u001f{fallbackAddress}"))
-                        issues.Add(new(path + ".address", $"同一设备存在重复规范地址：{fallbackAddress}"));
-                }
+                if (drivers.Count > 0)
+                    issues.Add(new(path + ".deviceId", $"设备“{DisplayDevice(device)}”的通信方式未注册"));
+                var fallbackAddress = point.AddressDefinition?.ToCanonical(point.Address) ?? point.Address.Trim();
+                if (!duplicateAddresses.Add($"{device.Id.Trim()}\u001f{fallbackAddress}"))
+                    issues.Add(new(path + ".address", $"同一设备存在重复规范地址：{fallbackAddress}"));
                 continue;
             }
 
@@ -262,9 +257,6 @@ public static class MultiDeviceConfigurationValidator
             if (!points.TryGetValue(pointId, out var point)) continue;
             if (!IsTypeCompatible(requirement.ExpectedDataType, point.RawDataTypeKind))
                 issues.Add(new($"signal-bindings.{binding.Key}", $"类型不匹配：期望 {DevicePointTypeCatalog.ToDisplayName(requirement.ExpectedDataType)}，实际 {DevicePointTypeCatalog.ToDisplayName(point.RawDataTypeKind)}"));
-            if (!string.IsNullOrWhiteSpace(requirement.Unit)
-                && !string.Equals(requirement.Unit.Trim(), point.Unit?.Trim(), StringComparison.OrdinalIgnoreCase))
-                issues.Add(new($"signal-bindings.{binding.Key}", $"单位不匹配：期望 {requirement.Unit}，实际 {point.Unit}"));
             if (requirement.MaxSampleAge <= TimeSpan.Zero)
                 issues.Add(new($"signal-bindings.{binding.Key}", "最大样本年龄必须大于 0"));
         }
@@ -283,4 +275,7 @@ public static class MultiDeviceConfigurationValidator
         try { validator(); }
         catch (ConfigValidationException ex) { issues.Add(new(path, ex.Message)); }
     }
+
+    private static string DisplayDevice(DeviceConfig.DeviceEntry device)
+        => string.IsNullOrWhiteSpace(device.Name) ? device.Code : device.Name;
 }

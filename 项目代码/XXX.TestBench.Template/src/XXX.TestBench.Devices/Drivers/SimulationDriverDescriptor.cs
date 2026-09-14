@@ -19,12 +19,22 @@ public sealed class SimulationDriverDescriptor : IDeviceDriverDescriptor
         DevicePointDataType.UInt16,
         DevicePointDataType.UInt32,
         DevicePointDataType.Float32,
+        DevicePointDataType.Double,
+        DevicePointDataType.Byte,
+        DevicePointDataType.Char,
         DevicePointDataType.String
     };
 
     public string DriverKey => DriverKeyCatalog.Simulation;
     public string DisplayName => "仿真";
     public bool IsImplemented => true;
+    public IReadOnlySet<ChannelTransportKind> SupportedTransports { get; } =
+        new HashSet<ChannelTransportKind> { ChannelTransportKind.Simulation };
+    public IReadOnlyList<DeviceModelDescriptor> DeviceModels { get; } =
+    [
+        new("SIMULATION", "通用仿真设备", "如：sim.pressure",
+            "仿真地址示例：sim.pressure；命令点位可用 sim.start。")
+    ];
     public IReadOnlySet<DevicePointDataType> SupportedDataTypes => Supported;
 
     public IReadOnlyList<DriverValidationIssue> ValidateChannel(ChannelEntry channel)
@@ -57,7 +67,7 @@ public sealed class SimulationDriverDescriptor : IDeviceDriverDescriptor
         if (!Supported.Contains(point.RawDataTypeKind))
             issues.Add(new("rawDataType", $"仿真驱动不支持原始数据类型：{point.RawDataType}"));
         if (point.AddressDefinition is { } address
-            && (!string.IsNullOrWhiteSpace(address.Area)
+            && (address.Area is not ("" or "Simulation")
                 || address.Offset.HasValue
                 || address.BitIndex.HasValue
                 || address.DbNumber.HasValue

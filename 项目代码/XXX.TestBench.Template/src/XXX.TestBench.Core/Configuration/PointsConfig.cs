@@ -84,12 +84,25 @@ public sealed class PointsConfig
         /// 驱动专用的结构化地址参数；Address 保留为可读/兼容表示。
         /// </summary>
         public PointAddressDefinition? AddressDefinition { get; set; }
+
+        /// <summary>
+        /// 导入预览使用的原始地址。只存在于内存，不写入 points.json。
+        /// 例如模板填写 40001 时，Address 可以规范化为 HR:0，但预览仍能展示客户原文。
+        /// </summary>
+        [JsonIgnore]
+        public string OriginalAddress { get; set; } = string.Empty;
+
+        /// <summary>
+        /// 导入预览使用的规范地址。只存在于内存，不写入 points.json。
+        /// </summary>
+        [JsonIgnore]
+        public string CanonicalAddress { get; set; } = string.Empty;
         /// <summary>
         /// 数据类型。
         /// </summary>
         public string DataType { get; set; } = string.Empty;
         /// <summary>
-        /// v2 原始数据类型。旧 Decimal 只作为兼容类型保留，不猜测为 Float32。
+        /// 点位实际采用的数据类型。
         /// </summary>
         public string RawDataType { get; set; } = string.Empty;
         /// <summary>
@@ -101,7 +114,7 @@ public sealed class PointsConfig
                 ? value
                 : DevicePointDataType.Unknown;
         /// <summary>
-        /// v2 实际采用的数据类型；未填写时回退到旧 DataType。
+        /// 实际采用的数据类型；未填写原始字段时回退到 DataType。
         /// </summary>
         [JsonIgnore]
         public DevicePointDataType RawDataTypeKind
@@ -114,29 +127,33 @@ public sealed class PointsConfig
         /// 解码字节序和字序。
         /// </summary>
         public DecodeOptions DecodeOptions { get; set; } = new();
+
+        /// <summary>
+        /// 导入预览中标记字节序来源，例如“显式填写”或“项目初始值”；不落盘。
+        /// </summary>
+        [JsonIgnore]
+        public string ByteOrderSource { get; set; } = string.Empty;
+
+        /// <summary>
+        /// 导入预览中标记字序来源；不落盘。
+        /// </summary>
+        [JsonIgnore]
+        public string WordOrderSource { get; set; } = string.Empty;
         /// <summary>
         /// 第一版可执行写入策略，仅支持写后新鲜回读相等。
         /// </summary>
         public PointWritePolicy WritePolicy { get; set; } = PointWritePolicy.ReadBackEqual;
         /// <summary>
-        /// 工程单位。
-        /// </summary>
-        public string Unit { get; set; } = string.Empty;
-        /// <summary>
         /// 是否允许写入。
         /// </summary>
         public bool IsWritable { get; set; }
-        /// <summary>
-        /// 是否启用该点位。
-        /// </summary>
-        public bool IsEnabled { get; set; } = true;
         /// <summary>
         /// 写入风险等级。
         /// </summary>
         public WriteRiskLevel RiskLevel { get; set; } = WriteRiskLevel.Normal;
 
         /// <summary>
-        /// 旧格式的量程对象；新配置仍支持扁平字段写法。
+        /// 可选的量程对象；新配置优先使用扁平字段写法。
         /// </summary>
         public ScaleValues? Scale { get; set; }
         /// <summary>
@@ -161,19 +178,19 @@ public sealed class PointsConfig
         public string Description { get; set; } = string.Empty;
 
         /// <summary>
-        /// 实际采用的原始值下限，兼容旧量程写法。
+        /// 实际采用的原始值下限。
         /// </summary>
         public decimal? EffectiveRawMin => RawMin ?? Scale?.RawMin;
         /// <summary>
-        /// 实际采用的原始值上限，兼容旧量程写法。
+        /// 实际采用的原始值上限。
         /// </summary>
         public decimal? EffectiveRawMax => RawMax ?? Scale?.RawMax;
         /// <summary>
-        /// 实际采用的工程值下限，兼容旧量程写法。
+        /// 实际采用的工程值下限。
         /// </summary>
         public decimal? EffectiveEngMin => EngMin ?? Scale?.EngMin;
         /// <summary>
-        /// 实际采用的工程值上限，兼容旧量程写法。
+        /// 实际采用的工程值上限。
         /// </summary>
         public decimal? EffectiveEngMax => EngMax ?? Scale?.EngMax;
 
@@ -190,9 +207,9 @@ public sealed class PointsConfig
             if (RawDataTypeKind == DevicePointDataType.Unknown)
                 throw new ConfigValidationException($"点位 {Code} 的数据类型不受支持：{DataType}");
 
-            return new DevicePoint(Code, protocol, Address, RawDataTypeKind, Unit, IsWritable, RiskLevel,
-                EffectiveRawMin, EffectiveRawMax, EffectiveEngMin, EffectiveEngMax, Name, IsEnabled, Description,
-                Id, DeviceId, string.Empty, AddressDefinition, DecodeOptions, WritePolicy, revision ?? string.Empty);
+            return new DevicePoint(Code, protocol, Address, RawDataTypeKind, IsWritable, RiskLevel,
+                EffectiveRawMin, EffectiveRawMax, EffectiveEngMin, EffectiveEngMax, Name, Description,
+                Id, DeviceId, driverKey ?? string.Empty, AddressDefinition, DecodeOptions, WritePolicy, revision ?? string.Empty);
         }
     }
 

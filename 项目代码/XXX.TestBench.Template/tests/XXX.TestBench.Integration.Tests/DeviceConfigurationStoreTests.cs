@@ -56,19 +56,20 @@ public sealed class DeviceConfigurationStoreTests
             Id = channelId ?? Guid.NewGuid().ToString("D"),
             Code = "SIM",
             Name = "仿真通道",
-            TransportKind = ChannelTransportKind.Simulation,
-            Simulation = new SimulationChannelParameters { InstanceKey = "store-test" }
+            TransportKind = ChannelTransportKind.Tcp,
+            Tcp = new TcpChannelParameters { Host = "127.0.0.1", Port = 102 }
         };
         var device = new DeviceConfig.DeviceEntry
         {
             Id = deviceId ?? Guid.NewGuid().ToString("D"),
             Code = "SIM1",
-            Name = "仿真设备",
+            Name = "测试设备",
             ChannelId = channel.Id,
-            DriverKey = DriverKeyCatalog.Simulation,
+            DriverKey = DriverKeyCatalog.SiemensS7,
+            Model = "S7-1500",
+            DeviceMode = DeviceMode.Simulation,
             PollIntervalMs = 500,
-            StaleAfterMs = 2000,
-            Enabled = true
+            StaleAfterMs = 2000
         };
         var group = new PointsConfig.PointGroupEntry
         {
@@ -84,10 +85,10 @@ public sealed class DeviceConfigurationStoreTests
             Name = "压力",
             DeviceId = device.Id,
             GroupId = group.Id,
-            Address = "sim.pressure",
+            Protocol = "SiemensS7",
+            Address = "DB1.DBD0",
             DataType = "Float32",
-            RawDataType = "Float32",
-            AddressDefinition = new PointAddressDefinition { LogicalAddress = "sim.pressure" }
+            RawDataType = "Float32"
         };
         var simulation = new SimulationConfig
         {
@@ -100,7 +101,6 @@ public sealed class DeviceConfigurationStoreTests
             Device = new DeviceConfig
             {
                 SchemaVersion = DeviceConfig.CurrentSchemaVersion,
-                DeviceMode = DeviceMode.Simulation,
                 Channels = new List<ChannelEntry> { channel },
                 Devices = new List<DeviceConfig.DeviceEntry> { device }
             },

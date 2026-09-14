@@ -7,5 +7,13 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="../XXX.TestBench.Core/XXX.TestBench.Core.csproj" />
+    <!--
+      NModbus 只停留在 Devices 适配层；Core、App 和配置文件不直接依赖第三方库。
+      NModbus.Serial 用于标准 RTU 帧，System.IO.Ports 提供串口资源本身。
+    -->
+    <PackageReference Include="NModbus" Version="3.0.83" />
+    <PackageReference Include="NModbus.Serial" Version="3.0.83" />
+    <PackageReference Include="System.IO.Ports" Version="8.0.0" />
+    <PackageReference Include="S7netplus" Version="0.20.0" />
   </ItemGroup>
 </Project>

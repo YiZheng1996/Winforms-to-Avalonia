@@ -46,7 +46,7 @@ public sealed class SignalResolverTests
     }
 
     [Fact]
-    public async Task Resolve_RejectsTypeAndUnitMismatch()
+    public async Task Resolve_RejectsTypeMismatch_AndDoesNotApplyPointUnit()
     {
         var point = CreatePoint();
         var runtime = new SignalRuntime(point, new FixedClock());
@@ -59,7 +59,7 @@ public sealed class SignalResolverTests
         }));
 
         Assert.Contains("类型不匹配", error.Message, StringComparison.Ordinal);
-        Assert.Contains("单位不匹配", error.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain("单位不匹配", error.Message, StringComparison.Ordinal);
     }
 
     private static DevicePoint CreatePoint()
@@ -68,7 +68,6 @@ public sealed class SignalResolverTests
             DevicePointProtocol.Simulation,
             "sim.pressure",
             DevicePointDataType.Decimal,
-            "MPa",
             false,
             WriteRiskLevel.Normal,
             null,

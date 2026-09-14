@@ -70,6 +70,7 @@ internal static class AppIconGeometry
             [AppIconKind.Play] = Geometry.Parse("M8,5 L19,12 L8,19 Z"),
             [AppIconKind.Stop] = Geometry.Parse("M7,7 H17 V17 H7 Z"),
             [AppIconKind.Connection] = Geometry.Parse("M4,5 H9 V10 H4 Z M15,5 H20 V10 H15 Z M9,7 H15 M7,10 V15 H17 V10 M12,15 V20"),
+            [AppIconKind.Folder] = Geometry.Parse("M3,7 H9 L11,9 H21 V20 H3 Z"),
             [AppIconKind.ShieldCheck] = Geometry.Parse("M12,3 L19,6 V11 C19,16 16,19 12,21 C8,19 5,16 5,11 V6 Z M8.5,12 L11,14.5 L16,9.5"),
             [AppIconKind.DeviceMode] = Geometry.Parse("M3,4 H21 V16 H3 Z M9,20 H15 M12,16 V20 M7,8 H17 M7,12 H12"),
             [AppIconKind.Check] = Geometry.Parse("M4,12 L9,17 L20,6"),
@@ -88,7 +89,9 @@ internal static class AppIconGeometry
             [AppIconKind.Delete] = Geometry.Parse("M6,7 V20 H18 V7 M4,7 H20 M9,4 H15 M9,10 V17 M12,10 V17 M15,10 V17"),
             [AppIconKind.Unlock] = Geometry.Parse("M7,10 V7 A5,5 0 0 1 17,7 M5,10 H19 V21 H5 Z M12,14 V18"),
             [AppIconKind.Key] = Geometry.Parse("M8,4 A5,5 0 1 0 10.5,13 L15,17 H18 V20 H21 V17 H18 V14 H15 L11.5,10.5 A5,5 0 0 0 8,4 M8,7 A2,2 0 1 0 8,11 A2,2 0 1 0 8,7"),
-            [AppIconKind.Search] = Geometry.Parse("M10,4 A6,6 0 1 0 14,14 L20,20"),
+            // 搜索图标用两段弧闭合镜片，再单独绘制手柄；避免单段大弧留下缺口，
+            // 同时把描边端点收进 24 x 24 设计坐标，缩放到 16~18px 时不会被裁掉。
+            [AppIconKind.Search] = Geometry.Parse("M10,4 A6,6 0 1 0 10,16 A6,6 0 1 0 10,4 M14.3,14.3 L19,19"),
             [AppIconKind.Reset] = Geometry.Parse("M5,5 V10 H10 M5,10 A8,8 0 1 1 8,18 H4"),
             [AppIconKind.Save] = Geometry.Parse("M5,3 H17 L20,6 V21 H5 Z M8,3 V9 H16 V5 M8,14 H16 V19 H8 Z"),
             [AppIconKind.Cancel] = Geometry.Parse("M6,6 L18,18 M18,6 L6,18"),

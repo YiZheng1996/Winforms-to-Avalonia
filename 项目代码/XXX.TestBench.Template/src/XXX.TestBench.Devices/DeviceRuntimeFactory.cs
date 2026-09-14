@@ -4,12 +4,14 @@ using XXX.TestBench.Core.Domain.Devices;
 using XXX.TestBench.Core.Ports;
 using XXX.TestBench.Devices.Simulation;
 using XXX.TestBench.Devices.Runtime;
+using XXX.TestBench.Devices.Siemens;
+using XXX.TestBench.Devices.Modbus;
 
 namespace XXX.TestBench.Devices;
 
 /// <summary>
-/// 设备运行时工厂：Simulation 创建仿真运行时；Hardware 阶段 5 前没有适配器时必须失败，
-/// 不得回退 Simulation、不得伪造成功数据。
+/// 设备运行时工厂：每台设备按照自己的 DeviceMode 创建会话。
+/// Simulation 使用仿真运行时；S7 Hardware 使用 S7NetPlus，未实现驱动仍明确失败，不得回退 Simulation。
 /// </summary>
 public sealed class DeviceRuntimeFactory : IDeviceRuntimeFactory
 {
@@ -37,6 +39,9 @@ public sealed class DeviceRuntimeFactory : IDeviceRuntimeFactory
     /// 当前完整配置中的项目级业务信号绑定。
     /// </summary>
     private readonly SignalBindingsConfig _signalBindings;
+    private readonly IS7PlcClientFactory? _s7ClientFactory;
+    private readonly IDeviceEventSink? _events;
+    private readonly IModbusClientFactory? _modbusClientFactory;
 
     /// <summary>
     /// 创建运行时工厂。
@@ -47,7 +52,10 @@ public sealed class DeviceRuntimeFactory : IDeviceRuntimeFactory
         SimulationConfig simulationConfig,
         IClock clock,
         string? revision = null,
-        SignalBindingsConfig? signalBindings = null)
+        SignalBindingsConfig? signalBindings = null,
+        IS7PlcClientFactory? s7ClientFactory = null,
+        IDeviceEventSink? events = null,
+        IModbusClientFactory? modbusClientFactory = null)
     {
         _deviceConfig = deviceConfig;
         _pointsConfig = pointsConfig;
@@ -55,35 +63,46 @@ public sealed class DeviceRuntimeFactory : IDeviceRuntimeFactory
         _clock = clock;
         _revision = string.IsNullOrWhiteSpace(revision) ? "runtime-v2" : revision.Trim();
         _signalBindings = signalBindings ?? new SignalBindingsConfig();
+        _s7ClientFactory = s7ClientFactory;
+        _events = events;
+        _modbusClientFactory = modbusClientFactory;
     }
 
     /// <summary>
-    /// 按模式创建设备运行时。
+    /// 按当前设备配置创建设备运行时。
+    /// </summary>
+    public Task<IDeviceRuntime> CreateAsync(CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+        if (_deviceConfig.SchemaVersion != DeviceConfig.CurrentSchemaVersion
+            && _deviceConfig.SchemaVersion != DeviceConfig.PreviousSchemaVersion
+            || _pointsConfig.SchemaVersion != PointsConfig.CurrentSchemaVersion
+            || _simulationConfig.SchemaVersion != SimulationConfig.CurrentSchemaVersion)
+            throw new DomainException("设备、点位和仿真配置必须使用当前版本，不能回退旧运行模式");
+
+        var snapshot = new DeviceConfigurationSnapshot
+        {
+            Revision = _revision,
+            Device = _deviceConfig,
+            Points = _pointsConfig,
+            Simulation = _simulationConfig,
+            SignalBindings = _signalBindings
+        };
+        return Task.FromResult<IDeviceRuntime>(new MultiDeviceRuntime(snapshot, _clock,
+            s7ClientFactory: _s7ClientFactory,
+            events: _events,
+            modbusClientFactory: _modbusClientFactory));
+    }
+
+    /// <summary>
+    /// 兼容旧接口的显式模式调用。全局模式已移除，硬件模式调用必须改为设备级配置。
     /// </summary>
     public Task<IDeviceRuntime> CreateAsync(DeviceMode mode, CancellationToken ct = default)
     {
-        if (mode == DeviceMode.Simulation)
-        {
-            if (_deviceConfig.SchemaVersion == DeviceConfig.CurrentSchemaVersion
-                && _pointsConfig.SchemaVersion == PointsConfig.CurrentSchemaVersion
-                && _simulationConfig.SchemaVersion == SimulationConfig.CurrentSchemaVersion)
-            {
-                var snapshot = new DeviceConfigurationSnapshot
-                {
-                    Revision = _revision,
-                    Device = _deviceConfig,
-                    Points = _pointsConfig,
-                    Simulation = _simulationConfig,
-                    SignalBindings = _signalBindings
-                };
-                return Task.FromResult<IDeviceRuntime>(new MultiDeviceRuntime(snapshot, _clock));
-            }
-            var points = _pointsConfig.Points.Select(p => p.ToDomain()).ToList();
-            var device = _deviceConfig.Devices.FirstOrDefault(d => d.Enabled) ?? throw new DomainException("device.json 没有启用的仿真设备");
-            return Task.FromResult<IDeviceRuntime>(new SimulationDeviceRuntime(device.Name, points, _simulationConfig, _clock));
-        }
-
-        // Hardware：未接入适配器前明确失败，保留 Hardware 模式并进入 Faulted
-        throw new DomainException("Hardware 模式尚无可用设备适配器（阶段 5），拒绝创建运行时");
+        if (mode == DeviceMode.Hardware)
+            throw new DomainException("设备运行模式已改为按设备配置，不能使用全局硬件模式");
+        if (mode != DeviceMode.Simulation)
+            throw new DomainException($"不支持的全局设备运行模式：{mode}");
+        return CreateAsync(ct);
     }
 }

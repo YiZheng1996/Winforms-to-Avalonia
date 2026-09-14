@@ -10,7 +10,7 @@ namespace XXX.TestBench.Infrastructure.Configuration;
 /// <summary>
 /// 设备配置版本目录存储：先写完整 revision，再原子切换 active 指针。
 /// </summary>
-public sealed class DeviceConfigurationStore : IDeviceConfigurationStore, IAsyncDisposable
+public sealed class DeviceConfigurationStore : IDeviceConfigurationStore, IDeviceConfigurationMigrationSource, IAsyncDisposable
 {
     private const int ManifestSchemaVersion = 1;
     private static readonly IReadOnlySet<string> RequiredRevisionFiles = new HashSet<string>(StringComparer.Ordinal)
@@ -64,6 +64,36 @@ public sealed class DeviceConfigurationStore : IDeviceConfigurationStore, IAsync
             }
 
             throw new ConfigValidationException("没有可验证的生效设备配置：" + string.Join("；", failures));
+        }
+        finally
+        {
+            _gate.Release();
+        }
+    }
+
+    /// <summary>
+    /// 迁移专用读取：验证 active/previous 指针、manifest、文件集合和哈希，保留旧 schema 供上层显式迁移。
+    /// </summary>
+    public async Task<DeviceConfigurationSnapshot> LoadActiveForMigrationAsync(CancellationToken ct = default)
+    {
+        await _gate.WaitAsync(ct);
+        try
+        {
+            ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) != 0, this);
+            var failures = new List<string>();
+            foreach (var pointerName in new[] { ActiveFileName, PreviousActiveFileName })
+            {
+                try
+                {
+                    var pointer = await ReadPointerAsync(pointerName, ct);
+                    return await LoadRevisionCoreAsync(pointer.Revision, ct, validateSemantics: false);
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException or ConfigValidationException)
+                {
+                    failures.Add($"{pointerName}：{ex.Message}");
+                }
+            }
+            throw new ConfigValidationException("没有可迁移读取的生效设备配置：" + string.Join("；", failures));
         }
         finally
         {
@@ -187,7 +217,10 @@ public sealed class DeviceConfigurationStore : IDeviceConfigurationStore, IAsync
         return ValueTask.CompletedTask;
     }
 
-    private async Task<DeviceConfigurationSnapshot> LoadRevisionCoreAsync(string revision, CancellationToken ct)
+    private async Task<DeviceConfigurationSnapshot> LoadRevisionCoreAsync(
+        string revision,
+        CancellationToken ct,
+        bool validateSemantics = true)
     {
         ValidateRevision(revision);
         var manifest = await ReadManifestAsync(revision, ct);
@@ -216,7 +249,8 @@ public sealed class DeviceConfigurationStore : IDeviceConfigurationStore, IAsync
             Simulation = await DeserializeAsync<SimulationConfig>(Path.Combine(directory, "simulation.json"), ct),
             SignalBindings = await DeserializeAsync<SignalBindingsConfig>(Path.Combine(directory, "signal-bindings.json"), ct)
         };
-        MultiDeviceConfigurationValidator.EnsureValid(snapshot);
+        if (validateSemantics)
+            MultiDeviceConfigurationValidator.EnsureValid(snapshot);
         return snapshot;
     }
 

@@ -4,84 +4,284 @@
         x:Class="XXX.TestBench.App.Views.DevicePointImportPreviewWindow"
         x:DataType="vm:DevicePointImportPreviewViewModel"
         Title="导入设备点位预览"
-        Width="1040"
-        Height="680"
-        MinWidth="860"
-        MinHeight="560"
-        CanResize="False"
+  Width="1480"
+        Height="760"
+  MinWidth="1100"
+        MinHeight="600"
+        CanResize="True"
         WindowStartupLocation="CenterScreen"
         SystemDecorations="None"
         TransparencyLevelHint="Transparent"
         Background="Transparent"
+        KeyDown="OnWindowKeyDown"
         UseLayoutRounding="True">
   <Window.Styles>
+    <Style Selector="Border.import-step">
+      <Setter Property="CornerRadius" Value="14" />
+      <Setter Property="Padding" Value="12,6" />
+    </Style>
+    <Style Selector="Border.import-stat-card">
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="9" />
+      <Setter Property="Padding" Value="14,11" />
+    </Style>
+    <Style Selector="Border.import-alert">
+      <Setter Property="Background" Value="#FFF9EB" />
+      <Setter Property="BorderBrush" Value="#F2C94C" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="8" />
+      <Setter Property="Padding" Value="12" />
+    </Style>
+    <Style Selector="DataGrid.import-preview-grid">
+      <Setter Property="Background" Value="White" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="GridLinesVisibility" Value="Horizontal" />
+      <Setter Property="HorizontalGridLinesBrush" Value="#EDF1F7" />
+      <Setter Property="VerticalGridLinesBrush" Value="Transparent" />
+      <Setter Property="RowBackground" Value="White" />
+      <Setter Property="RowHeight" Value="48" />
+    </Style>
+    <Style Selector="DataGrid.import-preview-grid DataGridColumnHeader">
+      <Setter Property="Background" Value="#F6F8FB" />
+      <Setter Property="Foreground" Value="#526071" />
+      <Setter Property="BorderBrush" Value="#E2E8F0" />
+      <Setter Property="BorderThickness" Value="0,0,0,1" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="FontSize" Value="13" />
+      <Setter Property="Padding" Value="12,0" />
+      <Setter Property="MinHeight" Value="46" />
+    </Style>
+    <Style Selector="DataGrid.import-preview-grid DataGridCell">
+      <Setter Property="Padding" Value="12,0" />
+      <Setter Property="Foreground" Value="#344054" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
     <Style Selector="Button.dialog-secondary">
       <Setter Property="Background" Value="White" />
       <Setter Property="Foreground" Value="#344054" />
       <Setter Property="BorderBrush" Value="#C9D3E0" />
       <Setter Property="BorderThickness" Value="1" />
       <Setter Property="MinWidth" Value="104" />
+      <Setter Property="MinHeight" Value="38" />
+      <Setter Property="CornerRadius" Value="6" />
     </Style>
-    <Style Selector="Button.dialog-danger">
-      <Setter Property="Background" Value="#F5222D" />
+    <Style Selector="Button.dialog-primary">
+      <Setter Property="Background" Value="#0868F7" />
       <Setter Property="Foreground" Value="White" />
-      <Setter Property="BorderBrush" Value="#F5222D" />
+      <Setter Property="BorderBrush" Value="#0868F7" />
       <Setter Property="BorderThickness" Value="1" />
       <Setter Property="MinWidth" Value="120" />
+      <Setter Property="MinHeight" Value="38" />
+      <Setter Property="CornerRadius" Value="6" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+    <Style Selector="Button.dialog-primary:pointerover">
+      <Setter Property="Background" Value="#0758D7" />
+      <Setter Property="BorderBrush" Value="#0758D7" />
     </Style>
   </Window.Styles>
 
-  <Border Background="White" BorderBrush="#C9D3E0" BorderThickness="1" CornerRadius="8">
-    <Grid RowDefinitions="Auto,Auto,*,Auto">
-      <Border Grid.Row="0"
-              Background="#FFF8F7"
-              BorderBrush="#F2D0CB"
-              BorderThickness="0,0,0,1"
-              CornerRadius="8,8,0,0"
-              Padding="24,14"
-              PointerPressed="OnTitleBarPointerPressed">
-        <StackPanel Spacing="2">
-              <TextBlock Text="导入设备点位预览" FontSize="20" FontWeight="Bold" Foreground="#9F2D25" />
-          <TextBlock Text="确认前检查新增、更新、更新分组和冲突，避免误修改其他设备点位" Foreground="#667085" FontSize="12" />
-        </StackPanel>
+  <Border Background="White" BorderBrush="#C9D3E0" BorderThickness="1" CornerRadius="10">
+    <Grid RowDefinitions="Auto,Auto,Auto,Auto,*,Auto">
+      <Border Grid.Row="0" Background="#FBFCFE" BorderBrush="#E2E8F0" BorderThickness="0,0,0,1"
+              CornerRadius="10,10,0,0" Padding="22,15" PointerPressed="OnTitleBarPointerPressed">
+        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
+          <Border Width="42" Height="42" CornerRadius="12" Background="#EAF2FF">
+            <TextBlock Text="导入" Foreground="#0868F7" FontSize="12" FontWeight="Bold"
+                       HorizontalAlignment="Center" VerticalAlignment="Center" />
+          </Border>
+          <StackPanel Grid.Column="1" Spacing="2" VerticalAlignment="Center">
+            <TextBlock Text="导入设备点位预览" FontSize="20" FontWeight="Bold" Foreground="#151A24" />
+            <TextBlock Text="在应用前检查新增、更新、分组变化和冲突，避免误修改其他设备点位"
+                       Foreground="#667085" FontSize="12" TextWrapping="Wrap" />
+          </StackPanel>
+          <TextBlock Grid.Column="2" Text="Esc 取消" Foreground="#98A2B3" FontSize="12"
+                     VerticalAlignment="Center" />
+        </Grid>
       </Border>
 
-      <Border Grid.Row="1" Background="#FFF9EB" BorderBrush="#F2C94C" BorderThickness="1"
-              CornerRadius="6" Padding="14" Margin="18,14,18,10">
-        <StackPanel Spacing="5">
-          <TextBlock Text="{Binding SummaryText}" Foreground="#344054" FontWeight="SemiBold" />
-          <TextBlock Text="{Binding ReplacementText}" Foreground="#7A5B00" TextWrapping="Wrap" />
-          <TextBlock Text="{Binding SafetyText}" Foreground="#7A5B00" TextWrapping="Wrap" />
-        </StackPanel>
+      <Border Grid.Row="1" Background="#F8FAFD" BorderBrush="#E2E8F0" BorderThickness="1"
+              CornerRadius="8" Padding="12,9" Margin="18,14,18,8">
+        <Grid ColumnDefinitions="Auto,*,Auto,*,Auto,*,Auto" ColumnSpacing="8">
+          <Border Classes="import-step" Background="#EAF2FF">
+            <StackPanel Orientation="Horizontal" Spacing="6">
+              <TextBlock Text="✓" Foreground="#147A45" FontWeight="Bold" />
+              <TextBlock Text="选择文件" Foreground="#0758D7" FontWeight="SemiBold" />
+            </StackPanel>
+          </Border>
+          <Border Grid.Column="1" Height="1" Background="#CFE0FF" VerticalAlignment="Center" />
+          <Border Grid.Column="2" Classes="import-step" Background="#EAF2FF">
+            <StackPanel Orientation="Horizontal" Spacing="6">
+              <TextBlock Text="✓" Foreground="#147A45" FontWeight="Bold" />
+              <TextBlock Text="校验" Foreground="#0758D7" FontWeight="SemiBold" />
+            </StackPanel>
+          </Border>
+          <Border Grid.Column="3" Height="1" Background="#CFE0FF" VerticalAlignment="Center" />
+          <Border Grid.Column="4" Classes="import-step" Background="#0868F7">
+            <StackPanel Orientation="Horizontal" Spacing="6">
+              <TextBlock Text="3" Foreground="White" FontWeight="Bold" />
+              <TextBlock Text="预览" Foreground="White" FontWeight="SemiBold" />
+            </StackPanel>
+          </Border>
+          <Border Grid.Column="5" Height="1" Background="#D9E1EC" VerticalAlignment="Center" />
+          <Border Grid.Column="6" Classes="import-step" Background="#EEF2F7">
+            <StackPanel Orientation="Horizontal" Spacing="6">
+              <TextBlock Text="4" Foreground="#667085" FontWeight="Bold" />
+              <TextBlock Text="应用" Foreground="#667085" FontWeight="SemiBold" />
+            </StackPanel>
+          </Border>
+        </Grid>
       </Border>
 
-      <Border Grid.Row="2" BorderBrush="#E2E8F0" BorderThickness="1" Margin="18,0,18,14">
-        <DataGrid Classes="parameter-grid"
-                  ItemsSource="{Binding Rows}"
-                  AutoGenerateColumns="False"
-                  IsReadOnly="True"
-                  HeadersVisibility="Column"
-                  SelectionMode="Single">
-          <DataGrid.Columns>
-            <DataGridTextColumn Header="设备" Binding="{Binding Device}" Width="1.05*" />
-            <DataGridTextColumn Header="分组" Binding="{Binding Group}" Width="1.1*" />
-            <DataGridTextColumn Header="点位编码" Binding="{Binding Code}" Width="1.1*" />
-            <DataGridTextColumn Header="名称" Binding="{Binding Name}" Width="1.2*" />
-            <DataGridTextColumn Header="通信方式" Binding="{Binding Protocol}" Width="100" />
-            <DataGridTextColumn Header="设备地址" Binding="{Binding Address}" Width="1.35*" />
-            <DataGridTextColumn Header="数据类型" Binding="{Binding DataType}" Width="100" />
-            <DataGridTextColumn Header="写入权限" Binding="{Binding WritePolicy}" Width="140" />
-            <DataGridTextColumn Header="状态" Binding="{Binding Enabled}" Width="80" />
-            <DataGridTextColumn Header="操作" Binding="{Binding Operation}" Width="70" />
-            <DataGridTextColumn Header="冲突说明" Binding="{Binding Conflict}" Width="1.5*" />
-          </DataGrid.Columns>
-        </DataGrid>
+      <Grid Grid.Row="2" ColumnDefinitions="*,*,*,*" ColumnSpacing="10" Margin="18,6,18,12">
+        <Border Classes="import-stat-card" Background="#F0F7FF" BorderBrush="#CFE0FF">
+          <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+            <Border Width="34" Height="34" CornerRadius="10" Background="#DDEAFF">
+              <TextBlock Text="✓" Foreground="#0868F7" FontSize="18" FontWeight="Bold"
+                         HorizontalAlignment="Center" VerticalAlignment="Center" />
+            </Border>
+            <StackPanel Grid.Column="1" Spacing="1">
+              <TextBlock Text="{Binding PointCount}" Foreground="#0758D7" FontSize="22" FontWeight="Bold" />
+              <TextBlock Text="解析点位" Foreground="#526071" FontSize="12" />
+            </StackPanel>
+          </Grid>
+        </Border>
+        <Border Grid.Column="1" Classes="import-stat-card" Background="#F0F7FF" BorderBrush="#CFE0FF">
+          <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+            <Border Width="34" Height="34" CornerRadius="10" Background="#DDEAFF">
+              <TextBlock Text="＋" Foreground="#0868F7" FontSize="19" FontWeight="Bold"
+                         HorizontalAlignment="Center" VerticalAlignment="Center" />
+            </Border>
+            <StackPanel Grid.Column="1" Spacing="1">
+              <TextBlock Text="{Binding AddedCount}" Foreground="#0758D7" FontSize="22" FontWeight="Bold" />
+              <TextBlock Text="新增" Foreground="#526071" FontSize="12" />
+            </StackPanel>
+          </Grid>
+        </Border>
+        <Border Grid.Column="2" Classes="import-stat-card" Background="#F0FBF5" BorderBrush="#CBEBD8">
+          <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+            <Border Width="34" Height="34" CornerRadius="10" Background="#DDF5E6">
+              <TextBlock Text="↻" Foreground="#147A45" FontSize="20" FontWeight="Bold"
+                         HorizontalAlignment="Center" VerticalAlignment="Center" />
+            </Border>
+            <StackPanel Grid.Column="1" Spacing="1">
+              <TextBlock Text="{Binding UpdatedCount}" Foreground="#147A45" FontSize="22" FontWeight="Bold" />
+              <TextBlock Text="更新 / 分组变化" Foreground="#526071" FontSize="12" />
+            </StackPanel>
+          </Grid>
+        </Border>
+        <Border Grid.Column="3" Classes="import-stat-card" Background="#FFF4F2" BorderBrush="#F1C8C2">
+          <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+            <Border Width="34" Height="34" CornerRadius="10" Background="#FFE3DE">
+              <TextBlock Text="!" Foreground="#C9362B" FontSize="18" FontWeight="Bold"
+                         HorizontalAlignment="Center" VerticalAlignment="Center" />
+            </Border>
+            <StackPanel Grid.Column="1" Spacing="1">
+              <TextBlock Text="{Binding ConflictCount}" Foreground="#C9362B" FontSize="22" FontWeight="Bold" />
+              <TextBlock Text="冲突" Foreground="#7A4B45" FontSize="12" />
+            </StackPanel>
+          </Grid>
+        </Border>
+      </Grid>
+
+      <Border Grid.Row="3" Classes="import-alert" Margin="18,0,18,10">
+        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+          <TextBlock Text="!" Foreground="#946200" FontSize="18" FontWeight="Bold" VerticalAlignment="Top" />
+          <StackPanel Grid.Column="1" Spacing="4">
+            <TextBlock Text="{Binding SummaryText}" Foreground="#344054" FontWeight="SemiBold"
+                       TextWrapping="Wrap" />
+            <TextBlock Text="{Binding ChangeSummaryText}" Foreground="#0758D7" FontSize="12" FontWeight="SemiBold" />
+            <TextBlock Text="{Binding ReplacementText}" Foreground="#7A5B00" FontSize="12" TextWrapping="Wrap" />
+            <TextBlock Text="{Binding SafetyText}" Foreground="#7A5B00" FontSize="12" TextWrapping="Wrap" />
+            <Border Background="#FFF4E5" BorderBrush="#F2C94C" BorderThickness="1" CornerRadius="5"
+                    Padding="10,8" IsVisible="{Binding HasS7OptimizedBlockAccessNotice}">
+              <StackPanel Spacing="4">
+                <TextBlock Text="{Binding S7OptimizedBlockAccessShortMessage}" Foreground="#7A5B00"
+                           FontSize="12" FontWeight="SemiBold" TextWrapping="Wrap" />
+                <Expander Header="怎么处理" Foreground="#7A5B00" FontSize="12">
+                  <TextBlock Text="{Binding S7OptimizedBlockAccessDetailMessage}" Foreground="#7A5B00"
+                             FontSize="12" TextWrapping="Wrap" Margin="0,4,0,0" />
+                </Expander>
+              </StackPanel>
+            </Border>
+          </StackPanel>
+        </Grid>
       </Border>
 
-      <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10" Margin="18,0,18,20">
-        <Button Classes="dialog-secondary" Content="取消" Click="OnCancelClick" />
-        <Button Classes="dialog-danger" Content="确认应用" IsEnabled="{Binding CanApply}" Click="OnConfirmClick" />
-      </StackPanel>
+      <Border Grid.Row="4" BorderBrush="#DDE5EF" BorderThickness="1" CornerRadius="8" Margin="18,0,18,14">
+        <Grid RowDefinitions="Auto,*">
+          <Border Grid.Row="0" Background="#FBFCFE" Padding="14,10">
+            <Grid ColumnDefinitions="*,Auto" Margin="0">
+              <StackPanel Spacing="2">
+                <TextBlock Text="预览清单" FontSize="15" FontWeight="SemiBold" Foreground="#1F2937" />
+                <TextBlock Text="每行保留源文件行号，冲突会在操作列和说明列同时标注" Foreground="#98A2B3" FontSize="12" />
+              </StackPanel>
+              <TextBlock Grid.Column="1" Text="{Binding PreviewLimitText}" Foreground="#667085" FontSize="12"
+                         VerticalAlignment="Center" TextWrapping="Wrap" />
+            </Grid>
+          </Border>
+          <DataGrid Grid.Row="1" Classes="import-preview-grid"
+                    ItemsSource="{Binding Rows}"
+                    AutoGenerateColumns="False"
+                    IsReadOnly="True"
+                    HeadersVisibility="Column"
+                    SelectionMode="Single">
+            <DataGrid.Columns>
+              <DataGridTextColumn Header="行号" Binding="{Binding RowNumber}" Width="78" />
+              <DataGridTextColumn Header="设备" Binding="{Binding Device}" Width="1.05*" />
+              <DataGridTextColumn Header="分组" Binding="{Binding Group}" Width="1.0*" />
+              <DataGridTextColumn Header="点位标签" Binding="{Binding PointTag}" Width="1.35*" />
+              <DataGridTextColumn Header="通信方式" Binding="{Binding Protocol}" Width="100" />
+               <DataGridTextColumn Header="原始地址" Binding="{Binding OriginalAddress}" Width="1.15*" />
+               <DataGridTextColumn Header="规范地址" Binding="{Binding CanonicalAddress}" Width="1.15*" />
+               <DataGridTextColumn Header="数据区" Binding="{Binding ModbusArea}" Width="120" />
+               <DataGridTextColumn Header="偏移" Binding="{Binding ModbusOffset}" Width="84" />
+               <DataGridTextColumn Header="数据类型" Binding="{Binding DataType}" Width="100" />
+               <DataGridTextColumn Header="字节序" Binding="{Binding ByteOrder}" Width="150" />
+               <DataGridTextColumn Header="字节序来源" Binding="{Binding ByteOrderSource}" Width="140" />
+               <DataGridTextColumn Header="字序" Binding="{Binding WordOrder}" Width="150" />
+               <DataGridTextColumn Header="字序来源" Binding="{Binding WordOrderSource}" Width="140" />
+              <DataGridTemplateColumn Header="访问权限" Width="140">
+                <DataGridTemplateColumn.CellTemplate>
+                  <DataTemplate x:DataType="vm:DevicePointImportPreviewRow">
+                    <TextBlock Text="{Binding WritePolicy}" TextWrapping="Wrap" FontSize="12" />
+                  </DataTemplate>
+                </DataGridTemplateColumn.CellTemplate>
+              </DataGridTemplateColumn>
+              <DataGridTemplateColumn Header="操作" Width="86">
+                <DataGridTemplateColumn.CellTemplate>
+                  <DataTemplate x:DataType="vm:DevicePointImportPreviewRow">
+                    <Border Background="{Binding OperationBackground}" CornerRadius="10" Padding="8,3"
+                            HorizontalAlignment="Left">
+                      <TextBlock Text="{Binding Operation}" Foreground="{Binding OperationForeground}" FontSize="12" />
+                    </Border>
+                  </DataTemplate>
+                </DataGridTemplateColumn.CellTemplate>
+              </DataGridTemplateColumn>
+              <DataGridTemplateColumn Header="冲突说明" Width="1.55*">
+                <DataGridTemplateColumn.CellTemplate>
+                  <DataTemplate x:DataType="vm:DevicePointImportPreviewRow">
+                    <TextBlock Text="{Binding Conflict}" Foreground="{Binding ConflictForeground}"
+                               TextWrapping="Wrap" FontSize="12" />
+                  </DataTemplate>
+                </DataGridTemplateColumn.CellTemplate>
+              </DataGridTemplateColumn>
+            </DataGrid.Columns>
+          </DataGrid>
+        </Grid>
+      </Border>
+
+      <Border Grid.Row="5" Background="#FBFCFE" BorderBrush="#E2E8F0" BorderThickness="0,1,0,0"
+              CornerRadius="0,0,10,10" Padding="22,12">
+        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+          <TextBlock Text="确认应用后才会保存；取消则保持当前设备点位目录不变。"
+                     Foreground="#7A8492" FontSize="12" VerticalAlignment="Center" />
+          <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="10">
+            <Button Classes="dialog-secondary" Content="取消" Click="OnCancelClick" />
+            <Button Classes="dialog-primary" Content="确认应用" IsEnabled="{Binding CanApply}" Click="OnConfirmClick" />
+          </StackPanel>
+        </Grid>
+      </Border>
     </Grid>
   </Border>
 </Window>

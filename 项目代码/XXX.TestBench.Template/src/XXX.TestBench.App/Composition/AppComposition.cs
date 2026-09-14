@@ -15,6 +15,9 @@ using XXX.TestBench.Infrastructure.Persistence.Repositories;
 using XXX.TestBench.Infrastructure.Reports;
 using XXX.TestBench.Infrastructure.Services;
 using XXX.TestBench.Infrastructure.Time;
+using XXX.TestBench.Devices.Runtime;
+using XXX.TestBench.Devices.Siemens;
+using XXX.TestBench.Devices.Modbus;
 
 namespace XXX.TestBench.App.Composition;
 
@@ -130,6 +133,19 @@ public sealed class AppComposition
             var sessions = new InMemorySessionManager();
             var unitOfWork = new SqliteUnitOfWork(factory);
             DeviceOperations = new DeviceOperationCoordinator();
+            var s7ClientFactory = new S7NetPlusPlcClientFactory();
+            var modbusClientFactory = new NModbusClientFactory();
+            var deviceEvents = new InMemoryDeviceEventHub();
+            var connectionTester = new CompositeDeviceConnectionTester(new[]
+            {
+                (DriverKeyCatalog.SiemensS7, (IDeviceConnectionTester)new S7DeviceConnectionTester(s7ClientFactory, DeviceOperations)),
+                (DriverKeyCatalog.ModbusTcp, (IDeviceConnectionTester)new ModbusTcpConnectionTester(modbusClientFactory, DeviceOperations)),
+                (DriverKeyCatalog.ModbusRtu, (IDeviceConnectionTester)new ModbusRtuConnectionTester(
+                    modbusClientFactory,
+                    DeviceOperations,
+                    port => DeviceModes?.Runtime is MultiDeviceRuntime runtime
+                        && runtime.IsSerialPortLeased(port)))
+            });
             DeviceConfigurations = new DeviceConfigurationService(
                 deviceConfigurationStore,
                 DeviceOperations,
@@ -138,18 +154,21 @@ public sealed class AppComposition
                 hasActiveRun: () => recordRepo.GetActiveRunningRecordAsync().GetAwaiter().GetResult() is not null,
                 runtimeFactory: (candidate, ct) => new DeviceRuntimeFactory(
                     candidate.Device, candidate.Points, candidate.Simulation, clock, candidate.Revision,
-                    candidate.SignalBindings)
-                    .CreateAsync(candidate.Device.DeviceMode, ct),
+                    candidate.SignalBindings, s7ClientFactory, deviceEvents, modbusClientFactory)
+                    .CreateAsync(ct),
                 currentRuntime: () => DeviceModes?.Runtime,
                 publishRuntime: runtime => DeviceModes is null
                     ? Task.FromException(new InvalidOperationException("设备模式控制器尚未创建"))
                     : DeviceModes.PublishStartedRuntimeAsync(runtime),
                 requiredSignals: executorFactory.Codes
                     .SelectMany(code => executorFactory.Get(code).RequiredSignals)
-                    .ToList());
+                    .ToList(),
+                events: deviceEvents,
+                markRuntimeFaulted: error => DeviceModes?.MarkRuntimeFaulted(error));
             var devicePoints = new DevicePointCatalogService(store, pointsConfig, audit, deviceConfig);
             var devicePointImporter = new DevicePointImporter();
             var devicePointTemplateExporter = new DevicePointTemplateExporter();
+            var devicePointCatalogExporter = new DevicePointCatalogExporter();
 
             // 创建业务服务并组装主视图模型。
             Authentication = new AuthenticationService(userRepo, hasher, sessions, clock, audit);
@@ -159,9 +178,10 @@ public sealed class AppComposition
             var testPoints = new TestPointService(pointRepo, configRepo, productRepo, executorFactory, clock, audit);
             var writePipeline = new DeviceWritePipeline(audit, Logger, DeviceOperations);
             var runtimeFactory = new DeviceRuntimeFactory(
-                deviceConfig, pointsConfig, simulationConfig, clock, snapshot.Revision, snapshot.SignalBindings);
+                deviceConfig, pointsConfig, simulationConfig, clock, snapshot.Revision, snapshot.SignalBindings,
+                s7ClientFactory, deviceEvents, modbusClientFactory);
             DeviceModes = new DeviceModeController(runtimeFactory, Logger, audit);
-            DeviceModes.InitializeAsync(deviceConfig.DeviceMode).GetAwaiter().GetResult();
+            DeviceModes.InitializeAsync().GetAwaiter().GetResult();
 
             var reportRepository = new ReportRepository(factory);
             var reportGenerator = new ClosedXmlReportGenerator();
@@ -190,12 +210,15 @@ public sealed class AppComposition
                 devicePoints,
                 devicePointImporter,
                 devicePointTemplateExporter,
+                devicePointCatalogExporter,
                 appConfig,
                 deviceConfig,
                 dbPath,
                 typeof(AppComposition).Assembly.GetName().Version?.ToString(3) ?? "0.1.0",
                 DeviceConfigurations,
-                driverRegistry.Descriptors.ToList());
+                driverRegistry.Descriptors.ToList(),
+                connectionTester,
+                deviceEvents);
 
             Shell = new ShellViewModel(services);
         }

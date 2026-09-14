@@ -101,7 +101,7 @@ public sealed class TestExecutionService
         DeviceMode mode, IDeviceRuntime runtime, CancellationToken ct = default)
     {
         Ensure(actor, PermissionCode.ExecuteTests);
-        if (runtime.Mode != mode)
+        if (runtime.Mode != mode && runtime.Mode != DeviceMode.Mixed)
             throw new DomainException($"试验模式与设备运行时不一致：请求 {mode}，运行时 {runtime.Mode}");
         if (runtime.Status.Health is not (DeviceHealth.Healthy or DeviceHealth.Degraded) || !runtime.Status.IsConnected)
             throw new DomainException($"设备预检未通过：{runtime.Name} 状态 {runtime.Status.Health}");
@@ -122,7 +122,8 @@ public sealed class TestExecutionService
             new Dictionary<string, ResolvedSignal>(StringComparer.OrdinalIgnoreCase);
         string? configurationRevision = null;
         string? signalBindingsSnapshot = null;
-        if (!string.IsNullOrWhiteSpace(runtime.ActiveRevision))
+        if (!string.IsNullOrWhiteSpace(runtime.ActiveRevision)
+            && (runtime.SignalBindings.Bindings?.Count ?? 0) > 0)
         {
             configurationRevision = runtime.ActiveRevision;
             var resolver = new SignalResolver(runtime, runtime.SignalBindings.Bindings, () => _clock.UtcNow);
@@ -149,7 +150,7 @@ public sealed class TestExecutionService
             ProductIdentity = identity,
             ParameterSnapshot = parameterJson,
             SequenceSnapshot = sequenceJson,
-            DeviceMode = mode,
+            DeviceMode = runtime.Mode,
             DeviceConfigurationRevision = configurationRevision,
             SignalBindingsSnapshot = signalBindingsSnapshot,
             OperatorUserId = actor.UserId,
@@ -195,7 +196,8 @@ public sealed class TestExecutionService
         ItemExecutionOutcome outcome;
         try
         {
-            if (!string.IsNullOrWhiteSpace(runtime.ActiveRevision)
+            if ((!string.IsNullOrWhiteSpace(runtime.ActiveRevision)
+                    && (runtime.SignalBindings.Bindings?.Count ?? 0) > 0)
                 || !string.IsNullOrWhiteSpace(record.DeviceConfigurationRevision))
             {
                 if (string.IsNullOrWhiteSpace(record.DeviceConfigurationRevision)

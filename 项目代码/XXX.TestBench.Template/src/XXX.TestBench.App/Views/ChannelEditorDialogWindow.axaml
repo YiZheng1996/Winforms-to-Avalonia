@@ -1,0 +1,539 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:XXX.TestBench.App.ViewModels"
+        xmlns:icons="using:XXX.TestBench.App.Icons"
+        x:Class="XXX.TestBench.App.Views.ChannelEditorDialogWindow"
+        x:DataType="vm:ChannelEditorViewModel"
+        Title="{Binding DialogTitle}"
+        Width="980"
+        Height="680"
+        MinWidth="760"
+        MinHeight="600"
+        CanResize="True"
+        WindowStartupLocation="CenterScreen"
+        SystemDecorations="None"
+        TransparencyLevelHint="Transparent"
+        Background="Transparent"
+        UseLayoutRounding="True">
+  <Window.Styles>
+    <Style Selector="TextBlock.wizard-eyebrow">
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="Foreground" Value="#7A8492" />
+    </Style>
+    <Style Selector="TextBlock.wizard-heading">
+      <Setter Property="FontSize" Value="22" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="Foreground" Value="#151A24" />
+    </Style>
+    <Style Selector="TextBlock.wizard-description">
+      <Setter Property="FontSize" Value="13" />
+      <Setter Property="Foreground" Value="#667085" />
+      <Setter Property="TextWrapping" Value="Wrap" />
+    </Style>
+    <Style Selector="TextBlock.field-label">
+      <Setter Property="FontSize" Value="13" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="Foreground" Value="#344054" />
+    </Style>
+    <Style Selector="TextBlock.field-hint">
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="Foreground" Value="#98A2B3" />
+      <Setter Property="TextWrapping" Value="Wrap" />
+    </Style>
+    <Style Selector="TextBox.wizard-input">
+      <Setter Property="MinHeight" Value="40" />
+      <Setter Property="Padding" Value="11,0" />
+      <Setter Property="CornerRadius" Value="6" />
+      <Setter Property="BorderBrush" Value="#C9D3E0" />
+    </Style>
+    <Style Selector="ComboBox.wizard-input">
+      <Setter Property="MinHeight" Value="40" />
+      <Setter Property="Padding" Value="11,0" />
+      <Setter Property="CornerRadius" Value="6" />
+      <Setter Property="BorderBrush" Value="#C9D3E0" />
+      <Setter Property="HorizontalAlignment" Value="Left" />
+    </Style>
+    <Style Selector="Border.wizard-note">
+      <Setter Property="Background" Value="#F0F7FF" />
+      <Setter Property="BorderBrush" Value="#CFE0FF" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="8" />
+      <Setter Property="Padding" Value="12" />
+    </Style>
+    <Style Selector="Border.summary-row">
+      <Setter Property="Background" Value="#FBFCFE" />
+      <Setter Property="BorderBrush" Value="#E7ECF3" />
+      <Setter Property="BorderThickness" Value="0,0,0,1" />
+      <Setter Property="Padding" Value="0,11" />
+    </Style>
+    <Style Selector="RadioButton.transport-card">
+      <Setter Property="HorizontalAlignment" Value="Stretch" />
+      <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
+      <Setter Property="MinHeight" Value="84" />
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="Margin" Value="0,0,0,10" />
+      <Setter Property="Background" Value="#FBFCFE" />
+      <Setter Property="BorderBrush" Value="#D8E1ED" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="8" />
+    </Style>
+    <Style Selector="RadioButton.transport-card:pointerover">
+      <Setter Property="Background" Value="#F4F8FF" />
+      <Setter Property="BorderBrush" Value="#AFCBFA" />
+    </Style>
+    <Style Selector="RadioButton.transport-card:checked">
+      <Setter Property="Background" Value="#EAF2FF" />
+      <Setter Property="BorderBrush" Value="#0868F7" />
+      <Setter Property="BorderThickness" Value="2" />
+    </Style>
+    <Style Selector="RadioButton.transport-card:disabled">
+      <Setter Property="Opacity" Value="0.55" />
+    </Style>
+    <Style Selector="Button.dialog-secondary">
+      <Setter Property="Background" Value="White" />
+      <Setter Property="Foreground" Value="#344054" />
+      <Setter Property="BorderBrush" Value="#C9D3E0" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="MinWidth" Value="92" />
+      <Setter Property="MinHeight" Value="40" />
+      <Setter Property="Padding" Value="16,0" />
+      <Setter Property="CornerRadius" Value="6" />
+    </Style>
+    <Style Selector="Button.dialog-secondary:pointerover">
+      <Setter Property="Background" Value="#F5F8FC" />
+      <Setter Property="BorderBrush" Value="#AAB8CB" />
+    </Style>
+    <Style Selector="Button.dialog-primary">
+      <Setter Property="Background" Value="#0868F7" />
+      <Setter Property="Foreground" Value="White" />
+      <Setter Property="BorderBrush" Value="#0868F7" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="MinWidth" Value="120" />
+      <Setter Property="MinHeight" Value="40" />
+      <Setter Property="Padding" Value="18,0" />
+      <Setter Property="CornerRadius" Value="6" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+    <Style Selector="Button.dialog-primary:pointerover">
+      <Setter Property="Background" Value="#0758D7" />
+      <Setter Property="BorderBrush" Value="#0758D7" />
+    </Style>
+    <Style Selector="Button.dialog-primary:disabled">
+      <Setter Property="Opacity" Value="0.55" />
+    </Style>
+  </Window.Styles>
+
+  <Border Background="White"
+          BorderBrush="#C9D3E0"
+          BorderThickness="1"
+          CornerRadius="10">
+    <Grid RowDefinitions="Auto,*,Auto">
+      <Border Grid.Row="0"
+              Background="#FBFCFE"
+              BorderBrush="#E2E8F0"
+              BorderThickness="0,0,0,1"
+              CornerRadius="10,10,0,0"
+              Padding="24,16"
+              PointerPressed="OnTitleBarPointerPressed">
+        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
+          <Border Width="42" Height="42" CornerRadius="12" Background="#EAF2FF">
+            <icons:AppIcon Kind="Connection"
+                           Width="22"
+                           Height="22"
+                           Stroke="#0868F7"
+                           HorizontalAlignment="Center"
+                           VerticalAlignment="Center" />
+          </Border>
+          <StackPanel Grid.Column="1" Spacing="2" VerticalAlignment="Center">
+            <TextBlock Text="{Binding DialogTitle}"
+                       FontSize="20"
+                       FontWeight="Bold"
+                       Foreground="#151A24" />
+            <TextBlock Text="{Binding DialogSubtitle}"
+                       Foreground="#667085"
+                       FontSize="12"
+                       TextWrapping="Wrap" />
+          </StackPanel>
+          <TextBlock Grid.Column="2"
+                     Text="{Binding CurrentStepText}"
+                     Foreground="#7A8492"
+                     FontSize="12"
+                     VerticalAlignment="Center" />
+        </Grid>
+      </Border>
+
+      <Grid Grid.Row="1" ColumnDefinitions="220,*">
+        <Border Grid.Column="0" Background="#F5F8FC" BorderBrush="#E2E8F0" BorderThickness="0,0,1,0" Padding="24,26">
+          <StackPanel Spacing="0">
+            <TextBlock Text="新增通道" FontSize="13" FontWeight="SemiBold" Foreground="#526071" Margin="0,0,0,20" />
+
+            <Grid RowDefinitions="Auto,28,Auto,28,Auto,28,Auto" ColumnDefinitions="34,*">
+              <Border Grid.Row="0" Grid.Column="0" Width="30" Height="30" CornerRadius="15" Background="#0868F7" IsVisible="{Binding IsStep1}">
+                <TextBlock Text="1" Foreground="White" FontSize="13" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" />
+              </Border>
+              <Border Grid.Row="0" Grid.Column="0" Width="30" Height="30" CornerRadius="15" Background="#0868F7" IsVisible="{Binding IsStep1Done}">
+                <icons:AppIcon Kind="Check" Width="16" Height="16" Stroke="White" HorizontalAlignment="Center" VerticalAlignment="Center" />
+              </Border>
+              <Border Grid.Row="0" Grid.Column="0" Width="30" Height="30" CornerRadius="15" Background="White" BorderBrush="#C9D3E0" BorderThickness="1" IsVisible="{Binding IsStep1Pending}">
+                <TextBlock Text="1" Foreground="#98A2B3" FontSize="13" HorizontalAlignment="Center" VerticalAlignment="Center" />
+              </Border>
+              <StackPanel Grid.Row="0" Grid.Column="1" Spacing="2" VerticalAlignment="Center">
+                <TextBlock Text="选择连接方式" FontSize="14" FontWeight="SemiBold" Foreground="#1F2937" />
+                <TextBlock Text="确定通信资源类型" Classes="field-hint" />
+              </StackPanel>
+
+              <Border Grid.Row="1" Grid.Column="0" Width="1" Height="28" Background="#CFE0FF" HorizontalAlignment="Center" />
+
+              <Border Grid.Row="2" Grid.Column="0" Width="30" Height="30" CornerRadius="15" Background="#0868F7" IsVisible="{Binding IsStep2}">
+                <TextBlock Text="2" Foreground="White" FontSize="13" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" />
+              </Border>
+              <Border Grid.Row="2" Grid.Column="0" Width="30" Height="30" CornerRadius="15" Background="#0868F7" IsVisible="{Binding IsStep2Done}">
+                <icons:AppIcon Kind="Check" Width="16" Height="16" Stroke="White" HorizontalAlignment="Center" VerticalAlignment="Center" />
+              </Border>
+              <Border Grid.Row="2" Grid.Column="0" Width="30" Height="30" CornerRadius="15" Background="White" BorderBrush="#C9D3E0" BorderThickness="1" IsVisible="{Binding IsStep2Pending}">
+                <TextBlock Text="2" Foreground="#98A2B3" FontSize="13" HorizontalAlignment="Center" VerticalAlignment="Center" />
+              </Border>
+              <StackPanel Grid.Row="2" Grid.Column="1" Spacing="2" VerticalAlignment="Center">
+                <TextBlock Text="通道基本信息" FontSize="14" FontWeight="SemiBold" Foreground="#1F2937" />
+                <TextBlock Text="命名和启用状态" Classes="field-hint" />
+              </StackPanel>
+
+              <Border Grid.Row="3" Grid.Column="0" Width="1" Height="28" Background="#CFE0FF" HorizontalAlignment="Center" />
+
+              <Border Grid.Row="4" Grid.Column="0" Width="30" Height="30" CornerRadius="15" Background="#0868F7" IsVisible="{Binding IsStep3}">
+                <TextBlock Text="3" Foreground="White" FontSize="13" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" />
+              </Border>
+              <Border Grid.Row="4" Grid.Column="0" Width="30" Height="30" CornerRadius="15" Background="#0868F7" IsVisible="{Binding IsStep3Done}">
+                <icons:AppIcon Kind="Check" Width="16" Height="16" Stroke="White" HorizontalAlignment="Center" VerticalAlignment="Center" />
+              </Border>
+              <Border Grid.Row="4" Grid.Column="0" Width="30" Height="30" CornerRadius="15" Background="White" BorderBrush="#C9D3E0" BorderThickness="1" IsVisible="{Binding IsStep3Pending}">
+                <TextBlock Text="3" Foreground="#98A2B3" FontSize="13" HorizontalAlignment="Center" VerticalAlignment="Center" />
+              </Border>
+              <StackPanel Grid.Row="4" Grid.Column="1" Spacing="2" VerticalAlignment="Center">
+                <TextBlock Text="连接参数" FontSize="14" FontWeight="SemiBold" Foreground="#1F2937" />
+                <TextBlock Text="填写地址和时序" Classes="field-hint" />
+              </StackPanel>
+
+              <Border Grid.Row="5" Grid.Column="0" Width="1" Height="28" Background="#CFE0FF" HorizontalAlignment="Center" />
+
+              <Border Grid.Row="6" Grid.Column="0" Width="30" Height="30" CornerRadius="15" Background="#0868F7" IsVisible="{Binding IsStep4}">
+                <TextBlock Text="4" Foreground="White" FontSize="13" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" />
+              </Border>
+              <Border Grid.Row="6" Grid.Column="0" Width="30" Height="30" CornerRadius="15" Background="White" BorderBrush="#C9D3E0" BorderThickness="1" IsVisible="{Binding IsStep4Pending}">
+                <TextBlock Text="4" Foreground="#98A2B3" FontSize="13" HorizontalAlignment="Center" VerticalAlignment="Center" />
+              </Border>
+              <StackPanel Grid.Row="6" Grid.Column="1" Spacing="2" VerticalAlignment="Center">
+                <TextBlock Text="确认创建" FontSize="14" FontWeight="SemiBold" Foreground="#1F2937" />
+                <TextBlock Text="检查配置并完成" Classes="field-hint" />
+              </StackPanel>
+            </Grid>
+
+            <Border Classes="wizard-note" Margin="0,28,0,0">
+              <StackPanel Spacing="6">
+                <icons:AppIcon Kind="ShieldCheck" Width="20" Height="20" Stroke="#0868F7" />
+                <TextBlock Text="连接配置只写入候选配置，完成创建后才会返回设备点位管理。"
+                           Foreground="#526071"
+                           FontSize="12"
+                           TextWrapping="Wrap" />
+              </StackPanel>
+            </Border>
+          </StackPanel>
+        </Border>
+
+        <Border Grid.Column="1" Background="White" Padding="30,24,30,18">
+          <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+            <Grid>
+              <StackPanel IsVisible="{Binding IsStep1}" Spacing="14">
+                <TextBlock Text="选择连接方式" Classes="wizard-heading" />
+                <TextBlock Text="请选择该通道使用的连接资源类型"
+                           Classes="wizard-description" />
+
+                <StackPanel Margin="0,8,0,0">
+                  <RadioButton Classes="transport-card"
+                               GroupName="ChannelTransport"
+                               IsChecked="{Binding IsTcp, Mode=OneWay}"
+                               Checked="OnTcpChecked">
+                    <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="14" Margin="18,14">
+                      <Border Width="44" Height="44" CornerRadius="12" Background="#EAF2FF">
+                        <icons:AppIcon Kind="Connection" Width="23" Height="23" Stroke="#0868F7" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                      </Border>
+                      <StackPanel Grid.Column="1" Spacing="4" VerticalAlignment="Center">
+                        <TextBlock Text="TCP 网络" FontSize="15" FontWeight="SemiBold" Foreground="#1F2937" />
+                        <TextBlock Text="适用于以太网设备；PLC 主机地址和端口在设备属性中配置" Classes="field-hint" />
+                      </StackPanel>
+                      <Border Grid.Column="2" Background="#DCEBFF" CornerRadius="10" Padding="8,3" VerticalAlignment="Top">
+                        <TextBlock Text="推荐" Foreground="#0758D7" FontSize="11" FontWeight="SemiBold" />
+                      </Border>
+                    </Grid>
+                  </RadioButton>
+                  <RadioButton Classes="transport-card"
+                               GroupName="ChannelTransport"
+                               IsChecked="{Binding IsSerial, Mode=OneWay}"
+                               Checked="OnSerialChecked">
+                    <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="14" Margin="18,14">
+                      <Border Width="44" Height="44" CornerRadius="12" Background="#F0F7FF">
+                        <icons:AppIcon Kind="DeviceMode" Width="23" Height="23" Stroke="#2B6CB0" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                      </Border>
+                      <StackPanel Grid.Column="1" Spacing="4" VerticalAlignment="Center">
+                        <TextBlock Text="串口通信" FontSize="15" FontWeight="SemiBold" Foreground="#1F2937" />
+                        <TextBlock Text="适用于 RS-232 / RS-485，后续配置串口参数" Classes="field-hint" />
+                      </StackPanel>
+                    </Grid>
+                  </RadioButton>
+                  <RadioButton Classes="transport-card"
+                               GroupName="ChannelTransport"
+                               IsChecked="{Binding IsSimulation, Mode=OneWay}"
+                               Checked="OnSimulationChecked">
+                    <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="14" Margin="18,14">
+                      <Border Width="44" Height="44" CornerRadius="12" Background="#F4F5F7">
+                        <icons:AppIcon Kind="Settings" Width="22" Height="22" Stroke="#667085" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                      </Border>
+                      <StackPanel Grid.Column="1" Spacing="4" VerticalAlignment="Center">
+                        <TextBlock Text="离线仿真" FontSize="15" FontWeight="SemiBold" Foreground="#1F2937" />
+                        <TextBlock Text="不连接现场设备，用于离线调试和演示" Classes="field-hint" />
+                      </StackPanel>
+                    </Grid>
+                  </RadioButton>
+                </StackPanel>
+
+                <Border Classes="wizard-note" Margin="0,2,0,0">
+                  <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+                    <icons:AppIcon Kind="ShieldCheck" Width="20" Height="20" Stroke="#0868F7" />
+                    <TextBlock Grid.Column="1"
+                               Text="连接方式决定下一步需要填写的参数；设备驱动将在新增设备时选择。"
+                               Foreground="#526071"
+                               FontSize="12"
+                               TextWrapping="Wrap" />
+                  </Grid>
+                </Border>
+              </StackPanel>
+
+              <StackPanel IsVisible="{Binding IsStep2}" Spacing="14">
+                <TextBlock Text="通道基本信息" Classes="wizard-heading" />
+                <TextBlock Text="填写便于现场识别的名称，编码由系统维护"
+                           Classes="wizard-description" />
+
+                <Border Background="#FBFCFE" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="8" Padding="20" Margin="0,8,0,0">
+                  <StackPanel Spacing="8">
+                    <TextBlock Text="通道名称 *" Classes="field-label" />
+                    <TextBox Classes="wizard-input"
+                             Text="{Binding Name, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                             Watermark="如：现场以太网、仿真通道" />
+                    <TextBlock Text="显示在左侧通道树和设备归属选择中。" Classes="field-hint" />
+
+                    <TextBlock Text="通道编码" Classes="field-label" Margin="0,14,0,0" />
+                    <TextBox Classes="wizard-input"
+                             Text="{Binding CodeDisplayText}"
+                             IsReadOnly="True"
+                             Background="#F5F8FC" />
+                    <TextBlock Text="编码由系统按 CH_xxx 规则生成，用于配置稳定引用。" Classes="field-hint" />
+
+                    <CheckBox Content="启用通道"
+                              IsChecked="{Binding IsEnabled, Mode=TwoWay}"
+                              Margin="0,12,0,0" />
+                  </StackPanel>
+                </Border>
+              </StackPanel>
+
+              <StackPanel IsVisible="{Binding IsStep3}" Spacing="14">
+                <TextBlock Text="连接参数" Classes="wizard-heading" />
+                <TextBlock Text="只展示所选连接方式需要的字段；TCP 通道维护调度资源，远端 PLC 端点归设备属性。"
+                           Classes="wizard-description" />
+
+                <Border Background="#FBFCFE" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="8" Padding="20" Margin="0,8,0,0">
+                  <StackPanel Spacing="12">
+                    <TextBlock Text="{Binding TransportSummaryText}" FontSize="15" FontWeight="SemiBold" Foreground="#1F2937" />
+                    <TextBlock Text="{Binding TransportHelpText}" Classes="field-hint" />
+
+                    <Border IsVisible="{Binding IsTcp}"
+                            Background="#F0F7FF"
+                            BorderBrush="#CFE0FF"
+                            BorderThickness="1"
+                            CornerRadius="8"
+                            Padding="14"
+                            Margin="0,8,0,0">
+                      <StackPanel Spacing="5">
+                        <TextBlock Text="TCP 目标地址由设备属性维护"
+                                   Classes="field-label" />
+                        <TextBlock Text="同一 TCP 通道可承载多台 PLC；请在“设备 → 通信与采集”中分别填写 IP、端口、Rack 和 Slot。"
+                                   Classes="field-hint" />
+                      </StackPanel>
+                    </Border>
+
+                    <Grid IsVisible="{Binding IsSerial}" ColumnDefinitions="*,*" ColumnSpacing="14" Margin="0,8,0,0">
+                      <StackPanel Spacing="7">
+                        <TextBlock Text="串口 *" Classes="field-label" />
+                        <ComboBox Classes="wizard-input"
+                                  Width="240"
+                                  ItemsSource="{Binding SerialPortOptions}"
+                                  SelectedItem="{Binding SerialPortName, Mode=TwoWay}"
+                                  IsEditable="False"
+                                  PlaceholderText="请选择串口"
+                                  MaxDropDownHeight="240" />
+                      </StackPanel>
+                      <StackPanel Grid.Column="1" Spacing="7">
+                        <TextBlock Text="波特率 *" Classes="field-label" />
+                        <ComboBox Classes="wizard-input"
+                                  Width="240"
+                                  ItemsSource="{Binding BaudRateOptions}"
+                                  SelectedItem="{Binding SelectedBaudRate, Mode=TwoWay}"
+                                  IsEditable="False"
+                                  PlaceholderText="请选择波特率"
+                                  MaxDropDownHeight="240" />
+                      </StackPanel>
+                    </Grid>
+                    <Grid IsVisible="{Binding IsSerial}" ColumnDefinitions="*,*" ColumnSpacing="14">
+                      <StackPanel Spacing="7">
+                        <TextBlock Text="数据位" Classes="field-label" />
+                        <ComboBox Classes="wizard-input" Width="120"
+                                  ItemsSource="{Binding DataBitsOptions}"
+                                  SelectedItem="{Binding DataBits, Mode=TwoWay}" />
+                      </StackPanel>
+                      <Grid Grid.Column="1" ColumnDefinitions="*,*" ColumnSpacing="8">
+                        <StackPanel Spacing="7">
+                          <TextBlock Text="校验位" Classes="field-label" />
+                          <ComboBox Classes="wizard-input" Width="120"
+                                    ItemsSource="{Binding ParityOptions}"
+                                    SelectedItem="{Binding Parity, Mode=TwoWay}" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="1" Spacing="7">
+                          <TextBlock Text="停止位" Classes="field-label" />
+                          <ComboBox Classes="wizard-input" Width="120"
+                                    ItemsSource="{Binding StopBitsOptions}"
+                                    SelectedItem="{Binding StopBits, Mode=TwoWay}" />
+                        </StackPanel>
+                      </Grid>
+                    </Grid>
+
+                    <StackPanel IsVisible="{Binding IsSimulation}" Spacing="7" Margin="0,8,0,0">
+                      <TextBlock Text="仿真实例标识" Classes="field-label" />
+                      <TextBox Classes="wizard-input"
+                               Text="{Binding SimulationInstanceKey, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                               Watermark="如：simulation" />
+                    </StackPanel>
+
+                    <Border BorderBrush="#E2E8F0" BorderThickness="0,1,0,0" Margin="0,4,0,0" Padding="0,14,0,0">
+                      <Grid ColumnDefinitions="*,*" ColumnSpacing="14">
+                        <StackPanel Spacing="7">
+                          <TextBlock Text="超时时间（毫秒） *" Classes="field-label" />
+                          <TextBox Classes="wizard-input" Text="{Binding TimeoutMsText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="1" Spacing="7">
+                          <TextBlock Text="重试次数 *" Classes="field-label" />
+                          <TextBox Classes="wizard-input" Text="{Binding RetryCountText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                        </StackPanel>
+                      </Grid>
+                    </Border>
+                  </StackPanel>
+                </Border>
+
+                <Border Classes="wizard-note">
+                  <TextBlock Text="本页只配置连接资源，不执行现场设备写入。完成后可在设备点位管理中继续新增设备和点位。"
+                             Foreground="#526071"
+                             FontSize="12"
+                             TextWrapping="Wrap" />
+                </Border>
+              </StackPanel>
+
+              <StackPanel IsVisible="{Binding IsStep4}" Spacing="14">
+                <TextBlock Text="确认创建" Classes="wizard-heading" />
+                <TextBlock Text="请核对以下配置，发现问题可返回上一步修改"
+                           Classes="wizard-description" />
+
+                <Border Background="#FBFCFE" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="8" Padding="20" Margin="0,8,0,0">
+                  <StackPanel>
+                    <Grid Classes="summary-row" ColumnDefinitions="150,*">
+                      <TextBlock Text="连接方式" Classes="field-hint" />
+                      <TextBlock Grid.Column="1" Text="{Binding TransportSummaryText}" Foreground="#1F2937" FontWeight="SemiBold" />
+                    </Grid>
+                    <Grid Classes="summary-row" ColumnDefinitions="150,*">
+                      <TextBlock Text="通道名称" Classes="field-hint" />
+                      <TextBlock Grid.Column="1" Text="{Binding Name}" Foreground="#1F2937" />
+                    </Grid>
+                    <Grid Classes="summary-row" ColumnDefinitions="150,*" IsVisible="{Binding IsTcp}">
+                      <TextBlock Text="PLC 目标地址" Classes="field-hint" />
+                      <TextBlock Grid.Column="1"
+                                 Text="由设备属性分别配置"
+                                 Foreground="#1F2937" />
+                    </Grid>
+                    <Grid Classes="summary-row" ColumnDefinitions="150,*" IsVisible="{Binding IsSerial}">
+                      <TextBlock Text="串口 / 波特率" Classes="field-hint" />
+                      <TextBlock Grid.Column="1" Foreground="#1F2937">
+                        <Run Text="{Binding SerialPortName}" />
+                        <Run Text=" / " />
+                        <Run Text="{Binding BaudRateText}" />
+                      </TextBlock>
+                    </Grid>
+                    <Grid Classes="summary-row" ColumnDefinitions="150,*" IsVisible="{Binding IsSimulation}">
+                      <TextBlock Text="仿真实例" Classes="field-hint" />
+                      <TextBlock Grid.Column="1" Text="{Binding SimulationInstanceKey}" Foreground="#1F2937" />
+                    </Grid>
+                    <Grid Classes="summary-row" ColumnDefinitions="150,*">
+                      <TextBlock Text="通信时序" Classes="field-hint" />
+                      <TextBlock Grid.Column="1" Foreground="#1F2937">
+                        <Run Text="超时 " />
+                        <Run Text="{Binding TimeoutMsText}" />
+                        <Run Text=" ms · 重试 " />
+                        <Run Text="{Binding RetryCountText}" />
+                        <Run Text=" 次" />
+                      </TextBlock>
+                    </Grid>
+                    <Border Padding="0,11,0,0">
+                      <Grid ColumnDefinitions="150,*">
+                        <TextBlock Text="启用状态" Classes="field-hint" />
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4">
+                          <TextBlock Text="创建后启用" Foreground="#168A4A" IsVisible="{Binding IsEnabled}" />
+                          <TextBlock Text="创建后停用" Foreground="#98A2B3" IsVisible="{Binding IsDisabled}" />
+                        </StackPanel>
+                      </Grid>
+                    </Border>
+                  </StackPanel>
+                </Border>
+
+                <Border Classes="wizard-note">
+                  <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+                    <icons:AppIcon Kind="ShieldCheck" Width="20" Height="20" Stroke="#0868F7" />
+                    <TextBlock Grid.Column="1"
+                               Text="系统会在保存前再次执行通道校验，并以原子方式写入候选配置。"
+                               Foreground="#526071"
+                               FontSize="12"
+                               TextWrapping="Wrap" />
+                  </Grid>
+                </Border>
+              </StackPanel>
+            </Grid>
+          </ScrollViewer>
+        </Border>
+      </Grid>
+
+      <Border Grid.Row="2"
+              Background="#FBFCFE"
+              BorderBrush="#E2E8F0"
+              BorderThickness="0,1,0,0"
+              CornerRadius="0,0,10,10"
+              Padding="24,12">
+        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="16">
+          <StackPanel Spacing="2" VerticalAlignment="Center">
+            <TextBlock Text="通道编码由系统自动生成，无需填写。"
+                       Foreground="#7A8492"
+                       FontSize="12" />
+            <TextBlock Text="{Binding ValidationMessage}"
+                       IsVisible="{Binding HasValidationMessage}"
+                       Foreground="#D92D20"
+                       FontSize="12"
+                       TextWrapping="Wrap" />
+          </StackPanel>
+          <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+            <Button Classes="dialog-secondary" Content="取消" Click="OnCancelClick" />
+            <Button Classes="dialog-secondary" Content="上一步" IsEnabled="{Binding CanGoBack}" Click="OnBackClick" />
+            <Button Classes="dialog-primary"
+                    Content="{Binding PrimaryActionText}"
+                    IsEnabled="{Binding CanProceed}"
+                    Click="OnNextClick" />
+          </StackPanel>
+        </Grid>
+      </Border>
+    </Grid>
+  </Border>
+</Window>

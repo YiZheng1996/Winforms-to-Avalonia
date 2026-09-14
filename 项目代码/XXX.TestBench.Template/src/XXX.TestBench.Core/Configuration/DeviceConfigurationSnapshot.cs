@@ -6,7 +6,7 @@ namespace XXX.TestBench.Core.Configuration;
 /// </summary>
 public sealed class DeviceConfigurationSnapshot
 {
-    public const int CurrentSchemaVersion = 1;
+    public const int CurrentSchemaVersion = 2;
 
     public int SchemaVersion { get; set; } = CurrentSchemaVersion;
     public string Revision { get; set; } = string.Empty;

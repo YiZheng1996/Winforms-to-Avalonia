@@ -37,26 +37,34 @@ public sealed partial class PointGroupDialogViewModel : ObservableObject
         bool isEdit,
         PointsConfig.PointGroupEntry? current,
         string deviceId,
-        string? defaultCode = null)
+        string? defaultCode = null,
+        int defaultSortOrder = 10,
+        string? deviceName = null)
     {
         IsEdit = isEdit;
         _deviceId = deviceId;
+        DeviceName = deviceName ?? deviceId;
         DialogTitle = isEdit ? "编辑点位分组" : "新增点位分组";
         DialogSubtitle = "分组只用于树状组织和筛选，不参与驱动寻址、运行时路由或实时值存储。";
         if (current is null)
         {
-            Code = defaultCode ?? "GROUP_1";
+            _groupId = Guid.NewGuid().ToString("D");
+            Code = string.IsNullOrWhiteSpace(defaultCode)
+                ? "GRP_" + _groupId.Replace("-", string.Empty, StringComparison.Ordinal)
+                : defaultCode.Trim();
             Name = "新分组";
-            SortOrderText = "10";
+            SortOrderText = defaultSortOrder.ToString(CultureInfo.InvariantCulture);
         }
         else
         {
             _groupId = current.Id;
             _deviceId = current.DeviceId;
+            DeviceName = deviceName ?? current.DeviceId;
             Code = current.Code;
             Name = current.Name;
             SortOrderText = current.SortOrder.ToString(CultureInfo.InvariantCulture);
             Description = current.Description;
+            IsDefaultGroup = string.Equals(current.Code, "DEFAULT", StringComparison.OrdinalIgnoreCase);
         }
     }
 
@@ -64,7 +72,15 @@ public sealed partial class PointGroupDialogViewModel : ObservableObject
     public string DialogTitle { get; }
     public string DialogSubtitle { get; }
     public string DeviceId => _deviceId;
-    public string DeviceHelpText => $"所属设备：{_deviceId}；保存前会检查同一设备内编码唯一。";
+    public string DeviceName { get; }
+    public string OwnerDeviceText => DeviceName;
+    public bool IsDefaultGroup { get; }
+    public string GroupName
+    {
+        get => Name;
+        set => Name = value;
+    }
+    public string DeviceHelpText => "所属设备由当前树节点确定；保存时会检查设备内分组名称是否重复。";
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(CanSave))]
@@ -91,17 +107,16 @@ public sealed partial class PointGroupDialogViewModel : ObservableObject
         private set => SetProperty(ref _validationMessage, value);
     }
 
-    public bool CanSave => !string.IsNullOrWhiteSpace(Code)
-        && !string.IsNullOrWhiteSpace(Name)
-        && int.TryParse(SortOrderText, NumberStyles.Integer, CultureInfo.InvariantCulture, out var sortOrder)
-        && sortOrder >= 0;
+    public bool CanSave => !IsDefaultGroup
+        && !string.IsNullOrWhiteSpace(_deviceId)
+        && !string.IsNullOrWhiteSpace(Name);
 
     public bool TryBuildResult(out PointGroupDialogResult result)
     {
         var errors = new List<string>();
-        if (string.IsNullOrWhiteSpace(Code)) errors.Add("分组编码不能为空");
         if (string.IsNullOrWhiteSpace(Name)) errors.Add("分组名称不能为空");
         if (string.IsNullOrWhiteSpace(_deviceId)) errors.Add("分组所属设备不能为空");
+        if (IsDefaultGroup) errors.Add("系统默认分组不能编辑");
         if (!int.TryParse(SortOrderText, NumberStyles.Integer, CultureInfo.InvariantCulture, out var sortOrder)
             || sortOrder < 0)
             errors.Add("排序号必须是大于等于 0 的整数");
@@ -117,7 +132,9 @@ public sealed partial class PointGroupDialogViewModel : ObservableObject
         result = new PointGroupDialogResult(
             _groupId,
             _deviceId,
-            Code.Trim(),
+            string.IsNullOrWhiteSpace(Code)
+                ? "GRP_" + Guid.NewGuid().ToString("N")
+                : Code.Trim(),
             Name.Trim(),
             sortOrder,
             Description.Trim());

@@ -4,7 +4,7 @@ using XXX.TestBench.Core.Domain.Devices;
 namespace XXX.TestBench.Core.Configuration;
 
 /// <summary>
-/// 跨配置一致性校验：Hardware 必须有启用设备；Simulation 初值/规则/故障注入地址必须存在于 points.json。
+/// 跨配置一致性校验：当前运行模式由设备项决定；旧版 Simulation 初值/规则/故障注入地址必须存在于 points.json。
 /// </summary>
 public static class ConfigurationValidator
 {
@@ -37,31 +37,23 @@ public static class ConfigurationValidator
             return;
         }
 
-        // 硬件模式必须至少启用一台设备。
-        if (device.DeviceMode == DeviceMode.Hardware
-            && !(device.Devices ?? new List<DeviceConfig.DeviceEntry>()).Any(d => d is not null && d.Enabled))
-            throw new ConfigValidationException("Hardware 模式必须配置至少一个启用的设备");
+        // 旧版地址主键的配置只在 legacy 分支校验；当前版本统一使用 PointId。
+        var addresses = (points.Points ?? new List<PointsConfig.PointEntry>())
+            .Where(p => p is not null)
+            .Where(p => p.ProtocolKind == DevicePointProtocol.Simulation)
+            .Select(p => p.Address)
+            .ToHashSet(StringComparer.Ordinal);
 
-        // 模拟模式的初值、变化规则与故障注入地址必须存在于点位表中。
-        if (device.DeviceMode == DeviceMode.Simulation)
-        {
-            var addresses = (points.Points ?? new List<PointsConfig.PointEntry>())
-                .Where(p => p is not null)
-                .Where(p => p.IsEnabled && p.ProtocolKind == DevicePointProtocol.Simulation)
-                .Select(p => p.Address)
-                .ToHashSet(StringComparer.Ordinal);
+        foreach (var key in (simulation.InitialValues ?? new Dictionary<string, object?>()).Keys)
+            if (!addresses.Contains(key))
+                throw new ConfigValidationException($"simulation.json 初值地址 {key} 不在 points.json");
 
-            foreach (var key in (simulation.InitialValues ?? new Dictionary<string, object?>()).Keys)
-                if (!addresses.Contains(key))
-                    throw new ConfigValidationException($"simulation.json 初值地址 {key} 不在 points.json");
+        foreach (var rule in simulation.ChangeRules ?? new List<SimulationConfig.ChangeRule>())
+            if (!addresses.Contains(rule.Address))
+                throw new ConfigValidationException($"simulation.json 变化规则地址 {rule.Address} 不在 points.json");
 
-            foreach (var rule in simulation.ChangeRules ?? new List<SimulationConfig.ChangeRule>())
-                if (!addresses.Contains(rule.Address))
-                    throw new ConfigValidationException($"simulation.json 变化规则地址 {rule.Address} 不在 points.json");
-
-            foreach (var scenario in simulation.FaultInjectionScenarios ?? new List<SimulationConfig.FaultInjection>())
-                if (!addresses.Contains(scenario.Address))
-                    throw new ConfigValidationException($"simulation.json 故障注入地址 {scenario.Address} 不在 points.json");
-        }
+        foreach (var scenario in simulation.FaultInjectionScenarios ?? new List<SimulationConfig.FaultInjection>())
+            if (!addresses.Contains(scenario.Address))
+                throw new ConfigValidationException($"simulation.json 故障注入地址 {scenario.Address} 不在 points.json");
     }
 }

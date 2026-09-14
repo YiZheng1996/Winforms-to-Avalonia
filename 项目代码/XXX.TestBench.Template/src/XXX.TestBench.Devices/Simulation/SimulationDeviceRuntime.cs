@@ -62,16 +62,15 @@ public sealed class SimulationDeviceRuntime : IDeviceRuntime
         _config = config;
         _clock = clock;
 
-        var enabledPoints = points
-            .Where(point => point.IsEnabled)
+        var configuredPoints = points
             .Select(point => !string.IsNullOrWhiteSpace(revision) && string.IsNullOrWhiteSpace(point.Revision)
                 ? point with { Revision = revision }
                 : point)
             .ToList();
-        _pointsById = enabledPoints
+        _pointsById = configuredPoints
             .Where(point => !string.IsNullOrWhiteSpace(point.PointId))
             .ToDictionary(point => point.PointId, StringComparer.OrdinalIgnoreCase);
-        _pointsByAddress = enabledPoints
+        _pointsByAddress = configuredPoints
             .ToDictionary(point => point.Address, StringComparer.OrdinalIgnoreCase);
 
         foreach (var kv in config.InitialValues)
@@ -102,7 +101,8 @@ public sealed class SimulationDeviceRuntime : IDeviceRuntime
                     DeviceId: _deviceId,
                     ChannelId: _channelId,
                     Revision: _revision,
-                    ConnectionGeneration: _connectionGeneration);
+                    ConnectionGeneration: _connectionGeneration,
+                    Mode: DeviceMode.Simulation);
             }
         }
     }
@@ -163,6 +163,7 @@ public sealed class SimulationDeviceRuntime : IDeviceRuntime
             if (!_started) throw new DomainException($"仿真设备 {Name} 尚未启动");
         }
 
+        // DeviceWritePipeline 已完成工程值→原始值换算；运行时边界接收原始值。
         _values[KeyFor(current)] = value;
         return Task.FromResult(CreateValue(current, PointQuality.Good, value));
     }
@@ -189,9 +190,11 @@ public sealed class SimulationDeviceRuntime : IDeviceRuntime
         return current;
     }
 
-    private PointValue CreateValue(DevicePoint point, PointQuality quality, object? value)
-        => new(point.Code, point.Address, quality, value, _clock.UtcNow,
-            point.PointId, _deviceId, _connectionGeneration, _revision);
+    private PointValue CreateValue(DevicePoint point, PointQuality quality, object? rawValue)
+        => new(point.Code, point.Address, quality,
+            quality == PointQuality.Unknown ? null : DevicePointValueConverter.ToEngineering(point, rawValue),
+            _clock.UtcNow,
+            point.PointId, _deviceId, _connectionGeneration, _revision, rawValue);
 
     private string KeyFor(DevicePoint point)
         => string.IsNullOrWhiteSpace(point.PointId) ? point.Address : point.PointId;

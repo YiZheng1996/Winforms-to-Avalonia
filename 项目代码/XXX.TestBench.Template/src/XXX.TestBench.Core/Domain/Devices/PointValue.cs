@@ -12,4 +12,8 @@ public sealed record PointValue(
     string PointId = "",
     string DeviceId = "",
     long ConnectionGeneration = 0,
-    string Revision = "");
+    string Revision = "",
+    /// <summary>
+    /// 协议解码后的原始值。Value 始终表示工程值；没有量程时两者通常相同。
+    /// </summary>
+    object? RawValue = null);

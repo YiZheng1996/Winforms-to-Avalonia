@@ -18,7 +18,12 @@ public partial class App : Application
     /// <summary>
     /// 启动守卫，保证同一进程只初始化一次。
     /// </summary>
-    private static bool _compositionStarted;
+    private bool _compositionStarted;
+
+    /// <summary>
+    /// 是否在框架初始化完成时创建生产组合根和首个窗口；Headless 测试可关闭，仍保留 Avalonia 基类生命周期。
+    /// </summary>
+    protected virtual bool EnableProductionStartup => true;
 
     /// <summary>
     /// 加载界面资源。
@@ -33,8 +38,10 @@ public partial class App : Application
     /// </summary>
     public override void OnFrameworkInitializationCompleted()
     {
-        // 启动守卫：同一进程只初始化一次组合根，避免 Headless 每测试会话重复创建窗口/组合根导致挂起
-        if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop && !_compositionStarted)
+        // 启动守卫：同一个 Application 实例只初始化一次组合根；Headless 每测试会话会重建 Application。
+        if (EnableProductionStartup
+            && ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop
+            && !_compositionStarted)
         {
             _compositionStarted = true;
             var baseDir = AppContext.BaseDirectory;

@@ -36,22 +36,24 @@ public static class DeviceConfigurationMigrator
                 : NormalizeLegacyDriverKey(source.Protocol);
             var poll = source.PollIntervalMs > 0 ? source.PollIntervalMs : legacyDevice.PollIntervalMs;
             var timeout = legacyDevice.TimeoutMs > 0 ? legacyDevice.TimeoutMs : 1000;
+            var requestTimeout = Math.Max(50, timeout);
             var staleAfter = (int)Math.Min(int.MaxValue,
-                Math.Max(3L * Math.Max(1, poll), 2L * Math.Max(1, timeout)));
+                Math.Max(2L * Math.Max(1, poll), requestTimeout + 100L));
 
             var channel = new ChannelEntry
             {
                 Id = channelId,
                 Code = "CH_" + ShortId(channelId),
                 Name = string.IsNullOrWhiteSpace(source.Name) ? "迁移通道" : source.Name.Trim() + "通道",
-                TransportKind = isSimulation ? ChannelTransportKind.Simulation : ChannelTransportKind.Unknown,
+                TransportKind = isSimulation ? ChannelTransportKind.Simulation : ChannelTransportKind.Tcp,
                 Enabled = source.Enabled,
                 TimeoutMs = timeout,
                 RetryCount = 0,
                 Simulation = isSimulation ? new SimulationChannelParameters
                 {
                     InstanceKey = string.IsNullOrWhiteSpace(source.Address) ? ShortId(deviceId) : source.Address.Trim()
-                } : null
+                } : null,
+                Tcp = isSimulation ? null : new TcpChannelParameters()
             };
             channels.Add(channel);
 
@@ -60,15 +62,31 @@ public static class DeviceConfigurationMigrator
                 Id = deviceId,
                 Code = "DEV_" + ShortId(deviceId),
                 Name = string.IsNullOrWhiteSpace(source.Name) ? "迁移设备" : source.Name.Trim(),
+                DeviceMode = legacyDevice.DeviceMode,
                 Protocol = source.Protocol.Trim(),
                 Address = source.Address.Trim(),
                 ChannelId = channelId,
                 DriverKey = driverKey,
-                Manufacturer = string.Empty,
                 Model = string.Empty,
-                CpuProfile = string.Empty,
                 PollIntervalMs = Math.Max(1, poll),
                 StaleAfterMs = staleAfter,
+                ScanMode = DeviceScanMode.FixedInterval,
+                Timing = new DeviceTimingOptions
+                {
+                    ConnectTimeoutMs = Math.Max(1000, timeout),
+                    RequestTimeoutMs = requestTimeout,
+                    RetryCount = 0
+                },
+                AutoDemotion = new DeviceDemotionOptions(),
+                SiemensS7 = string.Equals(driverKey, DriverKeyCatalog.SiemensS7, StringComparison.OrdinalIgnoreCase)
+                    ? new SiemensS7ConnectionOptions
+                    {
+                        Host = source.Address.Trim(),
+                        Port = 102,
+                        Rack = 0,
+                        Slot = 0
+                    }
+                    : null,
                 Enabled = source.Enabled
             };
             devices.Add(target);
@@ -97,9 +115,7 @@ public static class DeviceConfigurationMigrator
                 DeviceId = targetDevice?.Id ?? string.Empty,
                 DataType = source.DataType.Trim(),
                 RawDataType = source.DataType.Trim(),
-                Unit = source.Unit?.Trim() ?? string.Empty,
                 IsWritable = source.IsWritable,
-                IsEnabled = source.IsEnabled,
                 RiskLevel = source.RiskLevel,
                 Scale = CloneScale(source.Scale),
                 RawMin = source.RawMin,
@@ -256,6 +272,184 @@ public static class DeviceConfigurationMigrator
         return new ConfigurationMigrationResult(candidate, issues.Distinct().ToList());
     }
 
+    /// <summary>
+    /// 将设备 schema 3 迁移为设备 schema 4：把 S7 目标端点、连接时序、采集策略和降级策略
+    /// 收拢到设备项，并清空共享 TCP 通道中的远端 Host/Port。设备和点位身份保持不变。
+    /// </summary>
+    public static ConfigurationMigrationResult MigrateDeviceToV4(
+        DeviceConfigurationSnapshot source,
+        string? revision = null)
+    {
+        ArgumentNullException.ThrowIfNull(source);
+        if (source.Device is null || source.Points is null || source.Simulation is null || source.SignalBindings is null)
+            return new ConfigurationMigrationResult(source, new[]
+            {
+                new ConfigurationIssue("snapshot", "迁移源的完整配置对象不能为空")
+            });
+        if (source.Device.SchemaVersion == DeviceConfig.CurrentSchemaVersion)
+            return new ConfigurationMigrationResult(source, Array.Empty<ConfigurationIssue>());
+        if (source.Device.SchemaVersion != DeviceConfig.PreviousSchemaVersion)
+            return new ConfigurationMigrationResult(source, new[]
+            {
+                new ConfigurationIssue("device.json.schemaVersion", $"只支持从 schema {DeviceConfig.PreviousSchemaVersion} 迁移")
+            });
+
+        var sourceChannels = source.Device.Channels ?? new List<ChannelEntry>();
+        var channels = sourceChannels.Select(CloneChannelForV4).ToList();
+        var channelMap = sourceChannels
+            .Where(channel => channel is not null && !string.IsNullOrWhiteSpace(channel.Id))
+            .GroupBy(channel => channel.Id.Trim(), StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(group => group.Key, group => group.First(), StringComparer.OrdinalIgnoreCase);
+        var devices = new List<DeviceConfig.DeviceEntry>();
+        foreach (var sourceDevice in source.Device.Devices ?? new List<DeviceConfig.DeviceEntry>())
+        {
+            if (sourceDevice is null)
+                continue;
+            channelMap.TryGetValue(sourceDevice.ChannelId.Trim(), out var channel);
+            var legacyHost = !string.IsNullOrWhiteSpace(sourceDevice.Address)
+                ? sourceDevice.Address.Trim()
+                : channel?.Tcp?.Host?.Trim() ?? string.Empty;
+            var legacyPort = channel?.Tcp?.Port is > 0 and <= 65535 ? channel.Tcp.Port : 102;
+            var poll = Math.Max(1, sourceDevice.PollIntervalMs > 0 ? sourceDevice.PollIntervalMs : source.Device.PollIntervalMs);
+            var legacyTimeout = channel?.TimeoutMs > 0
+                ? channel.TimeoutMs
+                : source.Device.TimeoutMs > 0 ? source.Device.TimeoutMs : 1000;
+            var connectTimeout = Math.Max(1000, legacyTimeout);
+            var requestTimeout = Math.Max(50, legacyTimeout);
+            var staleAfter = (int)Math.Min(int.MaxValue,
+                Math.Max(2L * poll, requestTimeout + 100L));
+            var isS7 = string.Equals(sourceDevice.DriverKey, DriverKeyCatalog.SiemensS7, StringComparison.OrdinalIgnoreCase);
+            var isModbusTcp = string.Equals(sourceDevice.DriverKey, DriverKeyCatalog.ModbusTcp, StringComparison.OrdinalIgnoreCase);
+            devices.Add(new DeviceConfig.DeviceEntry
+            {
+                Id = sourceDevice.Id,
+                Code = sourceDevice.Code,
+                Name = sourceDevice.Name,
+                DeviceMode = sourceDevice.DeviceMode,
+                Protocol = sourceDevice.Protocol,
+                Address = string.Empty,
+                ChannelId = sourceDevice.ChannelId,
+                DriverKey = sourceDevice.DriverKey,
+                Model = sourceDevice.Model,
+                ModbusUnitId = sourceDevice.ModbusUnitId,
+                PollIntervalMs = poll,
+                StaleAfterMs = staleAfter,
+                ScanMode = DeviceScanMode.FixedInterval,
+                Timing = new DeviceTimingOptions
+                {
+                    ConnectTimeoutMs = connectTimeout,
+                    RequestTimeoutMs = requestTimeout,
+                    RetryCount = Math.Max(0, channel?.RetryCount ?? 0),
+                    InterRequestDelayMs = 0
+                },
+                AutoDemotion = new DeviceDemotionOptions(),
+                SiemensS7 = isS7
+                    ? new SiemensS7ConnectionOptions
+                    {
+                        Host = legacyHost,
+                        Port = legacyPort,
+                        Rack = 0,
+                        Slot = 0
+                    }
+                    : null,
+                ModbusTcp = isModbusTcp
+                    ? new ModbusTcpConnectionOptions
+                    {
+                        Host = legacyHost,
+                        Port = legacyPort
+                    }
+                    : null,
+                Enabled = sourceDevice.Enabled
+            });
+        }
+
+        var devicesById = devices.ToDictionary(device => device.Id.Trim(), StringComparer.OrdinalIgnoreCase);
+        var groups = source.Points.SchemaVersion == PointsConfig.CurrentSchemaVersion
+            ? (source.Points.Groups ?? new List<PointsConfig.PointGroupEntry>()).Select(group => new PointsConfig.PointGroupEntry
+            {
+                Id = group.Id,
+                DeviceId = group.DeviceId,
+                Code = group.Code,
+                Name = group.Name,
+                Description = group.Description,
+                SortOrder = group.SortOrder
+            }).ToList()
+            : devices.Select(device => new PointsConfig.PointGroupEntry
+            {
+                Id = StableId($"group|{device.Id}|DEFAULT"),
+                DeviceId = device.Id,
+                Code = "DEFAULT",
+                Name = "未分组",
+                Description = "由设备 schema 3 迁移生成的默认分组",
+                SortOrder = 0
+            }).ToList();
+        var defaultGroupByDevice = groups
+            .GroupBy(group => group.DeviceId.Trim(), StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(group => group.Key, group => group.First().Id, StringComparer.OrdinalIgnoreCase);
+        var points = (source.Points.Points ?? new List<PointsConfig.PointEntry>())
+            .Where(point => point is not null)
+            .Select(point => ClonePoint(point, defaultGroupByDevice))
+            .ToList();
+
+        var candidate = new DeviceConfigurationSnapshot
+        {
+            SchemaVersion = DeviceConfigurationSnapshot.CurrentSchemaVersion,
+            Revision = revision ?? "migration-device-v4-" + ShortId(StableId(
+                source.Revision + "|" + string.Join("|", devices.Select(device => device.Id))
+                + "|" + string.Join("|", points.Select(point => point.Id)))),
+            Device = new DeviceConfig
+            {
+                SchemaVersion = DeviceConfig.CurrentSchemaVersion,
+                DeviceMode = source.Device.DeviceMode,
+                PollIntervalMs = source.Device.PollIntervalMs,
+                TimeoutMs = source.Device.TimeoutMs,
+                Channels = channels,
+                Devices = devices
+            },
+            Points = new PointsConfig
+            {
+                SchemaVersion = PointsConfig.CurrentSchemaVersion,
+                Groups = groups,
+                Points = points
+            },
+            Simulation = source.Simulation,
+            SignalBindings = source.SignalBindings
+        };
+
+        var issues = MultiDeviceConfigurationValidator.Validate(candidate);
+        return new ConfigurationMigrationResult(candidate, issues.Distinct().ToList());
+    }
+
+    private static ChannelEntry CloneChannelForV4(ChannelEntry source)
+        => new()
+        {
+            Id = source.Id,
+            Code = source.Code,
+            Name = source.Name,
+            TransportKind = source.TransportKind,
+            Enabled = source.Enabled,
+            TimeoutMs = source.TimeoutMs,
+            RetryCount = source.RetryCount,
+            Tcp = source.Tcp is null ? null : new TcpChannelParameters
+            {
+                Host = string.Empty,
+                Port = 0,
+                LocalInterface = source.Tcp.LocalInterface
+            },
+            Serial = source.Serial is null ? null : new SerialChannelParameters
+            {
+                PortName = source.Serial.PortName,
+                BaudRate = source.Serial.BaudRate,
+                DataBits = source.Serial.DataBits,
+                Parity = source.Serial.Parity,
+                StopBits = source.Serial.StopBits
+            },
+            Simulation = source.Simulation is null ? null : new SimulationChannelParameters
+            {
+                InstanceKey = source.Simulation.InstanceKey
+            }
+        };
+
     private static PointsConfig.PointEntry ClonePoint(
         PointsConfig.PointEntry source,
         IReadOnlyDictionary<string, string> defaultGroupByDevice)
@@ -278,9 +472,7 @@ public static class DeviceConfigurationMigrator
             RawDataType = source.RawDataType,
             DecodeOptions = source.DecodeOptions,
             WritePolicy = source.WritePolicy,
-            Unit = source.Unit,
             IsWritable = source.IsWritable,
-            IsEnabled = source.IsEnabled,
             RiskLevel = source.RiskLevel,
             Scale = CloneScale(source.Scale),
             RawMin = source.RawMin,

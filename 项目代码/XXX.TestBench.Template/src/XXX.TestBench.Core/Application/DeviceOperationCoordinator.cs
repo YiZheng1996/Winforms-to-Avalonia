@@ -16,6 +16,9 @@ public sealed class DeviceOperationCoordinator : IAsyncDisposable
     public Task<IAsyncDisposable> EnterConfigurationAsync(CancellationToken ct = default)
         => EnterAsync(ct);
 
+    public Task<IAsyncDisposable> EnterDiagnosticsAsync(CancellationToken ct = default)
+        => EnterAsync(ct);
+
     public async ValueTask DisposeAsync()
     {
         if (Interlocked.Exchange(ref _disposed, 1) != 0) return;

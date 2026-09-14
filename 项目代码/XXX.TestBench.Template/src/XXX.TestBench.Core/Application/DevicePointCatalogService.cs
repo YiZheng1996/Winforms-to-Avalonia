@@ -89,7 +89,7 @@ public sealed class DevicePointCatalogService
         if (entries is null || entries.Count == 0)
             throw new DomainException("点位目录不能为空");
 
-        // 旧页面仍可维护 v1 迁移种子；只有已经进入 v2 完整配置的目录才使用 v2 严格身份校验。
+        // 当前点位页面只维护完整设备配置；保存时统一补齐设备和分组身份。
         var candidate = new PointsConfig
         {
             SchemaVersion = _runtimeConfig.SchemaVersion == PointsConfig.LegacySchemaVersion
@@ -254,9 +254,7 @@ public sealed class DevicePointCatalogService
                 WordOrder = source.DecodeOptions.WordOrder
             },
             WritePolicy = source.WritePolicy,
-            Unit = source.Unit?.Trim() ?? string.Empty,
             IsWritable = source.IsWritable,
-            IsEnabled = source.IsEnabled,
             RiskLevel = source.RiskLevel,
             RawMin = rawMin,
             RawMax = rawMax,
@@ -299,9 +297,7 @@ public sealed class DevicePointCatalogService
                 WordOrder = source.DecodeOptions.WordOrder
             },
             WritePolicy = source.WritePolicy,
-            Unit = source.Unit,
             IsWritable = source.IsWritable,
-            IsEnabled = source.IsEnabled,
             RiskLevel = source.RiskLevel,
             Scale = source.Scale is null ? null : new PointsConfig.ScaleValues
             {

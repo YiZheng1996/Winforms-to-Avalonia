@@ -46,7 +46,7 @@
               PointerPressed="OnTitleBarPointerPressed">
         <StackPanel Spacing="2">
           <TextBlock Text="业务信号绑定" FontSize="20" FontWeight="Bold" Foreground="#151A24" />
-          <TextBlock Text="把执行器声明的固定 SignalKey 绑定到当前设备点位；保存会应用一套新的完整设备配置"
+          <TextBlock Text="把试验流程需要的业务信号关联到设备点位；保存会应用一套新的完整设备配置"
                      Foreground="#667085" FontSize="12" />
         </StackPanel>
       </Border>
@@ -54,7 +54,7 @@
       <Border Grid.Row="1" Background="#FFF9EB" BorderBrush="#F2C94C" BorderThickness="1"
               CornerRadius="6" Padding="14" Margin="18,14,18,10">
         <StackPanel Spacing="4">
-          <TextBlock Text="当前生效版本" Classes="field-label" />
+          <TextBlock Text="配置状态" Classes="field-label" />
           <TextBlock Text="{Binding CurrentRevision}" Foreground="#344054" />
           <TextBlock Text="{Binding HintText}" Foreground="#7A5B00" TextWrapping="Wrap" />
         </StackPanel>
@@ -65,7 +65,7 @@
                   AutoGenerateColumns="False" IsReadOnly="False"
                   HeadersVisibility="Column" SelectionMode="Single">
           <DataGrid.Columns>
-            <DataGridTextColumn Header="SignalKey" Binding="{Binding SignalKey}" Width="1.05*" />
+            <DataGridTextColumn Header="业务信号" Binding="{Binding SignalKey}" Width="1.05*" />
             <DataGridTextColumn Header="用途" Binding="{Binding AccessText}" Width="70" />
             <DataGridTextColumn Header="执行器要求" Binding="{Binding RequirementText}" Width="1.35*" />
             <DataGridTemplateColumn Header="绑定点位" Width="2.15*">

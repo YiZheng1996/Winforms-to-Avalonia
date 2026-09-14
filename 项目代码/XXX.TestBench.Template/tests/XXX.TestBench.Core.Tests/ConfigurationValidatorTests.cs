@@ -27,12 +27,12 @@ public class ConfigurationValidatorTests
     }
 
     [Fact]
-    public void HardwareWithoutDevice_Throws()
+    public void LegacyConfigWithNoDevicesDoesNotInferProjectMode()
     {
         var (app, device, points, sim) = Valid();
         device.DeviceMode = DeviceMode.Hardware;
         device.Devices.Clear();
-        Assert.Throws<ConfigValidationException>(() => ConfigurationValidator.ValidateAll(app, device, points, sim));
+        ConfigurationValidator.ValidateAll(app, device, points, sim);
     }
 
     [Fact]
@@ -63,6 +63,26 @@ public class ConfigurationValidatorTests
         Assert.Equal(DevicePointDataType.Decimal, dataType);
         Assert.Equal("Simulation", DevicePointTypeCatalog.ToStorage(protocol));
         Assert.Equal("Decimal", DevicePointTypeCatalog.ToStorage(dataType));
+    }
+
+    [Theory]
+    [InlineData("字符", DevicePointDataType.Char, "Char")]
+    [InlineData("字节", DevicePointDataType.Byte, "Byte")]
+    [InlineData("短整型", DevicePointDataType.Int16, "Int16")]
+    [InlineData("字", DevicePointDataType.UInt16, "UInt16")]
+    [InlineData("长整型", DevicePointDataType.Int32, "Int32")]
+    [InlineData("双字", DevicePointDataType.UInt32, "UInt32")]
+    [InlineData("浮点型", DevicePointDataType.Float32, "Float32")]
+    [InlineData("双精度", DevicePointDataType.Double, "Double")]
+    public void PointTypeCatalog_MapsKepServerStorageNames(
+        string displayName,
+        DevicePointDataType expected,
+        string storageName)
+    {
+        Assert.True(DevicePointTypeCatalog.TryParseDataType(displayName, out var actual));
+        Assert.Equal(expected, actual);
+        Assert.Equal(storageName, DevicePointTypeCatalog.ToStorage(actual));
+        Assert.Equal(displayName, DevicePointTypeCatalog.ToDisplayName(actual));
     }
 
     [Fact]

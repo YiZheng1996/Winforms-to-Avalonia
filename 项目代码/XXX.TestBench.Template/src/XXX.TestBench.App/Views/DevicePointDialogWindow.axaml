@@ -1,222 +1,383 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:XXX.TestBench.App.ViewModels"
+        xmlns:icons="using:XXX.TestBench.App.Icons"
         x:Class="XXX.TestBench.App.Views.DevicePointDialogWindow"
         x:DataType="vm:DevicePointDialogViewModel"
         Title="{Binding DialogTitle}"
-        Width="760"
-        Height="780"
-        MinWidth="680"
-        MinHeight="660"
-        CanResize="False"
+        Width="820"
+        Height="840"
+        MinWidth="760"
+        MinHeight="620"
+        CanResize="True"
         WindowStartupLocation="CenterScreen"
         SystemDecorations="None"
         TransparencyLevelHint="Transparent"
         Background="Transparent"
+        KeyDown="OnWindowKeyDown"
         UseLayoutRounding="True">
   <Window.Styles>
-    <Style Selector="Button.dialog-secondary">
+    <Style Selector="Border.point-editor-section">
       <Setter Property="Background" Value="White" />
+      <Setter Property="BorderBrush" Value="#D7E3F0" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="5" />
+    </Style>
+    <Style Selector="Border.point-editor-section-header">
+      <Setter Property="Background" Value="#EEF5FC" />
+      <Setter Property="BorderBrush" Value="#2F80ED" />
+      <Setter Property="BorderThickness" Value="3,0,0,1" />
+      <Setter Property="Padding" Value="12,6" />
+    </Style>
+    <Style Selector="TextBlock.point-editor-label">
       <Setter Property="Foreground" Value="#344054" />
-      <Setter Property="BorderBrush" Value="#C9D3E0" />
-      <Setter Property="BorderThickness" Value="1" />
-      <Setter Property="MinWidth" Value="96" />
-    </Style>
-    <Style Selector="Button.dialog-primary">
-      <Setter Property="Background" Value="#0868F7" />
-      <Setter Property="Foreground" Value="White" />
-      <Setter Property="BorderBrush" Value="#0868F7" />
-      <Setter Property="BorderThickness" Value="1" />
-      <Setter Property="MinWidth" Value="96" />
-    </Style>
-    <Style Selector="TextBlock.field-label">
+      <Setter Property="FontSize" Value="13" />
       <Setter Property="FontWeight" Value="SemiBold" />
-      <Setter Property="Foreground" Value="#344054" />
     </Style>
-    <Style Selector="TextBox.field-input">
-      <Setter Property="MinHeight" Value="38" />
+    <Style Selector="TextBox.point-editor-input">
+      <Setter Property="Background" Value="White" />
+      <Setter Property="BorderBrush" Value="#BAC9DB" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="4" />
+      <Setter Property="MinHeight" Value="33" />
       <Setter Property="Padding" Value="10,0" />
     </Style>
-    <Style Selector="ComboBox.field-input">
-      <Setter Property="MinHeight" Value="38" />
+    <Style Selector="ComboBox.point-editor-input">
+      <Setter Property="Background" Value="White" />
+      <Setter Property="BorderBrush" Value="#BAC9DB" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="4" />
+      <Setter Property="MinHeight" Value="33" />
       <Setter Property="Padding" Value="10,0" />
+      <Setter Property="HorizontalAlignment" Value="Stretch" />
+    </Style>
+    <Style Selector="Button.point-editor-close">
+      <Setter Property="Width" Value="38" />
+      <Setter Property="Height" Value="38" />
+      <Setter Property="MinWidth" Value="38" />
+      <Setter Property="MinHeight" Value="38" />
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="Foreground" Value="#18304F" />
+      <Setter Property="BorderThickness" Value="0" />
+    </Style>
+    <Style Selector="Button.point-editor-close:pointerover">
+      <Setter Property="Background" Value="#EEF5FC" />
+    </Style>
+    <Style Selector="Button.point-editor-secondary">
+      <Setter Property="Background" Value="White" />
+      <Setter Property="Foreground" Value="#263B58" />
+      <Setter Property="BorderBrush" Value="#B8C8DB" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="4" />
+      <Setter Property="MinWidth" Value="80" />
+      <Setter Property="MinHeight" Value="36" />
+    </Style>
+    <Style Selector="Button.point-editor-primary">
+      <Setter Property="Background" Value="#1677E8" />
+      <Setter Property="Foreground" Value="White" />
+      <Setter Property="BorderBrush" Value="#1677E8" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="4" />
+      <Setter Property="MinWidth" Value="112" />
+      <Setter Property="MinHeight" Value="36" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+    <Style Selector="Button.point-editor-primary:pointerover">
+      <Setter Property="Background" Value="#0E63C9" />
+      <Setter Property="BorderBrush" Value="#0E63C9" />
+    </Style>
+    <Style Selector="Border.point-editor-info">
+      <Setter Property="Background" Value="#E5F2FF" />
+      <Setter Property="BorderBrush" Value="#C9E2FA" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="4" />
+      <Setter Property="Padding" Value="10,6" />
+    </Style>
+    <Style Selector="Border.point-editor-address-ok">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="Padding" Value="0,3" />
     </Style>
   </Window.Styles>
 
-  <Border Background="White" BorderBrush="#C9D3E0" BorderThickness="1" CornerRadius="8">
+  <Border Background="White" BorderBrush="#C8D5E4" BorderThickness="1" CornerRadius="7">
     <Grid RowDefinitions="Auto,*,Auto">
-      <Border Grid.Row="0"
-              Background="#F8FAFD"
-              BorderBrush="#E4EAF2"
-              BorderThickness="0,0,0,1"
-              CornerRadius="8,8,0,0"
-              Padding="24,14"
-              PointerPressed="OnTitleBarPointerPressed">
-        <StackPanel Spacing="2">
-          <TextBlock Text="{Binding DialogTitle}" FontSize="20" FontWeight="Bold" Foreground="#151A24" />
-          <TextBlock Text="{Binding DialogSubtitle}" Foreground="#667085" FontSize="12" />
-        </StackPanel>
+      <Border Grid.Row="0" Background="White" BorderBrush="#D7E3F0" BorderThickness="0,0,0,1"
+              CornerRadius="7,7,0,0" Padding="20,16" PointerPressed="OnTitleBarPointerPressed">
+        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+          <StackPanel Spacing="3" VerticalAlignment="Center">
+            <TextBlock Text="{Binding DialogTitle}" FontSize="21" FontWeight="Bold" Foreground="#102C56" />
+            <TextBlock Text="{Binding PathText}" Foreground="#667085" FontSize="13" TextWrapping="Wrap" />
+          </StackPanel>
+          <Button Grid.Column="1" Classes="point-editor-close" Click="OnCancelClick"
+                  AutomationProperties.Name="关闭点位编辑窗口">
+            <icons:AppIcon Kind="Cancel" Width="20" Height="20" Stroke="#18304F" />
+          </Button>
+        </Grid>
       </Border>
 
-      <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
-        <StackPanel Spacing="12" Margin="24,20,24,18">
-          <Grid ColumnDefinitions="*,*" ColumnSpacing="14">
-            <StackPanel Spacing="5">
-              <TextBlock Text="点位编码 *" Classes="field-label" />
-              <TextBox Classes="field-input" Text="{Binding Code, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Watermark="如：AI_Pressure" />
-            </StackPanel>
-            <StackPanel Grid.Column="1" Spacing="5">
-              <TextBlock Text="显示名称" Classes="field-label" />
-              <TextBox Classes="field-input" Text="{Binding Name, Mode=TwoWay}" Watermark="如：试验压力" />
-            </StackPanel>
-          </Grid>
-
-          <Grid ColumnDefinitions="*,*" ColumnSpacing="14" IsVisible="{Binding UseGroupSelection}">
-            <StackPanel Spacing="5">
-              <TextBlock Text="所属分组 *" Classes="field-label" />
-              <ComboBox Classes="field-input" ItemsSource="{Binding GroupOptions}"
-                        SelectedItem="{Binding SelectedGroupOption, Mode=TwoWay}"
-                        MaxDropDownHeight="240">
-                <ComboBox.ItemTemplate>
-                  <DataTemplate x:DataType="vm:DevicePointGroupChoice">
-                    <StackPanel Spacing="1">
-                      <TextBlock Text="{Binding DisplayName}" />
-                      <TextBlock Text="{Binding SummaryText}" Foreground="#667085" FontSize="11" />
-                    </StackPanel>
-                  </DataTemplate>
-                </ComboBox.ItemTemplate>
-              </ComboBox>
-              <TextBlock Text="{Binding GroupHelpText}" Classes="parameter-hint" TextWrapping="Wrap" />
-            </StackPanel>
-            <TextBlock Grid.Column="1" Text="分组只改变树状归类；点位地址、驱动和运行时数据不随分组改变。"
-                       Foreground="#667085" FontSize="12" TextWrapping="Wrap" VerticalAlignment="Center" />
-          </Grid>
-
-          <Grid ColumnDefinitions="*,*" ColumnSpacing="14">
-            <StackPanel Spacing="5" IsVisible="{Binding UseDeviceSelection}">
-              <TextBlock Text="所属设备 *" Classes="field-label" />
-              <ComboBox Classes="field-input" ItemsSource="{Binding DeviceOptions}"
-                        SelectedItem="{Binding SelectedDeviceOption, Mode=TwoWay}"
-                        MaxDropDownHeight="260">
-                <ComboBox.ItemTemplate>
-                  <DataTemplate x:DataType="vm:DevicePointDeviceChoice">
-                    <StackPanel Spacing="1">
-                      <TextBlock Text="{Binding DisplayName}" />
-                      <TextBlock Text="{Binding SummaryText}" Foreground="#667085" FontSize="11" />
-                    </StackPanel>
-                  </DataTemplate>
-                </ComboBox.ItemTemplate>
-              </ComboBox>
-              <TextBlock Text="{Binding DeviceHelpText}" Classes="parameter-hint" TextWrapping="Wrap" />
-            </StackPanel>
-            <StackPanel Spacing="5" IsVisible="{Binding !UseDeviceSelection}">
-              <TextBlock Text="通信方式 *" Classes="field-label" />
-              <ComboBox Classes="field-input" ItemsSource="{Binding ProtocolOptions}"
-                        SelectedItem="{Binding SelectedProtocolOption, Mode=TwoWay}"
-                        MaxDropDownHeight="260">
-                <ComboBox.ItemTemplate>
-                  <DataTemplate x:DataType="vm:DevicePointProtocolChoice">
-                    <StackPanel Spacing="1">
-                      <TextBlock Text="{Binding DisplayName}" />
-                      <TextBlock Text="{Binding Description}" Foreground="#667085" FontSize="11" />
-                    </StackPanel>
-                  </DataTemplate>
-                </ComboBox.ItemTemplate>
-              </ComboBox>
-              <TextBlock Text="{Binding ProtocolHelpText}" Classes="parameter-hint" TextWrapping="Wrap" />
-            </StackPanel>
-            <StackPanel Grid.Column="1" Spacing="5">
-              <TextBlock Text="设备地址 *" Classes="field-label" />
-              <TextBox Classes="field-input" Text="{Binding Address, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Watermark="如：sim.pressure 或 DB1.DBW0" />
-              <TextBlock Text="{Binding AddressHint}" Classes="parameter-hint" TextWrapping="Wrap" />
-            </StackPanel>
-          </Grid>
-
-          <Grid ColumnDefinitions="*,*" ColumnSpacing="14">
-            <StackPanel Spacing="5">
-              <TextBlock Text="数据类型 *" Classes="field-label" />
-              <ComboBox Classes="field-input" ItemsSource="{Binding DataTypeOptions}"
-                        SelectedItem="{Binding SelectedDataTypeOption, Mode=TwoWay}"
-                        MaxDropDownHeight="280">
-                <ComboBox.ItemTemplate>
-                  <DataTemplate x:DataType="vm:DevicePointDataTypeChoice">
-                    <StackPanel Spacing="1">
-                      <TextBlock Text="{Binding DisplayName}" />
-                      <TextBlock Text="{Binding Description}" Foreground="#667085" FontSize="11" />
-                    </StackPanel>
-                  </DataTemplate>
-                </ComboBox.ItemTemplate>
-              </ComboBox>
-              <TextBlock Text="{Binding DataTypeHelpText}" Classes="parameter-hint" TextWrapping="Wrap" />
-            </StackPanel>
-            <StackPanel Grid.Column="1" Spacing="5">
-              <TextBlock Text="工程单位" Classes="field-label" />
-              <TextBox Classes="field-input" Text="{Binding Unit, Mode=TwoWay}" Watermark="如：MPa、℃、A" />
-            </StackPanel>
-          </Grid>
-
-          <Border Background="#F8FAFD" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="6" Padding="12">
-            <StackPanel Spacing="9">
-              <TextBlock Text="量程换算（可选；填写时四项必须完整）" Classes="field-label" />
-              <Grid ColumnDefinitions="*,*,*,*" ColumnSpacing="10">
-                <StackPanel Spacing="4">
-                  <TextBlock Text="原始下限" Foreground="#667085" FontSize="12" />
-                  <TextBox Classes="field-input" Text="{Binding RawMinText, Mode=TwoWay}" Watermark="空" />
-                </StackPanel>
-                <StackPanel Grid.Column="1" Spacing="4">
-                  <TextBlock Text="原始上限" Foreground="#667085" FontSize="12" />
-                  <TextBox Classes="field-input" Text="{Binding RawMaxText, Mode=TwoWay}" Watermark="空" />
-                </StackPanel>
-                <StackPanel Grid.Column="2" Spacing="4">
-                  <TextBlock Text="工程下限" Foreground="#667085" FontSize="12" />
-                  <TextBox Classes="field-input" Text="{Binding EngMinText, Mode=TwoWay}" Watermark="空" />
-                </StackPanel>
-                <StackPanel Grid.Column="3" Spacing="4">
-                  <TextBlock Text="工程上限" Foreground="#667085" FontSize="12" />
-                  <TextBox Classes="field-input" Text="{Binding EngMaxText, Mode=TwoWay}" Watermark="空" />
+      <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+        <StackPanel Margin="20,12,20,12" Spacing="10">
+          <Border Classes="point-editor-section">
+            <StackPanel>
+              <Border Classes="point-editor-section-header" CornerRadius="5,5,0,0">
+                <TextBlock Text="基本信息" Foreground="#1477E8" FontSize="15" FontWeight="SemiBold" />
+              </Border>
+              <Grid Margin="14,12,14,14">
+                <StackPanel Spacing="5">
+                  <TextBlock Classes="point-editor-label">
+                    <Run Text="点位名称" />
+                    <Run Text=" *" Foreground="#F04438" />
+                  </TextBlock>
+                  <TextBox Classes="point-editor-input"
+                           Text="{Binding PointName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                           Watermark="如：进气压力" />
                 </StackPanel>
               </Grid>
-            </StackPanel>
-          </Border>
-
-          <Border Background="#FFF9EB" BorderBrush="#F2C94C" BorderThickness="1" CornerRadius="6" Padding="12">
-            <StackPanel Spacing="8">
-              <TextBlock Text="写入权限与风险" Classes="field-label" />
-              <TextBlock Text="这里是点位的权限声明，不会在保存时立即向设备写入数据；实际写入仍需经过权限、连接、运行状态和安全确认。"
-                         Foreground="#7A5B00" FontSize="12" TextWrapping="Wrap" />
-              <Grid ColumnDefinitions="*,Auto" ColumnSpacing="14">
-                <ComboBox Classes="field-input" ItemsSource="{Binding WritePolicyOptions}"
-                          SelectedItem="{Binding SelectedWritePolicy, Mode=TwoWay}"
-                          MaxDropDownHeight="240">
+              <StackPanel Margin="14,0,14,14" Spacing="5" IsVisible="{Binding ShowGroupSelection}">
+                <TextBlock Classes="point-editor-label">
+                  <Run Text="所属分组" />
+                  <Run Text=" *" Foreground="#F04438" />
+                </TextBlock>
+                <ComboBox Classes="point-editor-input" ItemsSource="{Binding GroupOptions}"
+                          SelectedItem="{Binding SelectedGroupOption, Mode=TwoWay}" MaxDropDownHeight="220">
                   <ComboBox.ItemTemplate>
-                    <DataTemplate x:DataType="vm:DevicePointWritePolicy">
-                      <StackPanel Spacing="1">
-                        <TextBlock Text="{Binding DisplayName}" />
-                        <TextBlock Text="{Binding Description}" Foreground="#667085" FontSize="11" />
-                      </StackPanel>
+                    <DataTemplate x:DataType="vm:DevicePointGroupChoice">
+                      <TextBlock Text="{Binding DisplayName}" />
                     </DataTemplate>
                   </ComboBox.ItemTemplate>
                 </ComboBox>
-                <CheckBox Grid.Column="1" Content="启用点位" IsChecked="{Binding IsEnabled, Mode=TwoWay}" VerticalAlignment="Center" />
-              </Grid>
-              <TextBlock Text="{Binding WriteSafetyMessage}" Foreground="#7A5B00" FontSize="12" TextWrapping="Wrap" />
+              </StackPanel>
             </StackPanel>
           </Border>
 
-          <StackPanel Spacing="5">
-            <TextBlock Text="说明" Classes="field-label" />
-            <TextBox Text="{Binding Description, Mode=TwoWay}" AcceptsReturn="True" TextWrapping="Wrap"
-                     MinHeight="64" VerticalContentAlignment="Top" Watermark="填写点位用途、来源或现场备注" />
-          </StackPanel>
+          <Border Classes="point-editor-section">
+            <StackPanel>
+              <Border Classes="point-editor-section-header" CornerRadius="5,5,0,0">
+                <TextBlock Text="地址与类型" Foreground="#1477E8" FontSize="15" FontWeight="SemiBold" />
+              </Border>
+              <Grid Margin="12,9,12,11" ColumnDefinitions="1.05*,1.05*" ColumnSpacing="28">
+                <StackPanel Grid.Column="0" Spacing="5" IsVisible="{Binding IsStandardAddressVisible}">
+                  <TextBlock Classes="point-editor-label">
+                    <Run Text="设备地址" />
+                    <Run Text=" *" Foreground="#F04438" />
+                  </TextBlock>
+                  <TextBox Classes="point-editor-input"
+                           HorizontalAlignment="Stretch"
+                           Text="{Binding Address, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                           Watermark="{Binding AddressWatermark}" />
+                  <TextBlock Text="{Binding AddressHint}" Foreground="#667085" FontSize="11"
+                             TextWrapping="Wrap" Margin="0,2,0,0" />
+                  <Border Background="#FFF4E5" BorderBrush="#F2C94C" BorderThickness="1" CornerRadius="4"
+                          Padding="10,8" IsVisible="{Binding HasS7OptimizedBlockAccessHint}">
+                    <StackPanel Spacing="4">
+                      <TextBlock Text="{Binding S7OptimizedBlockAccessShortMessage}" Foreground="#7A5B00"
+                                 FontSize="12" TextWrapping="Wrap" />
+                      <Expander Header="怎么处理" Foreground="#7A5B00" FontSize="12">
+                        <TextBlock Text="{Binding S7OptimizedBlockAccessDetailMessage}" Foreground="#7A5B00"
+                                   FontSize="12" TextWrapping="Wrap" Margin="0,4,0,0" />
+                      </Expander>
+                    </StackPanel>
+                  </Border>
+                  <Border Classes="point-editor-address-ok" IsVisible="{Binding HasAddress}">
+                    <StackPanel Orientation="Horizontal" Spacing="7">
+                      <Border Width="20" Height="20" Background="#219653" CornerRadius="10">
+                        <icons:AppIcon Kind="Check" Width="13" Height="13" Stroke="White"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center" />
+                      </Border>
+                      <TextBlock Text="地址已填写，保存时按驱动校验" Foreground="#21864A" FontSize="12"
+                                 VerticalAlignment="Center" />
+                    </StackPanel>
+                  </Border>
+                </StackPanel>
 
-          <TextBlock Text="{Binding ValidationMessage}" Foreground="#D92D20" FontSize="13" TextWrapping="Wrap" />
+                <!--
+                  Modbus 地址拆成“数据区 + 零基偏移”两个字段。
+                  这样客户不会把 40001、0 等不同语义的地址混在一起填写，
+                  保存时由 ViewModel 生成 C:0/DI:0/HR:0/IR:0 规范地址。
+                -->
+                <StackPanel Grid.Column="0" Spacing="5" IsVisible="{Binding IsModbus}">
+                  <TextBlock Classes="point-editor-label">
+                    <Run Text="Modbus 数据区" />
+                    <Run Text=" *" Foreground="#F04438" />
+                  </TextBlock>
+                  <ComboBox Classes="point-editor-input" ItemsSource="{Binding ModbusAreaOptions}"
+                            SelectedItem="{Binding SelectedModbusArea, Mode=TwoWay}" MaxDropDownHeight="220">
+                    <ComboBox.ItemTemplate>
+                      <DataTemplate x:DataType="vm:ModbusAreaChoice">
+                        <StackPanel Spacing="1">
+                          <TextBlock Text="{Binding DisplayName}" />
+                          <TextBlock Text="{Binding Description}" Foreground="#667085" FontSize="10" />
+                        </StackPanel>
+                      </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                  </ComboBox>
+                  <TextBlock Classes="point-editor-label" Margin="0,4,0,0">
+                    <Run Text="零基偏移" />
+                    <Run Text=" *" Foreground="#F04438" />
+                  </TextBlock>
+                  <TextBox Classes="point-editor-input"
+                           Text="{Binding ModbusOffsetText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                           Watermark="0～65535" />
+                  <Border Classes="point-editor-info" Margin="0,2,0,0">
+                    <StackPanel Spacing="2">
+                      <TextBlock Text="{Binding ModbusCanonicalAddress}" Foreground="#1563B1"
+                                 FontWeight="SemiBold" FontSize="12" />
+                      <TextBlock Text="{Binding ModbusAddressHint}" Foreground="#1563B1"
+                                 FontSize="11" TextWrapping="Wrap" />
+                    </StackPanel>
+                  </Border>
+                </StackPanel>
+
+                <StackPanel Grid.Column="1" Spacing="3">
+                  <TextBlock Classes="point-editor-label">
+                    <Run Text="数据类型" />
+                    <Run Text=" *" Foreground="#F04438" />
+                  </TextBlock>
+                  <ComboBox Classes="point-editor-input" ItemsSource="{Binding DataTypeOptions}"
+                            SelectedItem="{Binding SelectedDataTypeOption, Mode=TwoWay}" MaxDropDownHeight="240">
+                    <ComboBox.ItemTemplate>
+                      <DataTemplate x:DataType="vm:DevicePointDataTypeChoice">
+                        <TextBlock Text="{Binding DisplayName}" />
+                      </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                  </ComboBox>
+
+                  <StackPanel Spacing="3" IsVisible="{Binding IsModbusRegisterArea}">
+                    <TextBlock Classes="point-editor-label" Margin="0,4,0,0">
+                      <Run Text="字节序" />
+                      <Run Text=" *" Foreground="#F04438" />
+                    </TextBlock>
+                    <ComboBox Classes="point-editor-input" ItemsSource="{Binding ModbusByteOrderOptions}"
+                              SelectedItem="{Binding SelectedModbusByteOrder, Mode=TwoWay}" MaxDropDownHeight="180">
+                      <ComboBox.ItemTemplate>
+                        <DataTemplate x:DataType="vm:ModbusByteOrderChoice">
+                          <TextBlock Text="{Binding DisplayName}" />
+                        </DataTemplate>
+                      </ComboBox.ItemTemplate>
+                    </ComboBox>
+                    <TextBlock Classes="point-editor-label" Margin="0,4,0,0">
+                      <Run Text="32/64 位字序" />
+                      <Run Text=" *" Foreground="#F04438" />
+                    </TextBlock>
+                    <ComboBox Classes="point-editor-input" ItemsSource="{Binding ModbusWordOrderOptions}"
+                              SelectedItem="{Binding SelectedModbusWordOrder, Mode=TwoWay}" MaxDropDownHeight="180">
+                      <ComboBox.ItemTemplate>
+                        <DataTemplate x:DataType="vm:ModbusWordOrderChoice">
+                          <TextBlock Text="{Binding DisplayName}" />
+                        </DataTemplate>
+                      </ComboBox.ItemTemplate>
+                    </ComboBox>
+                    <TextBlock Text="32/64 位类型必须明确选择 HighWordFirst 或 LowWordFirst。"
+                               Foreground="#A15C00" FontSize="11" TextWrapping="Wrap"
+                               IsVisible="{Binding IsModbusWordOrderRequired}" />
+                  </StackPanel>
+
+                  <TextBlock Classes="point-editor-label" Margin="0,4,0,0">
+                    <Run Text="访问权限" />
+                    <Run Text=" *" Foreground="#F04438" />
+                  </TextBlock>
+                  <ComboBox Classes="point-editor-input" ItemsSource="{Binding WritePolicyOptions}"
+                            SelectedItem="{Binding SelectedWritePolicy, Mode=TwoWay}"
+                            IsEnabled="{Binding IsModbusAccessSelectionEnabled}"
+                            MaxDropDownHeight="220">
+                    <ComboBox.ItemTemplate>
+                      <DataTemplate x:DataType="vm:DevicePointWritePolicy">
+                        <TextBlock Text="{Binding DisplayName}" />
+                      </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                  </ComboBox>
+                  <TextBlock Text="{Binding WriteSafetyMessage}" Foreground="#667085" FontSize="11"
+                             TextWrapping="Wrap" Margin="0,2,0,0" />
+                  <TextBlock Text="当前 Modbus 数据区只读，访问权限已固定为只读。"
+                             Foreground="#A15C00" FontSize="11" TextWrapping="Wrap"
+                             IsVisible="{Binding IsModbusReadOnlyArea}" />
+
+                </StackPanel>
+              </Grid>
+            </StackPanel>
+          </Border>
+
+          <Border Classes="point-editor-section">
+            <StackPanel>
+              <Border Classes="point-editor-section-header" CornerRadius="5,5,0,0">
+                <TextBlock Text="采集与换算" Foreground="#1477E8" FontSize="15" FontWeight="SemiBold" />
+              </Border>
+              <Grid Margin="14,12,14,14" RowDefinitions="Auto,Auto" ColumnDefinitions="*,*"
+                    ColumnSpacing="28" RowSpacing="10">
+                <CheckBox Grid.Column="0" Content="启用线性换算"
+                          IsChecked="{Binding IsScalingEnabled, Mode=TwoWay}"
+                          VerticalAlignment="Center" />
+                <Border Grid.Column="1" Classes="point-editor-info" VerticalAlignment="Center">
+                  <Grid ColumnDefinitions="22,*" ColumnSpacing="8">
+                    <Border Width="20" Height="20" Background="#2386E8" CornerRadius="10">
+                      <TextBlock Text="i" Foreground="White" FontSize="13" FontWeight="Bold"
+                                 HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <TextBlock Grid.Column="1" Foreground="#1563B1" FontSize="12" TextWrapping="Wrap"
+                               Text="{Binding PollIntervalText, StringFormat='采集周期继承设备配置：{0}'}" />
+                  </Grid>
+                </Border>
+
+                <Grid Grid.Row="1" Grid.ColumnSpan="2" ColumnDefinitions="*,*" RowDefinitions="Auto,Auto"
+                      ColumnSpacing="28" RowSpacing="8" IsVisible="{Binding IsScalingEnabled}">
+                  <StackPanel Grid.Row="0" Grid.Column="0" Spacing="5">
+                    <TextBlock Classes="point-editor-label" Text="原始下限" />
+                    <TextBox Classes="point-editor-input" Text="{Binding RawMinText, Mode=TwoWay}" />
+                  </StackPanel>
+                  <StackPanel Grid.Row="0" Grid.Column="1" Spacing="5">
+                    <TextBlock Classes="point-editor-label" Text="工程下限" />
+                    <TextBox Classes="point-editor-input" Text="{Binding EngMinText, Mode=TwoWay}" />
+                  </StackPanel>
+                  <StackPanel Grid.Row="1" Grid.Column="0" Spacing="5">
+                    <TextBlock Classes="point-editor-label" Text="原始上限" />
+                    <TextBox Classes="point-editor-input" Text="{Binding RawMaxText, Mode=TwoWay}" />
+                  </StackPanel>
+                  <StackPanel Grid.Row="1" Grid.Column="1" Spacing="5">
+                    <TextBlock Classes="point-editor-label" Text="工程上限" />
+                    <TextBox Classes="point-editor-input" Text="{Binding EngMaxText, Mode=TwoWay}" />
+                  </StackPanel>
+                </Grid>
+              </Grid>
+            </StackPanel>
+          </Border>
+
+          <Border Classes="point-editor-section">
+            <StackPanel>
+              <Border Classes="point-editor-section-header" CornerRadius="5,5,0,0">
+                <TextBlock Text="点位说明" Foreground="#1477E8" FontSize="15" FontWeight="SemiBold" />
+              </Border>
+              <Grid Margin="14,12,14,14">
+                <TextBox Text="{Binding Description, Mode=TwoWay}" AcceptsReturn="True"
+                         TextWrapping="Wrap" MinHeight="60" VerticalContentAlignment="Top"
+                         Watermark="填写点位用途、来源或现场备注" />
+              </Grid>
+            </StackPanel>
+          </Border>
         </StackPanel>
       </ScrollViewer>
 
-      <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10" Margin="24,0,24,20">
-        <Button Classes="dialog-secondary" Content="取消" Click="OnCancelClick" />
-        <Button Classes="dialog-primary" Content="保存" IsEnabled="{Binding CanSave}" Click="OnConfirmClick" />
-      </StackPanel>
+      <Border Grid.Row="2" Background="#FBFCFE" BorderBrush="#D7E3F0" BorderThickness="0,1,0,0"
+              CornerRadius="0,0,7,7" Padding="20,10">
+        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+          <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+            <Border Width="20" Height="20" BorderBrush="#7A8CA3" BorderThickness="1" CornerRadius="10">
+              <TextBlock Text="i" Foreground="#667085" FontSize="12" HorizontalAlignment="Center"
+                         VerticalAlignment="Center" />
+            </Border>
+            <StackPanel Spacing="1" VerticalAlignment="Center">
+              <TextBlock Text="配置修改不会直接写入现场设备" Foreground="#5D6F86" FontSize="12" />
+              <TextBlock Text="{Binding ValidationMessage}" Foreground="#D92D20" FontSize="12"
+                         TextWrapping="Wrap" />
+            </StackPanel>
+          </StackPanel>
+          <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="10">
+            <Button Classes="point-editor-secondary" Content="取消" Click="OnCancelClick" />
+            <Button Classes="point-editor-primary" Content="保存并应用" IsEnabled="{Binding CanSave}"
+                    Click="OnConfirmClick" />
+          </StackPanel>
+        </Grid>
+      </Border>
     </Grid>
   </Border>
 </Window>

@@ -1,13 +1,26 @@
 {
-  "schemaVersion": 1,
-  "initialValues": {
-    "sim.pressure": 0.0,
-    "sim.start": false
+  "schemaVersion": 2,
+  "initialValues": {},
+  "initialValuesByPointId": {
+    "40000000-0000-5000-8000-000000000001": 0.0,
+    "40000000-0000-5000-8000-000000000002": false
   },
   "changeRules": [
-    { "address": "sim.pressure", "pattern": "ramp", "ratePerSecond": 0.1, "max": 10.0, "min": 0.0 }
+    {
+      "pointId": "40000000-0000-5000-8000-000000000001",
+      "address": "DB1.DBD0",
+      "pattern": "ramp",
+      "ratePerSecond": 0.1,
+      "max": 10.0,
+      "min": 0.0
+    }
   ],
   "faultInjectionScenarios": [
-    { "name": "PressureSensorFault", "address": "sim.pressure", "behavior": "stale" }
+    {
+      "name": "PressureSensorFault",
+      "pointId": "40000000-0000-5000-8000-000000000001",
+      "address": "DB1.DBD0",
+      "behavior": "stale"
+    }
   ]
 }

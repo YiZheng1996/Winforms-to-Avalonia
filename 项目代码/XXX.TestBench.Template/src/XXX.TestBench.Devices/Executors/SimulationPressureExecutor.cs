@@ -55,7 +55,7 @@ public sealed class SimulationPressureExecutor : ITestItemExecutor
         }
         else
         {
-            // 仅保留给 v1 兼容运行时；v2 必须经过固定绑定和 PointId 路由。
+            // 没有项目级绑定时仍允许独立的仿真运行时执行基础闭环；完整设备配置走上面的固定绑定。
             var points = await context.Runtime.ListPointsAsync(ct);
             var pressurePoint = points.FirstOrDefault(p => p.Code == PressureSignalKey);
             if (pressurePoint is null)

@@ -22,11 +22,29 @@ public partial class DevicePointDialogWindow : Window
     /// <summary>
     /// 确认按钮：校验输入并关闭弹窗返回结果。
     /// </summary>
-    private void OnConfirmClick(object? sender, RoutedEventArgs e)
+    private async void OnConfirmClick(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is DevicePointDialogViewModel viewModel
-            && viewModel.TryBuildResult(out var result))
-            Close(result);
+        if (DataContext is not DevicePointDialogViewModel viewModel
+            || !viewModel.TryBuildResult(out var result))
+            return;
+
+        if (viewModel.RequiresS7OptimizedBlockAccessConfirmation
+            && viewModel.S7OptimizedBlockAccessNotice is { } notice)
+        {
+            var confirmation = new ConfirmDialogWindow
+            {
+                DataContext = new ConfirmDialogViewModel(
+                    notice.ConfirmationTitle,
+                    notice.ConfirmationMessage,
+                    notice.ConfirmButtonText)
+            };
+            if (await confirmation.ShowDialog<bool>(this) is not true)
+                return;
+
+            result = result with { S7OptimizedBlockAccessConfirmed = true };
+        }
+
+        Close(result);
     }
 
     /// <summary>
@@ -34,11 +52,23 @@ public partial class DevicePointDialogWindow : Window
     /// </summary>
     private void OnCancelClick(object? sender, RoutedEventArgs e) => Close(null);
 
+    private void OnWindowKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Escape)
+        {
+            Close(null);
+            e.Handled = true;
+        }
+    }
+
     /// <summary>
     /// 按下标题栏时拖动窗口。
     /// </summary>
     private void OnTitleBarPointerPressed(object? sender, PointerPressedEventArgs e)
     {
+        if (e.Source is Button)
+            return;
+
         if (e.GetCurrentPoint(this).Properties.PointerUpdateKind == PointerUpdateKind.LeftButtonPressed)
             BeginMoveDrag(e);
     }

@@ -38,27 +38,38 @@ public sealed class TestEnv : IDisposable
         """);
         File.WriteAllText(Path.Combine(ConfigRoot, "device.json"), $$"""
         {
-          "schemaVersion": 1,
-          "deviceMode": "{{deviceMode}}",
+          "schemaVersion": 3,
           "pollIntervalMs": 500,
           "timeoutMs": 1000,
-          "devices": [ { "name": "SampleDevice", "protocol": "Simulation", "address": "sim://sample", "enabled": true } ]
+          "channels": [
+            { "id": "10000000-0000-0000-0000-000000000001", "code": "CH_PLC", "name": "PLC 网络通道", "transportKind": "Tcp", "enabled": true, "timeoutMs": 1000, "retryCount": 0, "tcp": { "host": "127.0.0.1", "port": 102 } }
+          ],
+          "devices": [
+            { "id": "20000000-0000-0000-0000-000000000001", "code": "DEV_SAMPLE", "name": "SampleDevice", "deviceMode": "{{deviceMode}}", "protocol": "SiemensS7", "address": "127.0.0.1", "channelId": "10000000-0000-0000-0000-000000000001", "driverKey": "siemens-s7", "model": "S7-1500", "pollIntervalMs": 500, "staleAfterMs": 1500 }
+          ]
         }
         """);
         File.WriteAllText(Path.Combine(ConfigRoot, "points.json"), """
         {
-          "schemaVersion": 1,
+          "schemaVersion": 3,
+          "groups": [
+            { "id": "30000000-0000-0000-0000-000000000001", "deviceId": "20000000-0000-0000-0000-000000000001", "code": "DEFAULT", "name": "未分组", "sortOrder": 0 }
+          ],
           "points": [
-            { "code": "AI_Pressure", "protocol": "Simulation", "address": "sim.pressure", "dataType": "Decimal", "unit": "MPa", "isWritable": false, "riskLevel": "Normal" },
-            { "code": "DO_Start", "protocol": "Simulation", "address": "sim.start", "dataType": "Boolean", "isWritable": true, "riskLevel": "HighRisk" }
+            { "id": "40000000-0000-0000-0000-000000000001", "code": "AI_Pressure", "name": "压力", "protocol": "SiemensS7", "deviceId": "20000000-0000-0000-0000-000000000001", "groupId": "30000000-0000-0000-0000-000000000001", "address": "DB1.DBD0", "dataType": "Float32", "rawDataType": "Float32", "isWritable": false, "riskLevel": "Normal" },
+            { "id": "40000000-0000-0000-0000-000000000002", "code": "DO_Start", "name": "启动", "protocol": "SiemensS7", "deviceId": "20000000-0000-0000-0000-000000000001", "groupId": "30000000-0000-0000-0000-000000000001", "address": "DB1.DBX4.0", "dataType": "Boolean", "rawDataType": "Boolean", "writePolicy": "ReadBackEqual", "isWritable": true, "riskLevel": "HighRisk" }
           ]
         }
         """);
         File.WriteAllText(Path.Combine(ConfigRoot, "simulation.json"), """
         {
-          "schemaVersion": 1,
-          "initialValues": { "sim.pressure": 0.0, "sim.start": false },
-          "changeRules": [ { "address": "sim.pressure", "pattern": "ramp", "ratePerSecond": 0.1, "max": 10.0, "min": 0.0 } ],
+          "schemaVersion": 2,
+          "initialValues": {},
+          "initialValuesByPointId": {
+            "40000000-0000-0000-0000-000000000001": 0.0,
+            "40000000-0000-0000-0000-000000000002": false
+          },
+          "changeRules": [ { "pointId": "40000000-0000-0000-0000-000000000001", "address": "DB1.DBD0", "pattern": "ramp", "ratePerSecond": 0.1, "max": 10.0, "min": 0.0 } ],
           "faultInjectionScenarios": []
         }
         """);

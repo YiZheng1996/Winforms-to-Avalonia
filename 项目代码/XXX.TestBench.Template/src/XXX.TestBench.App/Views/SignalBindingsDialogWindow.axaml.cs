@@ -23,6 +23,23 @@ public partial class SignalBindingsDialogWindow : Window
             return;
 
         var result = await viewModel.SaveAsync();
+        if (!result.Ok
+            && result.RequiresS7OptimizedBlockAccessConfirmation
+            && result.S7OptimizedBlockAccessNotice is { } notice)
+        {
+            var confirmation = new ConfirmDialogWindow
+            {
+                DataContext = new ConfirmDialogViewModel(
+                    notice.ConfirmationTitle,
+                    notice.ConfirmationMessage,
+                    notice.ConfirmButtonText)
+            };
+            if (await confirmation.ShowDialog<bool>(this) is not true)
+                return;
+
+            result = await viewModel.SaveAsync(s7OptimizedBlockAccessConfirmed: true);
+        }
+
         if (result.Ok)
             Close(result);
     }

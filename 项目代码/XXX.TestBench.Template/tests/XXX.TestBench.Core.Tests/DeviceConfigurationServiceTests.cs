@@ -24,7 +24,7 @@ public sealed class DeviceConfigurationServiceTests
     }
 
     [Fact]
-    public async Task ActiveRunAndZeroEnabledDevicesCannotBeApplied()
+    public async Task ActiveRunAndZeroDevicesCannotBeApplied()
     {
         var store = new FakeConfigurationStore();
         await using var operations = new DeviceOperationCoordinator();
@@ -36,11 +36,11 @@ public sealed class DeviceConfigurationServiceTests
         Assert.Null(store.Staged);
 
         var emptySnapshot = CreateSnapshot("empty");
-        emptySnapshot.Device.Devices[0].Enabled = false;
+        emptySnapshot.Device.Devices.Clear();
         var emptyService = new DeviceConfigurationService(store, operations, new FakeAuditLog());
         var emptyResult = await emptyService.ApplyAsync(TestContexts.Admin(), emptySnapshot);
         Assert.False(emptyResult.Ok);
-        Assert.Contains("只能保存草稿", emptyResult.Error, StringComparison.Ordinal);
+        Assert.Contains("没有设备", emptyResult.Error, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -55,7 +55,6 @@ public sealed class DeviceConfigurationServiceTests
         var replacement = new DeviceConfig
         {
             SchemaVersion = DeviceConfig.CurrentSchemaVersion,
-            DeviceMode = initial.Device.DeviceMode,
             PollIntervalMs = initial.Device.PollIntervalMs,
             TimeoutMs = initial.Device.TimeoutMs,
             Channels = initial.Device.Channels,
@@ -66,11 +65,11 @@ public sealed class DeviceConfigurationServiceTests
                     Id = sourceDevice.Id,
                     Code = sourceDevice.Code,
                     Name = "改名后的仿真设备",
+                    DeviceMode = sourceDevice.DeviceMode,
                     ChannelId = sourceDevice.ChannelId,
                     DriverKey = sourceDevice.DriverKey,
                     PollIntervalMs = sourceDevice.PollIntervalMs,
-                    StaleAfterMs = sourceDevice.StaleAfterMs,
-                    Enabled = true
+                    StaleAfterMs = sourceDevice.StaleAfterMs
                 }
             ]
         };
@@ -102,8 +101,8 @@ public sealed class DeviceConfigurationServiceTests
             Id = Guid.NewGuid().ToString("D"),
             Code = "SIM",
             Name = "仿真通道",
-            TransportKind = ChannelTransportKind.Simulation,
-            Simulation = new SimulationChannelParameters { InstanceKey = "service-test" }
+            TransportKind = ChannelTransportKind.Tcp,
+            Tcp = new TcpChannelParameters { Host = "127.0.0.1", Port = 102 }
         };
         var device = new DeviceConfig.DeviceEntry
         {
@@ -111,7 +110,9 @@ public sealed class DeviceConfigurationServiceTests
             Code = "SIM1",
             Name = "仿真设备",
             ChannelId = channel.Id,
-            DriverKey = DriverKeyCatalog.Simulation,
+            DriverKey = DriverKeyCatalog.SiemensS7,
+            Model = "S7-1500",
+            DeviceMode = DeviceMode.Simulation,
             PollIntervalMs = 500,
             StaleAfterMs = 2000
         };
@@ -129,10 +130,10 @@ public sealed class DeviceConfigurationServiceTests
             Name = "点位",
             DeviceId = device.Id,
             GroupId = group.Id,
-            Address = "sim.p1",
+            Protocol = "SiemensS7",
+            Address = "DB1.DBD0",
             DataType = "Float32",
-            RawDataType = "Float32",
-            AddressDefinition = new PointAddressDefinition { LogicalAddress = "sim.p1" }
+            RawDataType = "Float32"
         };
         return new DeviceConfigurationSnapshot
         {
@@ -140,7 +141,6 @@ public sealed class DeviceConfigurationServiceTests
             Device = new DeviceConfig
             {
                 SchemaVersion = DeviceConfig.CurrentSchemaVersion,
-                DeviceMode = DeviceMode.Simulation,
                 Channels = new List<ChannelEntry> { channel },
                 Devices = new List<DeviceConfig.DeviceEntry> { device }
             },

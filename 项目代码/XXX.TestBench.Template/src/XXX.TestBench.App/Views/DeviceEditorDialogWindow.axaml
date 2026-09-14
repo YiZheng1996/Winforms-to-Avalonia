@@ -1,0 +1,650 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:XXX.TestBench.App.ViewModels"
+        xmlns:icons="using:XXX.TestBench.App.Icons"
+        x:Class="XXX.TestBench.App.Views.DeviceEditorDialogWindow"
+        x:DataType="vm:DeviceEditorViewModel"
+        Title="{Binding DialogTitle}"
+        Width="1120"
+        Height="742"
+        MinWidth="980"
+        MinHeight="680"
+        CanResize="True"
+        WindowStartupLocation="CenterScreen"
+        SystemDecorations="None"
+        TransparencyLevelHint="Transparent"
+        Background="Transparent"
+        KeyDown="OnWindowKeyDown"
+        UseLayoutRounding="True">
+  <Window.Styles>
+    <Style Selector="TextBlock.device-wizard-eyebrow">
+      <Setter Property="Foreground" Value="#98A2B3" />
+      <Setter Property="FontSize" Value="11" />
+    </Style>
+    <Style Selector="TextBlock.device-wizard-heading">
+      <Setter Property="Foreground" Value="#18304F" />
+      <Setter Property="FontSize" Value="18" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+    <Style Selector="TextBlock.device-wizard-description">
+      <Setter Property="Foreground" Value="#8390A2" />
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="TextWrapping" Value="Wrap" />
+    </Style>
+    <Style Selector="TextBlock.device-field-label">
+      <Setter Property="Foreground" Value="#344054" />
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+    <Style Selector="TextBlock.device-field-hint">
+      <Setter Property="Foreground" Value="#98A2B3" />
+      <Setter Property="FontSize" Value="11" />
+      <Setter Property="TextWrapping" Value="Wrap" />
+    </Style>
+    <Style Selector="TextBox.device-wizard-input">
+      <Setter Property="MinHeight" Value="40" />
+      <Setter Property="Padding" Value="11,0" />
+      <Setter Property="CornerRadius" Value="6" />
+      <Setter Property="BorderBrush" Value="#BECCDC" />
+      <Setter Property="Background" Value="White" />
+    </Style>
+    <Style Selector="ComboBox.device-wizard-input">
+      <Setter Property="MinHeight" Value="40" />
+      <Setter Property="Width" Value="200" />
+      <Setter Property="Padding" Value="11,0" />
+      <Setter Property="CornerRadius" Value="6" />
+      <Setter Property="BorderBrush" Value="#BECCDC" />
+      <Setter Property="Background" Value="White" />
+      <Setter Property="HorizontalAlignment" Value="Left" />
+    </Style>
+    <Style Selector="TextBox.device-wizard-input.inherited">
+      <Setter Property="Background" Value="#F4F7FA" />
+      <Setter Property="Foreground" Value="#68788E" />
+      <Setter Property="BorderBrush" Value="#D7E0EA" />
+    </Style>
+    <Style Selector="Border.device-wizard-note">
+      <Setter Property="Background" Value="#EDF5FF" />
+      <Setter Property="BorderBrush" Value="#D0E3FB" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="6" />
+      <Setter Property="Padding" Value="11,9" />
+    </Style>
+    <Style Selector="Border.device-wizard-safety">
+      <Setter Property="Background" Value="#FFF9E8" />
+      <Setter Property="BorderBrush" Value="#EEDB9F" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="6" />
+      <Setter Property="Padding" Value="11,9" />
+    </Style>
+    <Style Selector="Border.device-wizard-card">
+      <Setter Property="Background" Value="#FBFCFE" />
+      <Setter Property="BorderBrush" Value="#E1E8F0" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="8" />
+    </Style>
+    <Style Selector="Border.device-wizard-step-current">
+      <Setter Property="Background" Value="#0868F7" />
+      <Setter Property="Width" Value="30" />
+      <Setter Property="Height" Value="30" />
+      <Setter Property="CornerRadius" Value="15" />
+    </Style>
+    <Style Selector="Border.device-wizard-step-pending">
+      <Setter Property="Background" Value="White" />
+      <Setter Property="BorderBrush" Value="#C8D5E4" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="Width" Value="30" />
+      <Setter Property="Height" Value="30" />
+      <Setter Property="CornerRadius" Value="15" />
+    </Style>
+    <Style Selector="Border.device-wizard-step-done">
+      <Setter Property="Background" Value="#159A62" />
+      <Setter Property="Width" Value="30" />
+      <Setter Property="Height" Value="30" />
+      <Setter Property="CornerRadius" Value="15" />
+    </Style>
+    <Style Selector="Button.device-wizard-close">
+      <Setter Property="Width" Value="36" />
+      <Setter Property="Height" Value="36" />
+      <Setter Property="MinWidth" Value="36" />
+      <Setter Property="MinHeight" Value="36" />
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="Foreground" Value="#6F7F94" />
+      <Setter Property="BorderThickness" Value="0" />
+    </Style>
+    <Style Selector="Button.device-wizard-close:pointerover">
+      <Setter Property="Background" Value="#EEF5FC" />
+    </Style>
+    <Style Selector="Button.device-wizard-secondary">
+      <Setter Property="Background" Value="White" />
+      <Setter Property="Foreground" Value="#344054" />
+      <Setter Property="BorderBrush" Value="#BDCADB" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="6" />
+      <Setter Property="MinWidth" Value="88" />
+      <Setter Property="MinHeight" Value="40" />
+      <Setter Property="Padding" Value="15,0" />
+    </Style>
+    <Style Selector="Button.device-wizard-secondary:pointerover">
+      <Setter Property="Background" Value="#F5F8FC" />
+      <Setter Property="BorderBrush" Value="#AAB8CB" />
+    </Style>
+    <Style Selector="Button.device-wizard-primary">
+      <Setter Property="Background" Value="#0868F7" />
+      <Setter Property="Foreground" Value="White" />
+      <Setter Property="BorderBrush" Value="#0868F7" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="6" />
+      <Setter Property="MinWidth" Value="148" />
+      <Setter Property="MinHeight" Value="40" />
+      <Setter Property="Padding" Value="18,0" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+    <Style Selector="Button.device-wizard-primary:pointerover">
+      <Setter Property="Background" Value="#0758D7" />
+      <Setter Property="BorderBrush" Value="#0758D7" />
+    </Style>
+  </Window.Styles>
+
+  <Border Background="White" BorderBrush="#CFD9E6" BorderThickness="1" CornerRadius="10">
+    <Grid RowDefinitions="Auto,*,Auto">
+      <Border Grid.Row="0"
+              Background="White"
+              BorderBrush="#E2E9F1"
+              BorderThickness="0,0,0,1"
+              CornerRadius="10,10,0,0"
+              Padding="26,17"
+              PointerPressed="OnTitleBarPointerPressed">
+        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="14">
+          <StackPanel Spacing="3" VerticalAlignment="Center">
+            <TextBlock Text="{Binding DialogTitle}" FontSize="22" FontWeight="Bold" Foreground="#102C56" />
+            <TextBlock Text="{Binding BreadcrumbText}" Foreground="#7A8798" FontSize="12" TextWrapping="Wrap" />
+          </StackPanel>
+          <Button Grid.Column="1" Classes="device-wizard-close" Click="OnCancelClick"
+                  AutomationProperties.Name="关闭设备编辑窗口">
+            <icons:AppIcon Kind="Cancel" Width="19" Height="19" Stroke="#6F7F94" />
+          </Button>
+        </Grid>
+      </Border>
+
+      <Grid Grid.Row="1" ColumnDefinitions="220,*,278">
+        <Border Grid.Column="0" Background="#F7FAFE" BorderBrush="#E0E8F1" BorderThickness="0,0,1,0" Padding="22,24">
+          <StackPanel>
+            <TextBlock Text="配置步骤" Classes="device-wizard-eyebrow" Margin="11,0,0,14" />
+            <Grid RowDefinitions="Auto,28,Auto,28,Auto" ColumnDefinitions="34,*">
+              <Border Grid.Row="0" Grid.Column="0" Classes="device-wizard-step-current" IsVisible="{Binding IsStep1}">
+                <TextBlock Text="1" Foreground="White" FontSize="13" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" />
+              </Border>
+              <Border Grid.Row="0" Grid.Column="0" Classes="device-wizard-step-done" IsVisible="{Binding IsStep1Done}">
+                <icons:AppIcon Kind="Check" Width="15" Height="15" Stroke="White" HorizontalAlignment="Center" VerticalAlignment="Center" />
+              </Border>
+              <Border Grid.Row="0" Grid.Column="0" Classes="device-wizard-step-pending" IsVisible="{Binding IsStep1Pending}">
+                <TextBlock Text="1" Foreground="#98A2B3" FontSize="13" HorizontalAlignment="Center" VerticalAlignment="Center" />
+              </Border>
+              <StackPanel Grid.Row="0" Grid.Column="1" Spacing="2" VerticalAlignment="Center">
+                <TextBlock Text="基本信息" FontSize="14" FontWeight="SemiBold" Foreground="#273951" />
+                 <TextBlock Text="名称、驱动和运行模式" Classes="device-field-hint" />
+              </StackPanel>
+
+              <Border Grid.Row="1" Grid.Column="0" Width="1" Height="28" Background="#D5DFEB" HorizontalAlignment="Center" />
+
+              <Border Grid.Row="2" Grid.Column="0" Classes="device-wizard-step-current" IsVisible="{Binding IsStep2}">
+                <TextBlock Text="2" Foreground="White" FontSize="13" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" />
+              </Border>
+              <Border Grid.Row="2" Grid.Column="0" Classes="device-wizard-step-done" IsVisible="{Binding IsStep2Done}">
+                <icons:AppIcon Kind="Check" Width="15" Height="15" Stroke="White" HorizontalAlignment="Center" VerticalAlignment="Center" />
+              </Border>
+              <Border Grid.Row="2" Grid.Column="0" Classes="device-wizard-step-pending" IsVisible="{Binding IsStep2Pending}">
+                <TextBlock Text="2" Foreground="#98A2B3" FontSize="13" HorizontalAlignment="Center" VerticalAlignment="Center" />
+              </Border>
+              <StackPanel Grid.Row="2" Grid.Column="1" Spacing="2" VerticalAlignment="Center">
+                <TextBlock Text="通信参数" FontSize="14" FontWeight="SemiBold" Foreground="#273951" />
+                <TextBlock Text="站号、采集周期和时序" Classes="device-field-hint" />
+              </StackPanel>
+
+              <Border Grid.Row="3" Grid.Column="0" Width="1" Height="28" Background="#D5DFEB" HorizontalAlignment="Center" />
+
+              <Border Grid.Row="4" Grid.Column="0" Classes="device-wizard-step-current" IsVisible="{Binding IsStep3}">
+                <TextBlock Text="3" Foreground="White" FontSize="13" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" />
+              </Border>
+              <Border Grid.Row="4" Grid.Column="0" Classes="device-wizard-step-pending" IsVisible="{Binding IsStep3Pending}">
+                <TextBlock Text="3" Foreground="#98A2B3" FontSize="13" HorizontalAlignment="Center" VerticalAlignment="Center" />
+              </Border>
+              <StackPanel Grid.Row="4" Grid.Column="1" Spacing="2" VerticalAlignment="Center">
+                <TextBlock Text="确认保存" FontSize="14" FontWeight="SemiBold" Foreground="#273951" />
+                <TextBlock Text="检查配置并创建设备" Classes="device-field-hint" />
+              </StackPanel>
+            </Grid>
+
+            <Border Classes="device-wizard-note" Margin="0,28,0,0">
+              <StackPanel Spacing="7">
+                <icons:AppIcon Kind="ShieldCheck" Width="20" Height="20" Stroke="#0868F7" />
+                <TextBlock Text="配置只写入候选版本，完成创建后才会返回设备点位管理。"
+                           Foreground="#526071" FontSize="11" TextWrapping="Wrap" />
+              </StackPanel>
+            </Border>
+          </StackPanel>
+        </Border>
+
+        <Border Grid.Column="1" Background="White" Padding="30,24,28,18">
+          <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+            <Grid>
+              <StackPanel IsVisible="{Binding IsStep1}" Spacing="13">
+                <TextBlock Text="基本信息" Classes="device-wizard-heading" />
+                <TextBlock Text="先填写设备身份，通信参数将在下一步配置。" Classes="device-wizard-description" />
+
+                 <Grid Margin="0,7,0,0" RowDefinitions="Auto,Auto,Auto,Auto" ColumnDefinitions="*,*" ColumnSpacing="16" RowSpacing="16">
+                  <StackPanel Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2" Spacing="7">
+                    <TextBlock Classes="device-field-label">
+                      <Run Text="设备名称" /><Run Text=" *" Foreground="#DF4038" />
+                    </TextBlock>
+                    <TextBox Classes="device-wizard-input" Text="{Binding Name, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Watermark="如：1# PLC 控制柜" />
+                  </StackPanel>
+
+                  <StackPanel Grid.Row="1" Grid.Column="0" Spacing="7">
+                    <TextBlock Classes="device-field-label">
+                      <Run Text="设备驱动" /><Run Text=" *" Foreground="#DF4038" />
+                    </TextBlock>
+                    <ComboBox Classes="device-wizard-input" ItemsSource="{Binding DriverOptions}" SelectedItem="{Binding SelectedDriver, Mode=TwoWay}" MaxDropDownHeight="240">
+                      <ComboBox.ItemTemplate>
+                        <DataTemplate x:DataType="vm:DeviceDriverChoice">
+                          <TextBlock Text="{Binding DisplayName}" />
+                        </DataTemplate>
+                      </ComboBox.ItemTemplate>
+                    </ComboBox>
+                  </StackPanel>
+
+                  <StackPanel Grid.Row="1" Grid.Column="1" Spacing="7">
+                    <TextBlock Classes="device-field-label" Text="所属通道" />
+                    <ComboBox Classes="device-wizard-input"
+                              ItemsSource="{Binding ChannelOptions}"
+                              SelectedItem="{Binding SelectedChannel, Mode=TwoWay}"
+                              MaxDropDownHeight="240"
+                              IsVisible="{Binding !IsChannelSelectionInherited}">
+                      <ComboBox.ItemTemplate>
+                        <DataTemplate x:DataType="vm:ChannelReferenceChoice">
+                          <TextBlock Text="{Binding DisplayName}" />
+                        </DataTemplate>
+                      </ComboBox.ItemTemplate>
+                    </ComboBox>
+                    <TextBox Classes="device-wizard-input inherited"
+                             Text="{Binding SelectedChannelText}"
+                             IsReadOnly="True"
+                             IsVisible="{Binding IsChannelSelectionInherited}" />
+                  </StackPanel>
+
+                   <StackPanel Grid.Row="2" Grid.Column="0" Spacing="7">
+                    <TextBlock Classes="device-field-label">
+                      <Run Text="设备系列" /><Run Text=" *" Foreground="#DF4038" />
+                    </TextBlock>
+                    <ComboBox Classes="device-wizard-input" ItemsSource="{Binding ModelOptions}"
+                              SelectedItem="{Binding SelectedModel, Mode=TwoWay}" MaxDropDownHeight="240">
+                      <ComboBox.ItemTemplate>
+                        <DataTemplate x:DataType="vm:DeviceModelChoice">
+                          <TextBlock Text="{Binding DisplayName}" />
+                        </DataTemplate>
+                      </ComboBox.ItemTemplate>
+                    </ComboBox>
+                    <TextBlock Text="设备系列由所选驱动提供，不需要手工填写制造商或型号。" Classes="device-field-hint" />
+                   </StackPanel>
+
+                   <StackPanel Grid.Row="2" Grid.Column="1" Spacing="7">
+                     <TextBlock Classes="device-field-label">
+                       <Run Text="运行模式" /><Run Text=" *" Foreground="#DF4038" />
+                     </TextBlock>
+                     <ComboBox Classes="device-wizard-input" ItemsSource="{Binding DeviceModeOptions}"
+                               SelectedItem="{Binding SelectedDeviceMode, Mode=TwoWay}" MaxDropDownHeight="160">
+                       <ComboBox.ItemTemplate>
+                         <DataTemplate x:DataType="vm:DeviceModeChoice">
+                           <TextBlock Text="{Binding DisplayName}" />
+                         </DataTemplate>
+                       </ComboBox.ItemTemplate>
+                     </ComboBox>
+                     <TextBlock Text="{Binding DeviceModeHelpText}" Classes="device-field-hint" />
+                   </StackPanel>
+
+                 </Grid>
+                <TextBlock Text="{Binding DriverHelpText}" Classes="device-field-hint" />
+              </StackPanel>
+
+              <StackPanel IsVisible="{Binding IsStep2}" Spacing="13">
+                <TextBlock Text="通信参数" Classes="device-wizard-heading" />
+                <TextBlock Text="设置设备寻址与采集节奏，通道级参数保持只读继承。" Classes="device-wizard-description" />
+
+                <Border Classes="device-wizard-card" Padding="18" Margin="0,7,0,0">
+                  <StackPanel Spacing="14">
+                    <Grid ColumnDefinitions="*,*" ColumnSpacing="16">
+                      <StackPanel Spacing="7" IsVisible="{Binding IsModbus}">
+                        <TextBlock Classes="device-field-label">
+                          <Run Text="Modbus 站号" /><Run Text=" *" Foreground="#DF4038" />
+                        </TextBlock>
+                        <TextBox Classes="device-wizard-input" Text="{Binding ModbusUnitIdText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Watermark="1-247" />
+                        <TextBlock Text="允许范围：1-247" Classes="device-field-hint" />
+                      </StackPanel>
+                      <Border Grid.Column="0" Grid.ColumnSpan="2" Classes="device-wizard-note" IsVisible="{Binding IsSimulation}">
+                         <TextBlock Text="当前设备为仿真模式：仍按所选驱动和设备系列校验点位，但不会连接现场设备。" Foreground="#2869B5" FontSize="11" TextWrapping="Wrap" />
+                      </Border>
+                    </Grid>
+
+                    <Border BorderBrush="#E8EDF3" BorderThickness="0,1,0,0" Padding="0,14,0,0"
+                            IsVisible="{Binding IsHardware}">
+                      <StackPanel Spacing="12">
+                        <Grid ColumnDefinitions="*,*,*,*" ColumnSpacing="10" IsVisible="{Binding IsS7Hardware}">
+                          <StackPanel Spacing="6">
+                            <TextBlock Classes="device-field-label" Text="PLC IP" />
+                            <TextBox Classes="device-wizard-input"
+                                     Text="{Binding S7HostText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                     Watermark="如：192.168.1.10" />
+                          </StackPanel>
+                          <StackPanel Grid.Column="1" Spacing="6">
+                            <TextBlock Classes="device-field-label" Text="端口" />
+                            <TextBox Classes="device-wizard-input"
+                                     Text="{Binding S7PortText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                          </StackPanel>
+                          <StackPanel Grid.Column="2" Spacing="6">
+                             <TextBlock Classes="device-field-label" Text="机架号（Rack）" />
+                             <TextBox Classes="device-wizard-input"
+                                      Text="{Binding S7RackText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                      Watermark="如：0" />
+                           </StackPanel>
+                           <StackPanel Grid.Column="3" Spacing="6">
+                             <TextBlock Classes="device-field-label" Text="插槽号（Slot）" />
+                             <TextBox Classes="device-wizard-input"
+                                      Text="{Binding S7SlotText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                      Watermark="如：0" />
+                           </StackPanel>
+                         </Grid>
+                         <TextBlock Text="机架号和插槽号用于定位 PLC 的 CPU，请按 PLC 工程（TIA Portal/STEP 7）中的实际配置填写；系统不会自动尝试其他插槽。"
+                                    Classes="device-field-hint"
+                                    IsVisible="{Binding IsS7Hardware}"
+                                    TextWrapping="Wrap" />
+
+                         <Border Classes="device-wizard-note" IsVisible="{Binding IsModbusTcpParametersVisible}">
+                           <StackPanel Spacing="8">
+                             <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+                               <StackPanel Spacing="6">
+                                 <TextBlock Classes="device-field-label" Text="Modbus TCP 地址" />
+                                 <TextBox Classes="device-wizard-input"
+                                          Text="{Binding ModbusHostText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                          Watermark="如：192.168.1.20" />
+                               </StackPanel>
+                               <StackPanel Grid.Column="1" Spacing="6">
+                                 <TextBlock Classes="device-field-label" Text="Modbus TCP 端口" />
+                                 <TextBox Classes="device-wizard-input"
+                                          Text="{Binding ModbusPortText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                          Watermark="502" />
+                               </StackPanel>
+                             </Grid>
+                             <TextBlock Text="端点属于当前设备；TCP 通道只负责调度。保存时不会根据端口自动判断设备类型。"
+                                        Classes="device-field-hint" TextWrapping="Wrap" />
+                           </StackPanel>
+                         </Border>
+
+                         <Border Classes="device-wizard-note" IsVisible="{Binding IsRtuModbusParametersVisible}">
+                           <TextBlock Text="Modbus RTU 使用所选串口通道的参数；同一串口由通道统一持有，运行时不会为每个站号重复打开串口。"
+                                      Foreground="#2869B5" FontSize="11" TextWrapping="Wrap" />
+                         </Border>
+
+                         <Grid ColumnDefinitions="*,*" ColumnSpacing="12">
+                           <StackPanel Spacing="6">
+                             <TextBlock Classes="device-field-label" Text="扫描模式" />
+                             <ComboBox Classes="device-wizard-input"
+                                       ItemsSource="{Binding ScanModeOptions}"
+                                       SelectedItem="{Binding SelectedScanMode, Mode=TwoWay}"
+                                       />
+                          </StackPanel>
+                          <StackPanel Grid.Column="1" Spacing="6">
+                            <TextBlock Classes="device-field-label" Text="连接测试" />
+                            <Button Classes="point-secondary-action"
+                                    Content="测试连接"
+                                    Command="{Binding TestConnectionCommand}"
+                                    IsEnabled="{Binding CanTestConnection}"
+                                    MinHeight="40"
+                                    HorizontalAlignment="Stretch" />
+                          </StackPanel>
+                        </Grid>
+
+                        <TextBlock Text="{Binding ConnectionTestResultText}"
+                                   Foreground="#2869B5" FontSize="11"
+                                   TextWrapping="Wrap"
+                                   IsVisible="{Binding HasConnectionTestResult}" />
+
+                        <Grid ColumnDefinitions="*,*,*,*" ColumnSpacing="10">
+                          <StackPanel Spacing="6">
+                            <TextBlock Classes="device-field-label" Text="连接超时 (ms)" />
+                            <TextBox Classes="device-wizard-input"
+                                     Text="{Binding ConnectTimeoutMsText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                          </StackPanel>
+                          <StackPanel Grid.Column="1" Spacing="6">
+                            <TextBlock Classes="device-field-label" Text="请求超时 (ms)" />
+                            <TextBox Classes="device-wizard-input"
+                                     Text="{Binding RequestTimeoutMsText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                          </StackPanel>
+                          <StackPanel Grid.Column="2" Spacing="6">
+                            <TextBlock Classes="device-field-label" Text="读取重试次数" />
+                            <TextBox Classes="device-wizard-input"
+                                     Text="{Binding RetryCountText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                          </StackPanel>
+                          <StackPanel Grid.Column="3" Spacing="6">
+                            <TextBlock Classes="device-field-label" Text="请求间隔 (ms)" />
+                            <TextBox Classes="device-wizard-input"
+                                     Text="{Binding InterRequestDelayMsText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                          </StackPanel>
+                        </Grid>
+
+                        <Expander Header="高级通信保护（可选）" IsExpanded="False">
+                          <StackPanel Spacing="9" Margin="0,8,0,0">
+                            <TextBlock Text="连续通信失败时，系统会暂缓新鲜读取并等待恢复，不会切换为仿真。"
+                                       Classes="device-field-hint"
+                                       TextWrapping="Wrap" />
+                            <Grid ColumnDefinitions="*,*,*" ColumnSpacing="10">
+                              <CheckBox Content="启用通信故障保护"
+                                        IsChecked="{Binding DemotionEnabled, Mode=TwoWay}"
+                                        VerticalAlignment="Center" />
+                              <StackPanel Grid.Column="1" Spacing="6">
+                                <TextBlock Classes="device-field-label" Text="连续失败阈值" />
+                                <TextBox Classes="device-wizard-input"
+                                         Text="{Binding FailureThresholdText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                              </StackPanel>
+                              <StackPanel Grid.Column="2" Spacing="6">
+                                <TextBlock Classes="device-field-label" Text="降级时长（毫秒）" />
+                                <TextBox Classes="device-wizard-input"
+                                         Text="{Binding DemotionPeriodMsText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                              </StackPanel>
+                            </Grid>
+                            <TextBlock Text="安全规则：通信降级期间禁止写入（固定启用）。"
+                                       Foreground="#79601D"
+                                       FontSize="11"
+                                       TextWrapping="Wrap" />
+                          </StackPanel>
+                        </Expander>
+                      </StackPanel>
+                    </Border>
+
+                    <Grid ColumnDefinitions="*,*,*" ColumnSpacing="12">
+                      <StackPanel Spacing="7" IsVisible="{Binding IsFixedIntervalScan}">
+                        <TextBlock Classes="device-field-label">
+                          <Run Text="固定周期" /><Run Text=" *" Foreground="#DF4038" />
+                        </TextBlock>
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">
+                          <TextBox Classes="device-wizard-input" Text="{Binding PollIntervalMsText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                          <TextBlock Grid.Column="1" Text="ms" Foreground="#667085" VerticalAlignment="Center" />
+                        </Grid>
+                      </StackPanel>
+                      <StackPanel Grid.Column="1" Spacing="7">
+                        <TextBlock Classes="device-field-label" Text="通道通信超时" />
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">
+                          <TextBox Classes="device-wizard-input inherited" Text="{Binding ChannelTimeoutText}" IsReadOnly="True" />
+                          <TextBlock Grid.Column="1" Text="ms" Foreground="#98A2B3" VerticalAlignment="Center" />
+                        </Grid>
+                      </StackPanel>
+                      <StackPanel Grid.Column="2" Spacing="7">
+                        <TextBlock Classes="device-field-label" Text="通道重试次数" />
+                        <TextBox Classes="device-wizard-input inherited" Text="{Binding ChannelRetryCountText}" IsReadOnly="True" />
+                      </StackPanel>
+                    </Grid>
+
+                    <Grid ColumnDefinitions="*,*" ColumnSpacing="16">
+                      <StackPanel Spacing="7">
+                        <TextBlock Classes="device-field-label">
+                          <Run Text="数据陈旧判定时间" /><Run Text=" *" Foreground="#DF4038" />
+                        </TextBlock>
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">
+                           <TextBox Classes="device-wizard-input" Text="{Binding StaleAfterMsText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                           <TextBlock Grid.Column="1" Text="ms" Foreground="#667085" VerticalAlignment="Center" />
+                         </Grid>
+                         <TextBlock Text="设备超过这段时间没有更新数据，系统会把当前值标记为“陈旧”，提醒你不要把它当作实时值使用。"
+                                    Classes="device-field-hint"
+                                    TextWrapping="Wrap" />
+                       </StackPanel>
+                       <Border Grid.Column="1" Classes="device-wizard-note" VerticalAlignment="Bottom">
+                         <TextBlock Text="通信超时和重试由所属通道统一维护；这里设置的是数据多久未更新后提示“陈旧”。" Foreground="#2869B5" FontSize="11" TextWrapping="Wrap" />
+                      </Border>
+                    </Grid>
+                  </StackPanel>
+                </Border>
+              </StackPanel>
+
+              <StackPanel IsVisible="{Binding IsStep3}" Spacing="13">
+                <TextBlock Text="确认保存" Classes="device-wizard-heading" />
+                <TextBlock Text="请核对以下配置，发现问题可返回上一步修改。" Classes="device-wizard-description" />
+
+                <Border Classes="device-wizard-card" Padding="18" Margin="0,7,0,0">
+                  <StackPanel Spacing="0">
+                    <Grid ColumnDefinitions="150,*" Margin="0,0,0,13">
+                      <TextBlock Text="设备名称" Classes="device-field-hint" />
+                      <TextBlock Grid.Column="1" Text="{Binding Name}" Foreground="#273951" FontWeight="SemiBold" />
+                    </Grid>
+                    <Grid ColumnDefinitions="150,*" Margin="0,0,0,13">
+                      <TextBlock Text="设备驱动" Classes="device-field-hint" />
+                      <TextBlock Grid.Column="1" Text="{Binding SelectedDriverText}" Foreground="#40516A" />
+                    </Grid>
+                    <Grid ColumnDefinitions="150,*" Margin="0,0,0,13">
+                      <TextBlock Text="设备系列" Classes="device-field-hint" />
+                      <TextBlock Grid.Column="1" Text="{Binding SelectedModelText}" Foreground="#40516A" />
+                    </Grid>
+                    <Grid ColumnDefinitions="150,*" Margin="0,0,0,13">
+                      <TextBlock Text="所属通道" Classes="device-field-hint" />
+                      <TextBlock Grid.Column="1" Text="{Binding SelectedChannelText}" Foreground="#40516A" />
+                    </Grid>
+                    <Grid ColumnDefinitions="150,*" Margin="0,0,0,13" IsVisible="{Binding IsModbus}">
+                      <TextBlock Text="Modbus 站号" Classes="device-field-hint" />
+                      <TextBlock Grid.Column="1" Text="{Binding ModbusUnitSummaryText}" Foreground="#40516A" />
+                    </Grid>
+                    <Grid ColumnDefinitions="150,*" Margin="0,0,0,13">
+                      <TextBlock Text="运行模式" Classes="device-field-hint" />
+                      <TextBlock Grid.Column="1" Text="{Binding DeviceModeSummaryText}" Foreground="#40516A" />
+                    </Grid>
+                    <Grid ColumnDefinitions="150,*" Margin="0,0,0,13" IsVisible="{Binding IsS7HardwareParametersVisible}">
+                      <TextBlock Text="PLC 端点" Classes="device-field-hint" />
+                      <TextBlock Grid.Column="1" Text="{Binding S7EndpointSummaryText}" Foreground="#40516A" />
+                    </Grid>
+                    <Grid ColumnDefinitions="150,*" Margin="0,0,0,13" IsVisible="{Binding IsModbusTcpParametersVisible}">
+                      <TextBlock Text="Modbus TCP 端点" Classes="device-field-hint" />
+                      <TextBlock Grid.Column="1" Text="{Binding ModbusEndpointSummaryText}" Foreground="#40516A" />
+                    </Grid>
+                    <Grid ColumnDefinitions="150,*" Margin="0,0,0,13" IsVisible="{Binding IsHardware}">
+                      <TextBlock Text="扫描模式" Classes="device-field-hint" />
+                      <TextBlock Grid.Column="1" Text="{Binding ScanModeSummaryText}" Foreground="#40516A" />
+                    </Grid>
+                    <Grid ColumnDefinitions="150,*" Margin="0,0,0,13">
+                      <TextBlock Text="采集周期" Classes="device-field-hint" />
+                      <TextBlock Grid.Column="1" Text="{Binding PollIntervalSummaryText}" Foreground="#40516A" />
+                    </Grid>
+                    <Grid ColumnDefinitions="150,*" Margin="0,0,0,13" IsVisible="{Binding IsHardware}">
+                      <TextBlock Text="请求时序" Classes="device-field-hint" />
+                      <TextBlock Grid.Column="1" Text="{Binding TimingSummaryText}" Foreground="#40516A" />
+                    </Grid>
+                    <Grid ColumnDefinitions="150,*" Margin="0,0,0,13" IsVisible="{Binding IsHardware}">
+                      <TextBlock Text="故障降级" Classes="device-field-hint" />
+                      <TextBlock Grid.Column="1" Text="{Binding DemotionSummaryText}" Foreground="#40516A" />
+                    </Grid>
+                    <Grid ColumnDefinitions="150,*" Margin="0,0,0,13">
+                      <TextBlock Text="数据陈旧判定" Classes="device-field-hint" />
+                      <TextBlock Grid.Column="1" Text="{Binding StaleAfterSummaryText}" Foreground="#40516A" />
+                    </Grid>
+                  </StackPanel>
+                </Border>
+
+                <Border Classes="device-wizard-safety">
+                  <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+                    <icons:AppIcon Kind="ShieldCheck" Width="20" Height="20" Stroke="#9A6C00" />
+                    <TextBlock Grid.Column="1" Text="保存时将执行权限、配置完整性和活动试验检查；检查通过后再原子应用新版本。保存配置不代表向 PLC 写入点位值。"
+                               Foreground="#79601D" FontSize="11" TextWrapping="Wrap" />
+                  </Grid>
+                </Border>
+              </StackPanel>
+            </Grid>
+          </ScrollViewer>
+        </Border>
+
+        <Border Grid.Column="2" Background="#FBFCFE" BorderBrush="#E2E8F0" BorderThickness="1,0,0,0" Padding="19,24">
+          <StackPanel Spacing="12">
+            <TextBlock Text="设备预览" FontSize="14" FontWeight="SemiBold" Foreground="#344054" />
+            <Border BorderBrush="#E6EBF1" BorderThickness="0,0,0,1" Padding="0,0,0,17">
+              <Grid ColumnDefinitions="48,*" ColumnSpacing="11">
+                <Border Width="44" Height="44" CornerRadius="10" Background="#EAF2FF">
+                  <icons:AppIcon Kind="DeviceMode" Width="24" Height="24" Stroke="#0868F7" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                </Border>
+                <StackPanel Grid.Column="1" Spacing="4" VerticalAlignment="Center">
+                  <TextBlock Text="{Binding Name}" Foreground="#18304F" FontSize="13" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                  <TextBlock Text="待创建" Foreground="#9A6C00" FontSize="11" IsVisible="{Binding IsStep1}" />
+                  <TextBlock Text="配置中 · 2/3" Foreground="#2869B5" FontSize="11" IsVisible="{Binding IsStep2}" />
+                  <TextBlock Text="校验通过 · 待创建" Foreground="#168A4A" FontSize="11" IsVisible="{Binding IsStep3}" />
+                </StackPanel>
+              </Grid>
+            </Border>
+
+            <StackPanel Spacing="13">
+              <Grid ColumnDefinitions="68,*" ColumnSpacing="7">
+                <TextBlock Text="所属通道" Foreground="#98A2B3" FontSize="11" />
+                <TextBlock Grid.Column="1" Text="{Binding SelectedChannelText}" Foreground="#40516A" FontSize="11" FontWeight="SemiBold" TextWrapping="Wrap" />
+              </Grid>
+              <Grid ColumnDefinitions="68,*" ColumnSpacing="7">
+                <TextBlock Text="设备驱动" Foreground="#98A2B3" FontSize="11" />
+                <TextBlock Grid.Column="1" Text="{Binding SelectedDriverText}" Foreground="#40516A" FontSize="11" FontWeight="SemiBold" TextWrapping="Wrap" />
+              </Grid>
+              <Grid ColumnDefinitions="68,*" ColumnSpacing="7">
+                <TextBlock Text="设备系列" Foreground="#98A2B3" FontSize="11" />
+                <TextBlock Grid.Column="1" Text="{Binding SelectedModelText}" Foreground="#40516A" FontSize="11" FontWeight="SemiBold" TextWrapping="Wrap" />
+              </Grid>
+               <Grid ColumnDefinitions="68,*" ColumnSpacing="7">
+                 <TextBlock Text="运行模式" Foreground="#98A2B3" FontSize="11" />
+                 <TextBlock Grid.Column="1" Text="{Binding DeviceModeSummaryText}" Foreground="#40516A" FontSize="11" FontWeight="SemiBold" />
+               </Grid>
+              <Grid ColumnDefinitions="68,*" ColumnSpacing="7">
+                <TextBlock Text="采集周期" Foreground="#98A2B3" FontSize="11" />
+                <TextBlock Grid.Column="1" Text="{Binding PollIntervalSummaryText}" Foreground="#40516A" FontSize="11" FontWeight="SemiBold" />
+              </Grid>
+            </StackPanel>
+
+            <Border Classes="device-wizard-note" Margin="0,3,0,0">
+              <StackPanel Spacing="3">
+                <TextBlock Text="下一步" Foreground="#0758D7" FontSize="11" FontWeight="SemiBold" IsVisible="{Binding IsStep1}" />
+                <TextBlock Text="将配置站号、采集周期和通信时序。" Foreground="#2869B5" FontSize="11" TextWrapping="Wrap" IsVisible="{Binding IsStep1}" />
+                <TextBlock Text="完成后" Foreground="#0758D7" FontSize="11" FontWeight="SemiBold" IsVisible="{Binding IsStep2}" />
+                <TextBlock Text="将进入确认保存，并检查配置安全边界。" Foreground="#2869B5" FontSize="11" TextWrapping="Wrap" IsVisible="{Binding IsStep2}" />
+                <TextBlock Text="准备就绪" Foreground="#168A4A" FontSize="11" FontWeight="SemiBold" IsVisible="{Binding IsStep3}" />
+                <TextBlock Text="点击完成创建后，设备会出现在所属通道下。" Foreground="#2869B5" FontSize="11" TextWrapping="Wrap" IsVisible="{Binding IsStep3}" />
+              </StackPanel>
+            </Border>
+          </StackPanel>
+        </Border>
+      </Grid>
+
+      <Border Grid.Row="2" Background="#FBFCFE" BorderBrush="#E2E8F0" BorderThickness="0,1,0,0" CornerRadius="0,0,10,10" Padding="22,12">
+        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="16">
+          <StackPanel Spacing="2" VerticalAlignment="Center">
+            <TextBlock Text="配置完成后将写入候选版本。" Foreground="#7A8798" FontSize="11" />
+            <TextBlock Text="{Binding ValidationMessage}" IsVisible="{Binding HasValidationMessage}" Foreground="#D92D20" FontSize="11" TextWrapping="Wrap" />
+          </StackPanel>
+          <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="9" VerticalAlignment="Center">
+            <Button Classes="device-wizard-secondary" Content="取消" Click="OnCancelClick" />
+            <Button Classes="device-wizard-secondary" Content="上一步" IsEnabled="{Binding CanGoBack}" Click="OnBackClick" />
+            <Button Classes="device-wizard-primary" Content="{Binding PrimaryActionText}" IsEnabled="{Binding CanProceed}" Click="OnNextClick" />
+          </StackPanel>
+        </Grid>
+      </Border>
+    </Grid>
+  </Border>
+</Window>

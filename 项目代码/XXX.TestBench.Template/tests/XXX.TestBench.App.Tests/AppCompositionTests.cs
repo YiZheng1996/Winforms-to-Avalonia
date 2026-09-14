@@ -28,23 +28,30 @@ public class AppCompositionTests
             """);
             File.WriteAllText(Path.Combine(configRoot, "device.json"), """
             {
-              "schemaVersion": 1,
-              "deviceMode": "Simulation",
+              "schemaVersion": 3,
               "pollIntervalMs": 500,
               "timeoutMs": 1000,
-              "devices": [ { "name": "SampleDevice", "protocol": "Simulation", "address": "sim://sample", "enabled": true } ]
+              "channels": [
+                { "id": "10000000-0000-5000-8000-000000000001", "code": "CH_PLC", "name": "PLC 网络通道", "transportKind": "Tcp", "enabled": true, "timeoutMs": 1000, "retryCount": 0, "tcp": { "host": "127.0.0.1", "port": 102 } }
+              ],
+              "devices": [
+                { "id": "20000000-0000-5000-8000-000000000001", "code": "DEV_SAMPLE", "name": "SampleDevice", "deviceMode": "Simulation", "protocol": "SiemensS7", "address": "127.0.0.1", "channelId": "10000000-0000-5000-8000-000000000001", "driverKey": "siemens-s7", "model": "S7-1500", "pollIntervalMs": 500, "staleAfterMs": 1500 }
+              ]
             }
             """);
             File.WriteAllText(Path.Combine(configRoot, "points.json"), """
             {
-              "schemaVersion": 1,
+              "schemaVersion": 3,
+              "groups": [
+                { "id": "30000000-0000-5000-8000-000000000001", "deviceId": "20000000-0000-5000-8000-000000000001", "code": "DEFAULT", "name": "未分组", "sortOrder": 0 }
+              ],
               "points": [
-                { "code": "AI_Pressure", "protocol": "Simulation", "address": "sim.pressure", "dataType": "Decimal", "unit": "MPa", "isWritable": false, "riskLevel": "Normal" }
+                { "id": "30000000-0000-5000-8000-000000000002", "code": "AI_Pressure", "name": "压力", "protocol": "SiemensS7", "deviceId": "20000000-0000-5000-8000-000000000001", "groupId": "30000000-0000-5000-8000-000000000001", "address": "DB1.DBD0", "dataType": "Float32", "rawDataType": "Float32", "isWritable": false, "riskLevel": "Normal" }
               ]
             }
             """);
             File.WriteAllText(Path.Combine(configRoot, "simulation.json"), """
-            { "schemaVersion": 1, "initialValues": { "sim.pressure": 0.0 }, "changeRules": [], "faultInjectionScenarios": [] }
+            { "schemaVersion": 2, "initialValues": {}, "initialValuesByPointId": { "30000000-0000-5000-8000-000000000002": 0.0 }, "changeRules": [], "faultInjectionScenarios": [] }
             """);
 
             var composition = AppComposition.Create(configRoot, dataRoot);
@@ -52,7 +59,7 @@ public class AppCompositionTests
             Assert.Null(composition.StartupError);
             Assert.NotNull(composition.Shell);
             Assert.False(composition.Shell!.IsFaulted);
-            Assert.Equal("Simulation（仿真）", composition.Shell.DeviceModeText);
+            Assert.Equal("仿真模式", composition.Shell.DeviceModeText);
             Assert.NotNull(composition.Authentication);
             Assert.NotNull(composition.DeviceModes);
             Assert.Equal(DeviceHealth.Healthy, composition.DeviceModes!.Health);
@@ -65,7 +72,7 @@ public class AppCompositionTests
     }
 
     [Fact]
-    public void Create_WithV2Config_PreservesSignalBindingsInRuntime()
+    public void Create_WithV2PointsConfig_PreservesSignalBindingsInRuntime()
     {
         var root = Path.Combine("D:\\Codex相关\\多设备点位改造", "app-v2-" + Guid.NewGuid().ToString("N")[..8]);
         var configRoot = Path.Combine(root, "config");
@@ -89,34 +96,34 @@ public class AppCompositionTests
             """);
             File.WriteAllText(Path.Combine(configRoot, "device.json"), $$"""
             {
-              "schemaVersion": 2,
-              "deviceMode": "Simulation",
+              "schemaVersion": 3,
               "pollIntervalMs": 500,
               "timeoutMs": 1000,
               "channels": [
                 {
                   "id": "{{channelId}}",
-                  "code": "SIM",
-                  "name": "仿真通道",
-                  "transportKind": "Simulation",
+                  "code": "CH_PLC",
+                  "name": "PLC 网络通道",
+                  "transportKind": "Tcp",
                   "enabled": true,
                   "timeoutMs": 1000,
                   "retryCount": 0,
-                  "simulation": { "instanceKey": "app-v2-test" }
+                  "tcp": { "host": "127.0.0.1", "port": 102 }
                 }
               ],
               "devices": [
                 {
                   "id": "{{deviceId}}",
                   "code": "PLC1",
-                  "name": "仿真设备",
+                  "name": "测试设备",
+                  "deviceMode": "Simulation",
+                  "protocol": "SiemensS7",
+                  "address": "127.0.0.1",
                   "channelId": "{{channelId}}",
-                  "driverKey": "simulation",
-                  "manufacturer": "测试",
-                  "model": "Simulation",
+                  "driverKey": "siemens-s7",
+                  "model": "S7-1500",
                   "pollIntervalMs": 500,
-                  "staleAfterMs": 2000,
-                  "enabled": true
+                  "staleAfterMs": 2000
                 }
               ]
             }
@@ -130,13 +137,11 @@ public class AppCompositionTests
                   "code": "AI_Pressure",
                   "name": "压力",
                   "deviceId": "{{deviceId}}",
-                  "address": "sim.pressure",
+                  "protocol": "SiemensS7",
+                  "address": "DB1.DBD0",
                   "dataType": "Decimal",
                   "rawDataType": "Decimal",
-                  "addressDefinition": { "logicalAddress": "sim.pressure" },
-                  "unit": "MPa",
                   "isWritable": false,
-                  "isEnabled": true,
                   "riskLevel": "Normal"
                 }
               ]

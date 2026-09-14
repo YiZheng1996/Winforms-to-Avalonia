@@ -21,7 +21,7 @@ public sealed record WriteCommand(
     string? ExpectedRevision = null);
 
 /// <summary>
-/// 设备写入安全链：按 PointId 重新定位 → 权限 → 模式（Hardware 必须真实运行时；Simulation 只写仿真状态）→
+/// 设备写入安全链：按 PointId 重新定位 → 权限 → 目标设备模式（Hardware 必须真实运行时；Simulation 只写仿真状态）→
 /// 目标设备/通道可用 → 点位及输入类型/范围 → 活动任务/运行状态 → 业务联锁 → 风险确认 →
 /// 逆换算 → 写入 → 新鲜回读 → 审计。
 /// 界面不得绕过本管道直接调用协议库写方法。
@@ -68,23 +68,17 @@ public sealed class DeviceWritePipeline
             throw;
         }
 
-        ct.ThrowIfCancellationRequested();
-        if (command.Runtime.Mode != command.Mode)
-            throw new DomainException($"写入模式与设备运行时不一致：请求 {command.Mode}，运行时 {command.Runtime.Mode}");
-        if (command.Mode == DeviceMode.Hardware && command.Runtime.IsSimulation)
-            throw new DomainException("Hardware 模式不得写入仿真运行时");
-        if (command.Mode == DeviceMode.Simulation && !command.Runtime.IsSimulation)
-            throw new DomainException("Simulation 模式不得写入真实设备运行时");
-
         // 只能使用目标点位所属设备的状态，不能用其他设备在线替代。
         var status = string.IsNullOrWhiteSpace(point.DeviceId)
             ? command.Runtime.Status
             : command.Runtime.GetDeviceStatus(point.DeviceId);
+        ct.ThrowIfCancellationRequested();
+        var targetMode = status.IsSimulation ? DeviceMode.Simulation : DeviceMode.Hardware;
+        if (command.Mode != DeviceMode.Mixed && command.Mode != targetMode)
+            throw new DomainException($"写入模式与目标设备不一致：请求 {command.Mode}，目标设备 {targetMode}");
         if (status.Health is not (DeviceHealth.Healthy or DeviceHealth.Degraded) || !status.IsConnected)
             throw new DomainException($"目标设备 {point.DeviceId} 未连接或状态异常（{status.Health}）");
 
-        if (!point.IsEnabled)
-            throw new DomainException($"点位 {point.Code} 已停用");
         if (!point.IsWritable)
             throw new DomainException($"点位 {point.Code} 不可写");
         if (point.WritePolicy != PointWritePolicy.ReadBackEqual)
@@ -99,7 +93,7 @@ public sealed class DeviceWritePipeline
         if (point.RiskLevel == WriteRiskLevel.HighRisk && !command.RiskConfirmed)
             throw new DomainException($"高风险写入 {point.Code} 需要二次确认");
 
-        var rawValue = ConvertToRawValue(point, command.Value);
+        var rawValue = DevicePointValueConverter.ToRaw(point, command.Value);
         var writeStarted = false;
         try
         {
@@ -132,8 +126,9 @@ public sealed class DeviceWritePipeline
             if (!string.IsNullOrWhiteSpace(readback.PointId)
                 && !string.Equals(readback.PointId, point.PointId, StringComparison.OrdinalIgnoreCase))
                 throw new DeviceWriteUncertainException($"点位 {point.Code} 回读返回了错误的 PointId，结果不确定，禁止自动重发");
-            if (!ValuesEqual(rawValue, readback.Value))
-                throw new DomainException($"写入回读不一致：原始值 {rawValue}，回读 {readback.Value}");
+            var readbackRawValue = readback.RawValue ?? readback.Value;
+            if (!DevicePointValueConverter.RawValuesEqual(point, rawValue, readbackRawValue))
+                throw new DomainException($"写入回读不一致：原始值 {rawValue}，回读 {readbackRawValue}");
 
             var detail = $"deviceId={point.DeviceId};pointId={point.PointId};revision={command.Runtime.ActiveRevision};engineering={FormatValue(command.Value)};raw={FormatValue(rawValue)};result=Success;readback={FormatValue(readback.Value)}";
             try
@@ -207,112 +202,6 @@ public sealed class DeviceWritePipeline
             && string.IsNullOrWhiteSpace(requested.Revision))
             throw new DomainException($"点位 {requested.PointId} 缺少配置版本，拒绝使用可能过期的对象");
         return current;
-    }
-
-    private static object? ConvertToRawValue(DevicePoint point, object? value)
-    {
-        if (value is null)
-            throw new DomainException($"点位 {point.Code} 的写入值不能为空");
-
-        if (point.DataType is DevicePointDataType.Boolean or DevicePointDataType.Bool)
-        {
-            if (value is bool boolean) return boolean;
-            if (bool.TryParse(Convert.ToString(value, CultureInfo.InvariantCulture), out boolean)) return boolean;
-            throw new DomainException($"点位 {point.Code} 需要布尔输入");
-        }
-        if (point.DataType == DevicePointDataType.String)
-        {
-            if (value is string text) return text;
-            throw new DomainException($"点位 {point.Code} 需要文本输入");
-        }
-
-        if (!TryReadDecimal(value, out var engineering))
-            throw new DomainException($"点位 {point.Code} 需要数值输入");
-        var raw = engineering;
-        if (point.EngMin.HasValue || point.EngMax.HasValue || point.RawMin.HasValue || point.RawMax.HasValue)
-        {
-            if (point.EngMin.HasValue != point.EngMax.HasValue
-                || point.RawMin.HasValue != point.RawMax.HasValue)
-                throw new DomainException($"点位 {point.Code} 的量程配置不完整");
-            if (point.EngMin.HasValue && point.RawMin.HasValue)
-            {
-                if (engineering < point.EngMin.Value || engineering > point.EngMax!.Value)
-                    throw new DomainException($"点位 {point.Code} 的工程值超出范围 {point.EngMin}~{point.EngMax}");
-                if (point.EngMin == point.EngMax)
-                    throw new DomainException($"点位 {point.Code} 的工程量程不能相等");
-                raw = point.RawMin.Value
-                    + (engineering - point.EngMin.Value) * (point.RawMax!.Value - point.RawMin.Value)
-                    / (point.EngMax.Value - point.EngMin.Value);
-            }
-            else if (point.RawMin.HasValue
-                && (engineering < point.RawMin.Value || engineering > point.RawMax!.Value))
-            {
-                throw new DomainException($"点位 {point.Code} 的输入值超出范围 {point.RawMin}~{point.RawMax}");
-            }
-        }
-
-        return point.DataType switch
-        {
-            DevicePointDataType.Decimal => raw,
-            DevicePointDataType.Float32 => ToFloat(point, raw),
-            DevicePointDataType.Int16 => ToInt16(point, raw),
-            DevicePointDataType.UInt16 => ToUInt16(point, raw),
-            DevicePointDataType.Int32 => ToInt32(point, raw),
-            DevicePointDataType.UInt32 => ToUInt32(point, raw),
-            _ => throw new DomainException($"点位 {point.Code} 的数据类型不支持写入：{point.DataType}")
-        };
-    }
-
-    private static float ToFloat(DevicePoint point, decimal value)
-    {
-        var result = (float)value;
-        if (!float.IsFinite(result)) throw new DomainException($"点位 {point.Code} 的值超出 Float32 范围");
-        return result;
-    }
-
-    private static short ToInt16(DevicePoint point, decimal value)
-        => ToIntegral(point, value, short.MinValue, short.MaxValue, v => (short)v);
-
-    private static ushort ToUInt16(DevicePoint point, decimal value)
-        => ToIntegral(point, value, ushort.MinValue, ushort.MaxValue, v => (ushort)v);
-
-    private static int ToInt32(DevicePoint point, decimal value)
-        => ToIntegral(point, value, int.MinValue, int.MaxValue, v => (int)v);
-
-    private static uint ToUInt32(DevicePoint point, decimal value)
-        => ToIntegral(point, value, uint.MinValue, uint.MaxValue, v => (uint)v);
-
-    private static T ToIntegral<T>(DevicePoint point, decimal value, decimal min, decimal max, Func<decimal, T> convert)
-    {
-        if (decimal.Truncate(value) != value || value < min || value > max)
-            throw new DomainException($"点位 {point.Code} 需要范围内的整数原始值");
-        return convert(value);
-    }
-
-    private static bool TryReadDecimal(object value, out decimal result)
-    {
-        if (value is decimal decimalValue)
-        {
-            result = decimalValue;
-            return true;
-        }
-        return decimal.TryParse(
-            Convert.ToString(value, CultureInfo.InvariantCulture),
-            NumberStyles.Float,
-            CultureInfo.InvariantCulture,
-            out result);
-    }
-
-    private static bool ValuesEqual(object? expected, object? actual)
-    {
-        if (expected is null || actual is null) return Equals(expected, actual);
-        if (expected is bool eb && actual is bool ab) return eb == ab;
-        if (expected is string es && actual is string actualText)
-            return string.Equals(es, actualText, StringComparison.Ordinal);
-        if (TryReadDecimal(expected, out var expectedNumber)
-            && TryReadDecimal(actual, out var actualNumber))
-            return Math.Abs(expectedNumber - actualNumber) < 0.0001m;
-        return Equals(expected, actual);
     }
 
     private static string FormatValue(object? value)

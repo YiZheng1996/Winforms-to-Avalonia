@@ -55,7 +55,7 @@ public sealed class DevicePointImporter : IDevicePointImporter
         if (rows.Count == 0)
             return Invalid("点位文件为空");
 
-        if (!TryReadTemplateHeader(rows[0], out var headerMap, out var headerError, out var legacyHeader))
+        if (!TryReadTemplateHeader(rows[0], out var headerMap, out var isLegacyV5, out var headerError))
             return Invalid(headerError);
 
         var entries = new List<(int RowNumber, PointsConfig.PointEntry Entry)>();
@@ -66,16 +66,14 @@ public sealed class DevicePointImporter : IDevicePointImporter
             if (rows[i].All(string.IsNullOrWhiteSpace)) continue;
 
             var rowNumber = i + 1;
-            var maxColumns = legacyHeader
-                ? DevicePointTemplateDefinition.LegacyColumns.Count
-                : DevicePointTemplateDefinition.Columns.Count;
+            var maxColumns = DevicePointTemplateDefinition.Columns.Count;
             if (rows[i].Length > maxColumns)
             {
                 issues.Add(new DevicePointImportIssue(rowNumber,
                     $"数据列超过模板固定列数 {maxColumns} 列"));
                 continue;
             }
-            if (TryParseEntry(rows[i], headerMap, legacyHeader, out var entry, out var error))
+            if (TryParseSimplifiedEntry(rows[i], headerMap, isLegacyV5, out var entry, out var error))
                 entries.Add((rowNumber, entry));
             else
                 issues.Add(new DevicePointImportIssue(rowNumber, error));
@@ -85,14 +83,13 @@ public sealed class DevicePointImporter : IDevicePointImporter
             foreach (var item in group)
                 issues.Add(new DevicePointImportIssue(item.RowNumber, $"点位编码重复：{group.Key}"));
 
-        var legacyRows = legacyHeader || (entries.Count > 0 && entries.All(item => string.IsNullOrWhiteSpace(item.Entry.DeviceCode)));
-        var addressGroups = legacyRows
-            ? entries.GroupBy(item => $"{item.Entry.ProtocolKind}\u001f{item.Entry.Address}", StringComparer.OrdinalIgnoreCase)
-            : entries.GroupBy(item => $"{item.Entry.DeviceCode}\u001f{item.Entry.AddressDefinition?.ToCanonical(item.Entry.Address) ?? item.Entry.Address}", StringComparer.OrdinalIgnoreCase);
+        var addressGroups = entries.GroupBy(item =>
+            $"{item.Entry.DeviceCode}\u001f{item.Entry.AddressDefinition?.ToCanonical(item.Entry.Address) ?? item.Entry.Address}",
+            StringComparer.OrdinalIgnoreCase);
         foreach (var group in addressGroups.Where(group => group.Count() > 1))
             foreach (var item in group)
                 issues.Add(new DevicePointImportIssue(item.RowNumber,
-                    legacyRows ? "通信方式/设备地址组合重复" : "同一设备的地址参数重复"));
+                    "同一设备的地址参数重复"));
 
         var parsed = entries.Select(item => item.Entry).ToList();
         if (parsed.Count == 0 && issues.Count == 0)
@@ -102,16 +99,7 @@ public sealed class DevicePointImporter : IDevicePointImporter
         {
             try
             {
-                if (legacyRows)
-                {
-                    var config = new PointsConfig { SchemaVersion = PointsConfig.LegacySchemaVersion };
-                    config.Points.AddRange(parsed);
-                    config.Validate();
-                }
-                else
-                {
-                    ValidateImportedV3(parsed);
-                }
+                ValidateImportedV3(parsed);
             }
             catch (Core.Configuration.ConfigValidationException ex)
             {
@@ -119,7 +107,10 @@ public sealed class DevicePointImporter : IDevicePointImporter
             }
         }
 
-        return new DevicePointImportResult(parsed, issues.OrderBy(issue => issue.RowNumber).ToList());
+        return new DevicePointImportResult(
+            parsed,
+            issues.OrderBy(issue => issue.RowNumber).ToList(),
+            entries.Select(item => new DevicePointImportRow(item.RowNumber, item.Entry)).ToList());
     }
 
     /// <summary>
@@ -128,53 +119,57 @@ public sealed class DevicePointImporter : IDevicePointImporter
     private static bool TryReadTemplateHeader(
         IReadOnlyList<string> header,
         out IReadOnlyDictionary<string, int> headerMap,
-        out string error,
-        out bool legacyHeader)
+        out bool isLegacyV5,
+        out string error)
     {
-        var expected = DevicePointTemplateDefinition.Columns;
-        legacyHeader = false;
-        if (header.Count == DevicePointTemplateDefinition.LegacyColumns.Count)
+        var columns = DevicePointTemplateDefinition.Columns;
+        isLegacyV5 = false;
+        var legacyHeaders = new[]
         {
-            var legacyMap = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
-            for (var index = 0; index < DevicePointTemplateDefinition.LegacyColumns.Count; index++)
+            "点位标签", "地址", "数据类型", "访问权限", "原始下限", "原始上限", "工程下限", "工程上限", "说明"
+        };
+        if (header.Count != columns.Count && header.Count != legacyHeaders.Length)
+        {
+            headerMap = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+            error = $"模板列数量不正确：当前 v{DevicePointTemplateDefinition.CurrentTemplateVersion} 应有 {columns.Count} 列，旧 v5 兼容格式为 {legacyHeaders.Length} 列，实际 {header.Count} 列。请下载并使用“{DevicePointTemplateDefinition.DefaultFileName}”，不要修改列名或顺序";
+            return false;
+        }
+
+        if (header.Count == legacyHeaders.Length)
+        {
+            for (var index = 0; index < legacyHeaders.Length; index++)
             {
                 var actual = CleanHeader(header[index]);
-                var legacyColumn = DevicePointTemplateDefinition.LegacyColumns[index];
-                if (!string.Equals(actual, legacyColumn.Header, StringComparison.Ordinal))
+                if (!string.Equals(actual, legacyHeaders[index], StringComparison.Ordinal))
                 {
-                    headerMap = legacyMap;
-                    error = $"模板第1行第 {index + 1} 列应为“{legacyColumn.Header}”，实际为“{(string.IsNullOrEmpty(actual) ? "未填写" : actual)}”。请下载并使用“{DevicePointTemplateDefinition.DefaultFileName}”，不要修改列名或顺序";
+                    headerMap = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+                    error = $"旧 v5 模板第1行第 {index + 1} 列应为“{legacyHeaders[index]}”，实际为“{(string.IsNullOrEmpty(actual) ? "未填写" : actual)}”。请使用固定中文模板";
                     return false;
                 }
-
-                legacyMap[legacyColumn.Field] = index;
             }
 
-            headerMap = legacyMap;
-            legacyHeader = true;
+            isLegacyV5 = true;
+            headerMap = legacyHeaders
+                .Select((headerText, index) => (headerText, index))
+                .Zip(columns.Where(column => column.Field is not ("ByteOrder" or "WordOrder")))
+                .ToDictionary(item => item.Second.Field, item => item.First.index, StringComparer.OrdinalIgnoreCase);
             error = string.Empty;
             return true;
         }
 
-        if (header.Count != expected.Count)
-        {
-            headerMap = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
-            error = $"模板列数量不正确：第1行应有 {expected.Count} 列，实际 {header.Count} 列。请下载并使用“{DevicePointTemplateDefinition.DefaultFileName}”，不要修改列名或顺序";
-            return false;
-        }
-
         var map = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
-        for (var index = 0; index < expected.Count; index++)
+        for (var index = 0; index < columns.Count; index++)
         {
             var actual = CleanHeader(header[index]);
-            if (!string.Equals(actual, expected[index].Header, StringComparison.Ordinal))
+            var column = columns[index];
+            if (!string.Equals(actual, column.Header, StringComparison.Ordinal))
             {
                 headerMap = map;
-                error = $"模板第1行第 {index + 1} 列应为“{expected[index].Header}”，实际为“{(string.IsNullOrEmpty(actual) ? "未填写" : actual)}”。请下载并使用“{DevicePointTemplateDefinition.DefaultFileName}”，不要修改列名或顺序";
+                error = $"模板第1行第 {index + 1} 列应为“{column.Header}”，实际为“{(string.IsNullOrEmpty(actual) ? "未填写" : actual)}”。请下载并使用“{DevicePointTemplateDefinition.DefaultFileName}”，不要修改列名或顺序";
                 return false;
             }
 
-            map[expected[index].Field] = index;
+            map[column.Field] = index;
         }
 
         headerMap = map;
@@ -183,45 +178,46 @@ public sealed class DevicePointImporter : IDevicePointImporter
     }
 
     /// <summary>
-    /// 解析单行并校验必填项与量程。
+    /// 解析当前简化中文模板。设备和分组不再重复填写，身份由下载范围或点位标签前缀确定。
     /// </summary>
-    private static bool TryParseEntry(
+    private static bool TryParseSimplifiedEntry(
         IReadOnlyList<string> row,
         IReadOnlyDictionary<string, int> headerMap,
-        bool legacyHeader,
-        out PointsConfig.PointEntry entry,
-        out string error)
-    {
-        if (legacyHeader)
-            return TryParseLegacyEntry(row, headerMap, out entry, out error);
-
-        return TryParseV2Entry(row, headerMap, out entry, out error);
-    }
-
-    /// <summary>
-    /// 解析旧版单设备 14 列行。该分支只用于兼容，不参与新模板导出。
-    /// </summary>
-    private static bool TryParseLegacyEntry(
-        IReadOnlyList<string> row,
-        IReadOnlyDictionary<string, int> headerMap,
+        bool isLegacyV5,
         out PointsConfig.PointEntry entry,
         out string error)
     {
         var errors = new List<string>();
-        var code = Get(row, headerMap, "Code");
-        var name = Get(row, headerMap, "Name");
-        var protocolText = Get(row, headerMap, "Protocol");
+        var tagText = Get(row, headerMap, "PointTag");
         var address = Get(row, headerMap, "Address");
         var dataTypeText = Get(row, headerMap, "DataType");
+        var byteOrderText = Get(row, headerMap, "ByteOrder");
+        var wordOrderText = Get(row, headerMap, "WordOrder");
+        var accessText = Get(row, headerMap, "Access");
 
-        if (string.IsNullOrWhiteSpace(code)) errors.Add("点位编码不能为空");
-        if (string.IsNullOrWhiteSpace(protocolText)) errors.Add("通信方式不能为空");
-        if (string.IsNullOrWhiteSpace(address)) errors.Add("地址不能为空");
-        if (string.IsNullOrWhiteSpace(dataTypeText)) errors.Add("数据类型不能为空");
+        if (string.IsNullOrWhiteSpace(tagText))
+            errors.Add("点位标签不能为空");
+        if (string.IsNullOrWhiteSpace(address))
+            errors.Add("地址不能为空");
+        if (string.IsNullOrWhiteSpace(dataTypeText))
+            errors.Add("数据类型不能为空");
 
-        var protocol = ReadProtocol(protocolText, errors);
-        var dataType = ReadDataType(dataTypeText, errors);
+        DevicePointTag.ParsedTag? tag = null;
+        if (!string.IsNullOrWhiteSpace(tagText)
+            && !DevicePointTag.TryParse(tagText, out tag!, out var tagError))
+            errors.Add(tagError);
 
+        var dataType = ReadRawDataType(dataTypeText, errors);
+        var hasModbusAddressShape = TryCreateModbusAddressDefinition(address, out var modbusAddressDefinition);
+        var decodeOptions = ReadDecodeOptions(
+            byteOrderText,
+            wordOrderText,
+            hasModbusAddressShape,
+            isLegacyV5,
+            errors,
+            out var byteOrderSource,
+            out var wordOrderSource);
+        var (isWritable, risk) = ReadAccess(accessText, errors);
         var rawMin = ReadDecimal(Get(row, headerMap, "RawMin"), "原始下限", errors);
         var rawMax = ReadDecimal(Get(row, headerMap, "RawMax"), "原始上限", errors);
         var engMin = ReadDecimal(Get(row, headerMap, "EngMin"), "工程下限", errors);
@@ -231,175 +227,220 @@ public sealed class DevicePointImporter : IDevicePointImporter
         if (rawMin > rawMax || engMin > engMax)
             errors.Add("量程下限不能大于上限");
 
-        var isWritable = ReadBoolean(Get(row, headerMap, "IsWritable"), "是否允许写入", false, errors);
-        var isEnabled = ReadBoolean(Get(row, headerMap, "IsEnabled"), "是否启用", true, errors);
-        var risk = ReadRisk(Get(row, headerMap, "RiskLevel"), errors);
-        if (!isWritable && risk == WriteRiskLevel.HighRisk)
-            errors.Add("是否允许写入=否时，写入风险必须填写“普通”");
+        if (hasModbusAddressShape
+            && RequiresWordOrder(dataType)
+            && string.IsNullOrWhiteSpace(wordOrderText))
+        {
+            errors.Add(isLegacyV5
+                ? "旧 v5 模板没有字序列，Modbus 32/64 位点位不能自动猜测，请改用 v6 模板并填写 HighWordFirst 或 LowWordFirst"
+                : "Modbus 32/64 位点位必须填写字序 HighWordFirst 或 LowWordFirst");
+        }
 
-        if (errors.Count > 0)
+        if (errors.Count > 0 || tag is null)
         {
             entry = null!;
             error = string.Join("；", errors);
             return false;
         }
 
+        var directAddress = address.Trim();
+        var normalizedAddress = modbusAddressDefinition is { Area: { Length: > 0 }, Offset: { } offset }
+            ? $"{modbusAddressDefinition.Area}:{offset}"
+            : directAddress;
         entry = new PointsConfig.PointEntry
         {
-            Code = code.Trim(),
-            Name = string.IsNullOrWhiteSpace(name) ? code.Trim() : name.Trim(),
-            Protocol = DevicePointTypeCatalog.ToStorage(protocol),
-            Address = address.Trim(),
+            // 有设备前缀时保留完整标签，确保跨设备同名点位仍可区分；
+            // 单设备标签则使用本地“分组.点位”作为稳定点位编码。
+            Code = tag.FullTag,
+            Name = tag.PointName,
+            DeviceCode = tag.DeviceCode ?? string.Empty,
+            GroupCode = tag.GroupCode ?? string.Empty,
+            Address = normalizedAddress,
+            OriginalAddress = directAddress,
+            CanonicalAddress = normalizedAddress,
+            // Modbus 地址在导入边界就保存区域/偏移结构，保证导入点位和界面新建点位
+            // 使用同一套规范地址键；其他协议继续保留原始逻辑地址。
+            AddressDefinition = modbusAddressDefinition
+                ?? new PointAddressDefinition { LogicalAddress = directAddress },
+            Protocol = directAddress.StartsWith("sim.", StringComparison.OrdinalIgnoreCase)
+                ? DevicePointTypeCatalog.ToStorage(DevicePointProtocol.Simulation)
+                : string.Empty,
             DataType = DevicePointTypeCatalog.ToStorage(dataType),
-            Unit = Get(row, headerMap, "Unit"),
+            RawDataType = DevicePointTypeCatalog.ToStorage(dataType),
+            DecodeOptions = decodeOptions,
+            ByteOrderSource = byteOrderSource,
+            WordOrderSource = wordOrderSource,
             RawMin = rawMin,
             RawMax = rawMax,
             EngMin = engMin,
             EngMax = engMax,
             IsWritable = isWritable,
-            IsEnabled = isEnabled,
             RiskLevel = risk,
             Description = Get(row, headerMap, "Description")
         };
         error = string.Empty;
         return true;
     }
+
+    private static bool RequiresWordOrder(DevicePointDataType dataType)
+        => dataType is DevicePointDataType.Int32
+            or DevicePointDataType.UInt32
+            or DevicePointDataType.Float32
+            or DevicePointDataType.Double;
 
     /// <summary>
-    /// 解析当前 19 列行。设备编码和分组编码保留在导入边界，稍后由完整配置解析为稳定身份。
+    /// 解析模板中的字节序/字序。空字节序按方案采用 BigEndian 初始值，
+    /// 但把来源写入内存预览字段；多寄存器 Modbus 点位仍必须显式填写字序。
     /// </summary>
-    private static bool TryParseV2Entry(
-        IReadOnlyList<string> row,
-        IReadOnlyDictionary<string, int> headerMap,
-        out PointsConfig.PointEntry entry,
-        out string error)
+    private static DecodeOptions ReadDecodeOptions(
+        string byteOrderText,
+        string wordOrderText,
+        bool isModbusAddressShape,
+        bool isLegacyV5,
+        ICollection<string> errors,
+        out string byteOrderSource,
+        out string wordOrderSource)
     {
-        var errors = new List<string>();
-        var pointId = Get(row, headerMap, "PointId");
-        var code = Get(row, headerMap, "Code");
-        var name = Get(row, headerMap, "Name");
-        var deviceCode = Get(row, headerMap, "DeviceCode");
-        var groupCode = Get(row, headerMap, "GroupCode");
-        var addressTypeText = Get(row, headerMap, "AddressType");
-        var addressParameters = Get(row, headerMap, "AddressParameters");
-        var rawDataTypeText = Get(row, headerMap, "RawDataType");
-
-        if (!string.IsNullOrWhiteSpace(pointId) && !Guid.TryParse(pointId, out _))
-            errors.Add($"点位标识不是有效 GUID：{pointId}");
-        if (string.IsNullOrWhiteSpace(code)) errors.Add("点位编码不能为空");
-        if (string.IsNullOrWhiteSpace(deviceCode)) errors.Add("设备编码不能为空");
-        if (string.IsNullOrWhiteSpace(addressTypeText)) errors.Add("地址类型不能为空");
-        if (string.IsNullOrWhiteSpace(addressParameters)) errors.Add("地址参数不能为空");
-        if (string.IsNullOrWhiteSpace(rawDataTypeText)) errors.Add("原始数据类型不能为空");
-
-        var address = ReadAddress(addressTypeText, addressParameters, errors);
-        var rawDataType = ReadRawDataType(rawDataTypeText, errors);
-        var byteOrder = ReadByteOrder(Get(row, headerMap, "ByteOrder"), errors);
-        var wordOrder = ReadWordOrder(Get(row, headerMap, "WordOrder"), errors);
-
-        var rawMin = ReadDecimal(Get(row, headerMap, "RawMin"), "原始下限", errors);
-        var rawMax = ReadDecimal(Get(row, headerMap, "RawMax"), "原始上限", errors);
-        var engMin = ReadDecimal(Get(row, headerMap, "EngMin"), "工程下限", errors);
-        var engMax = ReadDecimal(Get(row, headerMap, "EngMax"), "工程上限", errors);
-        if (rawMin.HasValue != rawMax.HasValue || engMin.HasValue != engMax.HasValue || rawMin.HasValue != engMin.HasValue)
-            errors.Add("量程必须完整填写原始/工程上下限，或全部留空");
-        if (rawMin > rawMax || engMin > engMax)
-            errors.Add("量程下限不能大于上限");
-
-        var isWritable = ReadBoolean(Get(row, headerMap, "IsWritable"), "可写", false, errors);
-        var isEnabled = ReadBoolean(Get(row, headerMap, "IsEnabled"), "启用", true, errors);
-        var risk = ReadRisk(Get(row, headerMap, "RiskLevel"), errors);
-        if (!isWritable && risk == WriteRiskLevel.HighRisk)
-            errors.Add("可写=否时，风险等级必须填写“普通”");
-
-        if (errors.Count > 0)
-        {
-            entry = null!;
-            error = string.Join("；", errors);
-            return false;
-        }
-
-        entry = new PointsConfig.PointEntry
-        {
-            Id = pointId,
-            Code = code.Trim(),
-            Name = string.IsNullOrWhiteSpace(name) ? code.Trim() : name.Trim(),
-            DeviceCode = deviceCode.Trim(),
-            GroupCode = groupCode.Trim(),
-            Protocol = address!.Area == "Simulation" ? DevicePointTypeCatalog.ToStorage(DevicePointProtocol.Simulation) : string.Empty,
-            Address = addressParameters.Trim(),
-            AddressDefinition = address,
-            DataType = DevicePointTypeCatalog.ToStorage(rawDataType),
-            RawDataType = DevicePointTypeCatalog.ToStorage(rawDataType),
-            DecodeOptions = new DecodeOptions { ByteOrder = byteOrder, WordOrder = wordOrder },
-            Unit = Get(row, headerMap, "Unit"),
-            RawMin = rawMin,
-            RawMax = rawMax,
-            EngMin = engMin,
-            EngMax = engMax,
-            IsWritable = isWritable,
-            IsEnabled = isEnabled,
-            RiskLevel = risk,
-            Description = Get(row, headerMap, "Description")
-        };
-        error = string.Empty;
-        return true;
+        var byteOrder = ReadByteOrder(
+            byteOrderText,
+            isModbusAddressShape,
+            isLegacyV5,
+            errors,
+            out byteOrderSource);
+        var wordOrder = ReadWordOrder(
+            wordOrderText,
+            isModbusAddressShape,
+            isLegacyV5,
+            errors,
+            out wordOrderSource);
+        return new DecodeOptions { ByteOrder = byteOrder, WordOrder = wordOrder };
     }
 
-    private static PointAddressDefinition? ReadAddress(string addressType, string parameters, ICollection<string> errors)
+    private static ByteOrder ReadByteOrder(
+        string value,
+        bool isModbusAddressShape,
+        bool isLegacyV5,
+        ICollection<string> errors,
+        out string source)
     {
-        if (!DevicePointTemplateDefinition.TryMapAddressType(addressType, out var area))
+        if (string.IsNullOrWhiteSpace(value))
         {
-            errors.Add($"地址类型不受支持：{addressType}（请从模板下拉框选择）");
-            return null;
+            source = isLegacyV5
+                ? "v5 兼容/项目初始值"
+                : isModbusAddressShape ? "项目初始值" : "默认值";
+            return ByteOrder.BigEndian;
         }
 
-        if (string.IsNullOrWhiteSpace(parameters)) return null;
-        var definition = new PointAddressDefinition { Area = area };
-        if (area == "Simulation")
+        var normalized = NormalizeChoice(value);
+        source = "显式填写";
+        return normalized switch
         {
-            definition.LogicalAddress = parameters.Trim();
-            return definition;
+            "bigendian" or "大端" or "大端序" => ByteOrder.BigEndian,
+            "littleendian" or "小端" or "小端序" => ByteOrder.LittleEndian,
+            _ => ReadInvalidByteOrder(value, errors, out source)
+        };
+    }
+
+    private static ByteOrder ReadInvalidByteOrder(string value, ICollection<string> errors, out string source)
+    {
+        errors.Add($"字节序不受支持：{value}（请填写 BigEndian 或 LittleEndian）");
+        source = "填写错误";
+        return ByteOrder.Unknown;
+    }
+
+    private static WordOrder ReadWordOrder(
+        string value,
+        bool isModbusAddressShape,
+        bool isLegacyV5,
+        ICollection<string> errors,
+        out string source)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            source = isLegacyV5
+                ? "v5 兼容/未填写"
+                : isModbusAddressShape ? "项目初始值" : "默认值";
+            return WordOrder.None;
         }
 
-        // 规范参数优先采用 key=value；S7 手册地址保留原文，交由对应驱动 Profile 做最终解析。
-        var tokens = parameters.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-        var parsedAny = false;
-        foreach (var token in tokens)
+        var normalized = NormalizeChoice(value);
+        source = "显式填写";
+        return normalized switch
         {
-            var parts = token.Split('=', 2, StringSplitOptions.TrimEntries);
-            if (parts.Length != 2) continue;
-            if (!int.TryParse(parts[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out var number))
+            "none" or "无" or "不交换" => WordOrder.None,
+            "highwordfirst" or "高字在前" or "高字优先" => WordOrder.HighWordFirst,
+            "lowwordfirst" or "低字在前" or "低字优先" => WordOrder.LowWordFirst,
+            _ => ReadInvalidWordOrder(value, errors, out source)
+        };
+    }
+
+    private static WordOrder ReadInvalidWordOrder(string value, ICollection<string> errors, out string source)
+    {
+        errors.Add($"字序不受支持：{value}（请填写 None、HighWordFirst 或 LowWordFirst）");
+        source = "填写错误";
+        return WordOrder.None;
+    }
+
+    private static string NormalizeChoice(string value)
+        => value.Trim()
+            .Replace("（", "(", StringComparison.Ordinal)
+            .Replace("）", ")", StringComparison.Ordinal)
+            .Replace(" ", string.Empty, StringComparison.Ordinal)
+            .Replace("-", string.Empty, StringComparison.Ordinal)
+            .Replace("_", string.Empty, StringComparison.Ordinal)
+            .ToLowerInvariant();
+
+    /// <summary>
+    /// 在基础层识别 Modbus 的规范地址，只为导入身份和字序必填提示服务；
+    /// 最终区域、范围和类型规则仍由已注册的 Modbus 驱动描述器负责。
+    /// </summary>
+    private static bool TryCreateModbusAddressDefinition(
+        string value,
+        out PointAddressDefinition? definition)
+    {
+        definition = null;
+        var text = value.Trim();
+        var separator = text.IndexOf(':');
+        if (separator > 0
+            && int.TryParse(text[(separator + 1)..].Trim(), NumberStyles.Integer,
+                CultureInfo.InvariantCulture, out var offset)
+            && offset is >= 0 and <= ushort.MaxValue)
+        {
+            var area = text[..separator].Trim().ToUpperInvariant() switch
             {
-                errors.Add($"地址参数不是有效整数：{token}");
-                continue;
-            }
-
-            switch (parts[0].Trim().ToLowerInvariant())
+                "C" or "COIL" or "COILS" => "C",
+                "DI" or "DISCRETEINPUT" or "DISCRETEINPUTS" => "DI",
+                "HR" or "HOLDINGREGISTER" or "HOLDINGREGISTERS" => "HR",
+                "IR" or "INPUTREGISTER" or "INPUTREGISTERS" => "IR",
+                _ => string.Empty
+            };
+            if (!string.IsNullOrWhiteSpace(area))
             {
-                case "offset": definition.Offset = number; parsedAny = true; break;
-                case "bit":
-                case "bitindex": definition.BitIndex = number; parsedAny = true; break;
-                case "db":
-                case "dbnumber": definition.DbNumber = number; parsedAny = true; break;
-                case "byte":
-                case "byteoffset": definition.ByteOffset = number; parsedAny = true; break;
-                case "bitoffset": definition.BitOffset = number; parsedAny = true; break;
-                default: errors.Add($"地址参数字段不受支持：{parts[0]}"); break;
+                definition = new PointAddressDefinition { Area = area, Offset = offset };
+                return true;
             }
         }
 
-        if (!parsedAny && int.TryParse(parameters, NumberStyles.Integer, CultureInfo.InvariantCulture, out var offset))
+        if (text.Length == 5
+            && int.TryParse(text, NumberStyles.None, CultureInfo.InvariantCulture, out var reference))
         {
-            definition.Offset = offset;
-            parsedAny = true;
+            var area = text[0] switch
+            {
+                '0' => "C",
+                '1' => "DI",
+                '3' => "IR",
+                '4' => "HR",
+                _ => string.Empty
+            };
+            var legacyOffset = reference % 10000 - 1;
+            if (!string.IsNullOrWhiteSpace(area) && legacyOffset is >= 0 and <= ushort.MaxValue)
+            {
+                definition = new PointAddressDefinition { Area = area, Offset = legacyOffset };
+                return true;
+            }
         }
 
-        if (!parsedAny && area.StartsWith("S7.", StringComparison.Ordinal))
-            definition.LogicalAddress = parameters.Trim();
-        else if (!parsedAny)
-            errors.Add("地址参数必须使用整数或 key=value;key=value 规范格式");
-        return definition;
+        return false;
     }
 
     private static DevicePointDataType ReadRawDataType(string value, ICollection<string> errors)
@@ -409,22 +450,6 @@ public sealed class DevicePointImporter : IDevicePointImporter
             return dataType;
         errors.Add($"原始数据类型不受支持：{value}（请从模板下拉框选择）");
         return DevicePointDataType.Unknown;
-    }
-
-    private static ByteOrder ReadByteOrder(string value, ICollection<string> errors)
-    {
-        if (string.IsNullOrWhiteSpace(value)) return ByteOrder.BigEndian;
-        if (DevicePointTemplateDefinition.TryMapByteOrder(value, out var order)) return order;
-        errors.Add($"字节序不受支持：{value}（请填写 大端 或 小端）");
-        return ByteOrder.BigEndian;
-    }
-
-    private static WordOrder ReadWordOrder(string value, ICollection<string> errors)
-    {
-        if (string.IsNullOrWhiteSpace(value)) return WordOrder.None;
-        if (DevicePointTemplateDefinition.TryMapWordOrder(value, out var order)) return order;
-        errors.Add($"字序不受支持：{value}（请填写 无、高字在前 或 低字在前）");
-        return WordOrder.None;
     }
 
     private static void ValidateImportedV3(IReadOnlyList<PointsConfig.PointEntry> points)
@@ -472,13 +497,11 @@ public sealed class DevicePointImporter : IDevicePointImporter
                 RawDataType = point.RawDataType,
                 DecodeOptions = point.DecodeOptions,
                 WritePolicy = point.WritePolicy,
-                Unit = point.Unit,
                 RawMin = point.RawMin,
                 RawMax = point.RawMax,
                 EngMin = point.EngMin,
                 EngMax = point.EngMax,
                 IsWritable = point.IsWritable,
-                IsEnabled = point.IsEnabled,
                 RiskLevel = point.RiskLevel,
                 Description = point.Description
             };
@@ -497,7 +520,7 @@ public sealed class DevicePointImporter : IDevicePointImporter
     }
 
     /// <summary>
-    /// 解析数字，兼容不同区域的小数点写法。
+    /// 解析数字，允许常见区域设置的小数点写法。
     /// </summary>
     private static decimal? ReadDecimal(string value, string label, ICollection<string> errors)
     {
@@ -509,83 +532,39 @@ public sealed class DevicePointImporter : IDevicePointImporter
     }
 
     /// <summary>
-    /// 把客户填写的通信方式转换为运行时使用的协议值。
+    /// 把 KEPServer 的 Client Access 和中文访问权限收敛为一个客户字段。
     /// </summary>
-    private static DevicePointProtocol ReadProtocol(string value, ICollection<string> errors)
+    private static (bool IsWritable, WriteRiskLevel Risk) ReadAccess(
+        string value,
+        ICollection<string> errors)
     {
-        if (string.IsNullOrWhiteSpace(value)) return DevicePointProtocol.Unknown;
-        if (DevicePointTemplateDefinition.TryMapProtocol(value, out var protocol))
-            return protocol;
+        if (string.IsNullOrWhiteSpace(value))
+            return (false, WriteRiskLevel.Normal);
 
-        errors.Add($"通信方式不受支持：{value}（请从模板下拉框选择：{string.Join("、", DevicePointTemplateDefinition.ProtocolChoices.Select(choice => choice.DisplayValue))}）");
-        return DevicePointProtocol.Unknown;
-    }
-
-    /// <summary>
-    /// 把客户填写的数据类型转换为运行时使用的类型值。
-    /// </summary>
-    private static DevicePointDataType ReadDataType(string value, ICollection<string> errors)
-    {
-        if (string.IsNullOrWhiteSpace(value)) return DevicePointDataType.Unknown;
-        if (DevicePointTemplateDefinition.TryMapDataType(value, out var dataType))
-            return dataType;
-
-        errors.Add($"数据类型不受支持：{value}（请从模板下拉框选择：{string.Join("、", DevicePointTemplateDefinition.DataTypeChoices.Select(choice => choice.DisplayValue))}）");
-        return DevicePointDataType.Unknown;
-    }
-
-    /// <summary>
-    /// 解析布尔值，客户模板推荐填写中文“是/否”，同时兼容旧配置文件。
-    /// </summary>
-    private static bool ReadBoolean(string value, string label, bool defaultValue, ICollection<string> errors)
-    {
-        if (string.IsNullOrWhiteSpace(value)) return defaultValue;
-        switch (value.Trim().ToLowerInvariant())
+        var normalized = value.Trim()
+            .Replace("（", "(", StringComparison.Ordinal)
+            .Replace("）", ")", StringComparison.Ordinal)
+            .Replace(" ", string.Empty, StringComparison.Ordinal)
+            .ToLowerInvariant();
+        return normalized switch
         {
-            case "1":
-            case "true":
-            case "yes":
-            case "y":
-            case "是":
-            case "启用":
-            case "可写":
-                return true;
-            case "0":
-            case "false":
-            case "no":
-            case "n":
-            case "否":
-            case "停用":
-            case "不可写":
-                return false;
-            default:
-                errors.Add($"{label}不是有效值：{value}（请填写 是 或 否）");
-                return defaultValue;
-        }
+            "只读" or "r" or "readonly" or "read-only" or "读" =>
+                (false, WriteRiskLevel.Normal),
+            "读写" or "可写" or "可写(普通)" or "可写(一般)" or "rw" or "r/w"
+                or "readwrite" or "read-write" =>
+                (true, WriteRiskLevel.Normal),
+            "可写(高风险)" or "高风险" or "高风险可写" =>
+                (true, WriteRiskLevel.HighRisk),
+            _ => ReadInvalidAccess(value, errors)
+        };
     }
 
-    /// <summary>
-    /// 解析写入风险等级。
-    /// </summary>
-    private static WriteRiskLevel ReadRisk(string value, ICollection<string> errors)
+    private static (bool IsWritable, WriteRiskLevel Risk) ReadInvalidAccess(
+        string value,
+        ICollection<string> errors)
     {
-        if (string.IsNullOrWhiteSpace(value)) return WriteRiskLevel.Normal;
-        switch (value.Trim().ToLowerInvariant())
-        {
-            case "0":
-            case "normal":
-            case "普通":
-            case "一般":
-                return WriteRiskLevel.Normal;
-            case "1":
-            case "highrisk":
-            case "high-risk":
-            case "高风险":
-                return WriteRiskLevel.HighRisk;
-            default:
-                errors.Add($"写入风险不受支持：{value}（请填写 普通 或 高风险）");
-                return WriteRiskLevel.Normal;
-        }
+        errors.Add($"访问权限不受支持：{value}（请填写 只读或读写）");
+        return (false, WriteRiskLevel.Normal);
     }
 
     /// <summary>
@@ -706,7 +685,7 @@ public sealed class DevicePointImporter : IDevicePointImporter
         => new(Array.Empty<PointsConfig.PointEntry>(), new[] { new DevicePointImportIssue(0, message) });
 
     /// <summary>
-    /// 清理表头首尾空格和 UTF-8 BOM；不转换列名、不兼容英文别名。
+    /// 清理表头首尾空格和 UTF-8 BOM；不转换列名，也不接受英文别名。
     /// </summary>
     private static string CleanHeader(string value)
         => (value ?? string.Empty).Trim().Trim('\uFEFF');

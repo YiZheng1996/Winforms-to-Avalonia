@@ -26,7 +26,10 @@ public enum DevicePointDataType
     Int16 = 6,
     UInt16 = 7,
     UInt32 = 8,
-    Float32 = 9
+    Float32 = 9,
+    Byte = 10,
+    Double = 11,
+    Char = 12
 }
 
 /// <summary>
@@ -125,6 +128,17 @@ public static class DevicePointTypeCatalog
             case "布尔量(bool)":
                 dataType = DevicePointDataType.Bool;
                 return true;
+            case "字符":
+            case "char":
+            case "字符(char)":
+                dataType = DevicePointDataType.Char;
+                return true;
+            case "字节":
+            case "byte":
+            case "uint8":
+            case "字节(byte)":
+                dataType = DevicePointDataType.Byte;
+                return true;
             case "小数":
             case "decimal":
             case "小数(decimal)":
@@ -133,32 +147,68 @@ public static class DevicePointTypeCatalog
             case "整数":
             case "int32":
             case "整数(int32)":
+            case "长整型":
+            case "长整型(int32)":
+            case "long":
             case "32位有符号整数":
             case "32位有符号整数(int32)":
                 dataType = DevicePointDataType.Int32;
                 return true;
             case "int16":
+            case "短整型":
+            case "短整型(int16)":
             case "16位有符号整数":
             case "16位有符号整数(int16)":
                 dataType = DevicePointDataType.Int16;
                 return true;
             case "uint16":
+            case "字":
+            case "字(uint16)":
             case "16位无符号整数":
             case "16位无符号整数(uint16)":
                 dataType = DevicePointDataType.UInt16;
                 return true;
             case "uint32":
+            case "双字":
+            case "双字(uint32)":
             case "32位无符号整数":
             case "32位无符号整数(uint32)":
                 dataType = DevicePointDataType.UInt32;
                 return true;
             case "float32":
+            case "float":
+            case "real":
+            case "single":
+            case "浮点型":
+            case "浮点型(float32)":
             case "单精度":
             case "单精度(float32)":
             case "单精度浮点数":
             case "单精度浮点数(float32)":
                 dataType = DevicePointDataType.Float32;
                 return true;
+            case "double":
+            case "float64":
+            case "双精度":
+            case "双精度(double)":
+                dataType = DevicePointDataType.Double;
+                return true;
+            case "int":
+                dataType = DevicePointDataType.Int32;
+                return true;
+            case "short":
+                dataType = DevicePointDataType.Int16;
+                return true;
+            case "word":
+            case "ushort":
+                dataType = DevicePointDataType.UInt16;
+                return true;
+            case "dword":
+            case "uint":
+                dataType = DevicePointDataType.UInt32;
+                return true;
+            case "字符串":
+            case "字符串(string)":
             case "文本":
             case "string":
             case "文本(string)":
@@ -198,6 +248,9 @@ public static class DevicePointTypeCatalog
             DevicePointDataType.UInt16 => nameof(DevicePointDataType.UInt16),
             DevicePointDataType.UInt32 => nameof(DevicePointDataType.UInt32),
             DevicePointDataType.Float32 => nameof(DevicePointDataType.Float32),
+            DevicePointDataType.Byte => nameof(DevicePointDataType.Byte),
+            DevicePointDataType.Double => nameof(DevicePointDataType.Double),
+            DevicePointDataType.Char => nameof(DevicePointDataType.Char),
             _ => throw new ArgumentOutOfRangeException(nameof(dataType), dataType, "不支持的设备点位数据类型")
         };
 
@@ -223,12 +276,15 @@ public static class DevicePointTypeCatalog
             DevicePointDataType.Boolean => "开关量",
             DevicePointDataType.Bool => "布尔量",
             DevicePointDataType.Decimal => "小数",
-            DevicePointDataType.Int32 => "整数",
-            DevicePointDataType.Int16 => "16 位有符号整数",
-            DevicePointDataType.UInt16 => "16 位无符号整数",
-            DevicePointDataType.UInt32 => "32 位无符号整数",
-            DevicePointDataType.Float32 => "单精度浮点数",
-            DevicePointDataType.String => "文本",
+            DevicePointDataType.Int32 => "长整型",
+            DevicePointDataType.Int16 => "短整型",
+            DevicePointDataType.UInt16 => "字",
+            DevicePointDataType.UInt32 => "双字",
+            DevicePointDataType.Float32 => "浮点型",
+            DevicePointDataType.Double => "双精度",
+            DevicePointDataType.Byte => "字节",
+            DevicePointDataType.Char => "字符",
+            DevicePointDataType.String => "字符串",
             _ => string.IsNullOrWhiteSpace(fallback) ? "未知" : fallback.Trim()
         };
 

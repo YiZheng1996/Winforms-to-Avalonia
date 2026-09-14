@@ -189,7 +189,7 @@ public sealed partial class TestExecutionViewModel : PageViewModel
             var identity = BuildIdentity();
             if (!identity.HasAnyValue) throw new Core.Common.DomainException("至少填写一项产品标识（产品编号/批次号/工位号/备注）");
             var runtime = _services.DeviceModes.Runtime ?? throw new Core.Common.DomainException("设备运行时未初始化");
-            var record = await _services.Execution.StartAsync(_actor, SelectedModel.Id, identity, _services.DeviceConfig.DeviceMode, runtime);
+            var record = await _services.Execution.StartAsync(_actor, SelectedModel.Id, identity, runtime.Mode, runtime);
             _recordId = record.Id;
             RecordStateText = record.State.ToString();
             Conclusion = string.Empty;

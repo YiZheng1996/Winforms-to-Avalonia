@@ -9,9 +9,9 @@ namespace XXX.TestBench.Core.Tests;
 
 public class DeviceWritePipelineTests
 {
-    private static readonly DevicePoint WritablePoint = new("DO_Start", DevicePointProtocol.Simulation, "sim.start", DevicePointDataType.Boolean, "", true, WriteRiskLevel.Normal, null, null, null, null);
-    private static readonly DevicePoint HighRiskPoint = new("DO_Stop", DevicePointProtocol.Simulation, "sim.stop", DevicePointDataType.Boolean, "", true, WriteRiskLevel.HighRisk, null, null, null, null);
-    private static readonly DevicePoint ReadOnlyPoint = new("AI_Pressure", DevicePointProtocol.Simulation, "sim.pressure", DevicePointDataType.Decimal, "MPa", false, WriteRiskLevel.Normal, null, null, null, null);
+    private static readonly DevicePoint WritablePoint = new("DO_Start", DevicePointProtocol.Simulation, "sim.start", DevicePointDataType.Boolean, true, WriteRiskLevel.Normal, null, null, null, null);
+    private static readonly DevicePoint HighRiskPoint = new("DO_Stop", DevicePointProtocol.Simulation, "sim.stop", DevicePointDataType.Boolean, true, WriteRiskLevel.HighRisk, null, null, null, null);
+    private static readonly DevicePoint ReadOnlyPoint = new("AI_Pressure", DevicePointProtocol.Simulation, "sim.pressure", DevicePointDataType.Decimal, false, WriteRiskLevel.Normal, null, null, null, null);
 
     private static (DeviceWritePipeline Pipeline, FakeAuditLog Audit) Create()
     {
@@ -185,6 +185,34 @@ public class DeviceWritePipelineTests
     }
 
     [Fact]
+    public async Task V2Write_ConvertsByteWithinRange()
+    {
+        var (pipeline, _) = Create();
+        var current = V2Point() with { DataType = DevicePointDataType.Byte };
+        var runtime = new IdentityRuntime(current);
+
+        await pipeline.ExecuteAsync(Cmd(
+            TestContexts.With(PermissionCode.ManualControl), current, 200m,
+            DeviceMode.Simulation, runtime));
+
+        Assert.Equal((byte)200, runtime.LastWritten);
+    }
+
+    [Fact]
+    public async Task V2Write_ConvertsDoubleValue()
+    {
+        var (pipeline, _) = Create();
+        var current = V2Point() with { DataType = DevicePointDataType.Double };
+        var runtime = new IdentityRuntime(current);
+
+        await pipeline.ExecuteAsync(Cmd(
+            TestContexts.With(PermissionCode.ManualControl), current, 3.1415926m,
+            DeviceMode.Simulation, runtime));
+
+        Assert.Equal(3.1415926d, Assert.IsType<double>(runtime.LastWritten));
+    }
+
+    [Fact]
     public async Task V2Write_CancelledAfterSend_IsUncertainAndAudited()
     {
         var (pipeline, audit) = Create();
@@ -204,7 +232,6 @@ public class DeviceWritePipelineTests
             DevicePointProtocol.Simulation,
             "sim.p2",
             DevicePointDataType.Decimal,
-            "MPa",
             true,
             WriteRiskLevel.Normal,
             null,

@@ -1,6 +1,5 @@
 {
-  "schemaVersion": 2,
-  "deviceMode": "Simulation",
+  "schemaVersion": 3,
   "pollIntervalMs": 500,
   "timeoutMs": 1000,
   "channels": [
@@ -8,11 +7,11 @@
       "id": "10000000-0000-5000-8000-000000000001",
       "code": "SIM_SHARED",
       "name": "共享仿真通道",
-      "transportKind": "Simulation",
+      "transportKind": "Tcp",
       "enabled": true,
       "timeoutMs": 1000,
       "retryCount": 0,
-      "simulation": { "instanceKey": "multi-device-demo" }
+      "tcp": { "host": "127.0.0.1", "port": 102 }
     }
   ],
   "devices": [
@@ -20,25 +19,23 @@
       "id": "20000000-0000-5000-8000-000000000001",
       "code": "PLC1",
       "name": "仿真 PLC 1",
+      "deviceMode": "Simulation",
       "channelId": "10000000-0000-5000-8000-000000000001",
-      "driverKey": "simulation",
-      "manufacturer": "示例",
-      "model": "Simulation",
+      "driverKey": "siemens-s7",
+      "model": "S7-1500",
       "pollIntervalMs": 500,
-      "staleAfterMs": 2000,
-      "enabled": true
+      "staleAfterMs": 2000
     },
     {
       "id": "20000000-0000-5000-8000-000000000002",
       "code": "PLC2",
       "name": "仿真 PLC 2",
+      "deviceMode": "Simulation",
       "channelId": "10000000-0000-5000-8000-000000000001",
-      "driverKey": "simulation",
-      "manufacturer": "示例",
-      "model": "Simulation",
+      "driverKey": "siemens-s7",
+      "model": "S7-1500",
       "pollIntervalMs": 500,
-      "staleAfterMs": 2000,
-      "enabled": true
+      "staleAfterMs": 2000
     }
   ]
 }
