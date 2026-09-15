@@ -313,15 +313,15 @@
 
                 <Border Classes="device-wizard-card" Padding="18" Margin="0,7,0,0">
                   <StackPanel Spacing="14">
-                    <Grid ColumnDefinitions="*,*" ColumnSpacing="16">
-                      <StackPanel Spacing="7" IsVisible="{Binding IsModbus}">
+                    <Grid RowDefinitions="Auto,Auto" ColumnDefinitions="*,*" ColumnSpacing="16" RowSpacing="8">
+                      <StackPanel Grid.Row="0" Grid.Column="0" Spacing="7" IsVisible="{Binding IsModbus}">
                         <TextBlock Classes="device-field-label">
                           <Run Text="Modbus 站号" /><Run Text=" *" Foreground="#DF4038" />
                         </TextBlock>
                         <TextBox Classes="device-wizard-input" Text="{Binding ModbusUnitIdText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Watermark="1-247" />
                         <TextBlock Text="允许范围：1-247" Classes="device-field-hint" />
                       </StackPanel>
-                      <Border Grid.Column="0" Grid.ColumnSpan="2" Classes="device-wizard-note" IsVisible="{Binding IsSimulation}">
+                      <Border Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2" Classes="device-wizard-note" IsVisible="{Binding IsSimulation}">
                          <TextBlock Text="当前设备为仿真模式：仍按所选驱动和设备系列校验点位，但不会连接现场设备。" Foreground="#2869B5" FontSize="11" TextWrapping="Wrap" />
                       </Border>
                     </Grid>

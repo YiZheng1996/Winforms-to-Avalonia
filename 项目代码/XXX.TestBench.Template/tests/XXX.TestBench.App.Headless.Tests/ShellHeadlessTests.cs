@@ -13,6 +13,7 @@ using XXX.TestBench.App.ViewModels;
 using XXX.TestBench.App.Views;
 using XXX.TestBench.Core.Configuration;
 using XXX.TestBench.Core.Domain.Devices;
+using XXX.TestBench.Devices.Drivers;
 using Xunit;
 
 [assembly: AvaloniaTestApplication(typeof(XXX.TestBench.App.Headless.Tests.HeadlessTestAppBuilder))]
@@ -107,6 +108,58 @@ public class ShellHeadlessTests
         Assert.Contains(
             dialog.GetVisualDescendants().OfType<TextBlock>().Select(text => text.Text?.ToString()),
             text => string.Equals(text, "确认保存", StringComparison.Ordinal));
+
+        dialog.Close();
+        Dispatcher.UIThread.RunJobs(DispatcherPriority.Background);
+    }
+
+    [AvaloniaFact]
+    public void DeviceEditorWizard_ShowsModbusStationBeforeSimulationNote()
+    {
+        var channel = new ChannelEntry
+        {
+            Id = "10000000-0000-0000-0000-000000000002",
+            Code = "CH_MODBUS",
+            Name = "Modbus TCP 通道",
+            TransportKind = ChannelTransportKind.Tcp,
+            TimeoutMs = 1000,
+            RetryCount = 0,
+            Tcp = new TcpChannelParameters { Host = "127.0.0.1", Port = 1502 }
+        };
+        var form = new DeviceEditorViewModel(
+            null,
+            [channel],
+            [new ModbusTcpDriverDescriptor()],
+            defaultCode: "DEV_MODBUS_HEADLESS",
+            defaultChannelId: channel.Id)
+        {
+            Name = "Modbus 仿真设备"
+        };
+        form.SelectedDriver = form.DriverOptions.Single(option =>
+            string.Equals(option.DriverKey, DriverKeyCatalog.ModbusTcp, StringComparison.OrdinalIgnoreCase));
+        form.ModbusUnitIdText = "1";
+        var dialog = new DeviceEditorDialogWindow { DataContext = form };
+
+        dialog.Show();
+        dialog.UpdateLayout();
+        Assert.True(form.IsSimulation);
+        Assert.True(form.MoveNext(), form.ValidationMessage);
+        dialog.UpdateLayout();
+
+        var stationLabel = dialog.GetVisualDescendants().OfType<TextBlock>()
+            .Single(text => string.Equals(text.Text?.ToString(), "Modbus 站号", StringComparison.Ordinal));
+        var simulationNote = dialog.GetVisualDescendants().OfType<Border>()
+            .Single(border => border.Classes.Contains("device-wizard-note")
+                && border.GetVisualDescendants().OfType<TextBlock>().Any(text =>
+                    text.Text?.ToString()?.Contains("当前设备为仿真模式", StringComparison.Ordinal) == true));
+
+        Assert.True(stationLabel.IsVisible);
+        Assert.True(simulationNote.IsVisible);
+        var stationBottom = stationLabel.TranslatePoint(new Point(0, stationLabel.Bounds.Height), dialog);
+        var noteTop = simulationNote.TranslatePoint(new Point(0, 0), dialog);
+        Assert.NotNull(stationBottom);
+        Assert.NotNull(noteTop);
+        Assert.True(stationBottom!.Value.Y <= noteTop!.Value.Y);
 
         dialog.Close();
         Dispatcher.UIThread.RunJobs(DispatcherPriority.Background);
