@@ -1,0 +1,105 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:pvm="using:XXX.TestBench.App.ViewModels.Process"
+        x:Class="XXX.TestBench.App.Views.ProcessPointBindingsDialogWindow"
+        x:DataType="pvm:ProcessPointBindingsDialogViewModel"
+        Title="点位绑定"
+        Width="1120"
+        Height="650"
+        MinWidth="900"
+        MinHeight="520"
+        CanResize="False"
+        WindowStartupLocation="CenterScreen"
+        SystemDecorations="None"
+        TransparencyLevelHint="Transparent"
+        Background="Transparent"
+        UseLayoutRounding="True">
+  <Window.Styles>
+    <Style Selector="Button.dialog-secondary">
+      <Setter Property="Background" Value="White" />
+      <Setter Property="Foreground" Value="#344054" />
+      <Setter Property="BorderBrush" Value="#C9D3E0" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="MinWidth" Value="96" />
+    </Style>
+    <Style Selector="Button.dialog-primary">
+      <Setter Property="Background" Value="#0868F7" />
+      <Setter Property="Foreground" Value="White" />
+      <Setter Property="BorderBrush" Value="#0868F7" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="MinWidth" Value="110" />
+    </Style>
+    <Style Selector="TextBlock.field-label">
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="Foreground" Value="#344054" />
+    </Style>
+    <Style Selector="ComboBox.field-input">
+      <Setter Property="MinHeight" Value="38" />
+      <Setter Property="Padding" Value="10,0" />
+    </Style>
+  </Window.Styles>
+
+  <Border Background="White" BorderBrush="#C9D3E0" BorderThickness="1" CornerRadius="8">
+    <Grid RowDefinitions="Auto,Auto,*,Auto">
+      <Border Grid.Row="0" Background="#F8FAFD" BorderBrush="#E4EAF2"
+              BorderThickness="0,0,0,1" CornerRadius="8,8,0,0" Padding="24,14"
+              PointerPressed="OnTitleBarPointerPressed">
+        <StackPanel Spacing="2">
+          <TextBlock Text="点位绑定" FontSize="20" FontWeight="Bold" Foreground="#151A24" />
+          <TextBlock Text="为气路工艺控件关联已声明的设备点位；页面不会创建默认值或新的执行逻辑"
+                     Foreground="#667085" FontSize="12" />
+        </StackPanel>
+      </Border>
+
+      <Border Grid.Row="1" Background="#FFF9EB" BorderBrush="#F2C94C" BorderThickness="1"
+              CornerRadius="6" Padding="14" Margin="18,14,18,10">
+        <StackPanel Spacing="4">
+          <TextBlock Text="配置状态" Classes="field-label" />
+          <TextBlock Text="{Binding CurrentRevision}" Foreground="#344054" />
+          <TextBlock Text="{Binding HintText}" Foreground="#7A5B00" TextWrapping="Wrap" />
+        </StackPanel>
+      </Border>
+
+      <Border Grid.Row="2" BorderBrush="#E2E8F0" BorderThickness="1" Margin="18,0,18,14">
+        <DataGrid Classes="parameter-grid" ItemsSource="{Binding Rows}"
+                  AutoGenerateColumns="False" IsReadOnly="False"
+                  HeadersVisibility="Column" SelectionMode="Single">
+          <DataGrid.Columns>
+            <DataGridTextColumn Header="业务信号" Binding="{Binding DisplayName}" Width="1.1*" />
+            <DataGridTextColumn Header="用途" Binding="{Binding AccessText}" Width="70" />
+            <DataGridTextColumn Header="点位要求" Binding="{Binding RequirementText}" Width="1.35*" />
+            <DataGridTemplateColumn Header="绑定点位" Width="2.15*">
+              <DataGridTemplateColumn.CellTemplate>
+                <DataTemplate x:DataType="pvm:ProcessBindingRow">
+                  <ComboBox Classes="field-input" ItemsSource="{Binding PointOptions}"
+                            SelectedItem="{Binding SelectedPoint, Mode=TwoWay}"
+                            PlaceholderText="请选择设备点位" MaxDropDownHeight="300">
+                    <ComboBox.ItemTemplate>
+                      <DataTemplate x:DataType="pvm:ProcessBindingPointChoice">
+                        <StackPanel Spacing="1">
+                          <TextBlock Text="{Binding DisplayName}" />
+                          <TextBlock Text="{Binding DetailsText}" Foreground="#667085" FontSize="11" />
+                        </StackPanel>
+                      </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                  </ComboBox>
+                </DataTemplate>
+              </DataGridTemplateColumn.CellTemplate>
+            </DataGridTemplateColumn>
+            <DataGridTextColumn Header="校验状态" Binding="{Binding StatusText}" Width="1.35*" />
+          </DataGrid.Columns>
+        </DataGrid>
+      </Border>
+
+      <Grid Grid.Row="3" ColumnDefinitions="*,Auto" ColumnSpacing="14" Margin="18,0,18,20">
+        <TextBlock Text="{Binding ValidationMessage}" Foreground="#D92D20" FontSize="13"
+                   TextWrapping="Wrap" VerticalAlignment="Center" />
+        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="10">
+          <Button Classes="dialog-secondary" Content="取消" Click="OnCancelClick" />
+          <Button Classes="dialog-primary" Content="保存并应用"
+                  IsEnabled="{Binding CanSave}" Click="OnSaveClick" />
+        </StackPanel>
+      </Grid>
+    </Grid>
+  </Border>
+</Window>

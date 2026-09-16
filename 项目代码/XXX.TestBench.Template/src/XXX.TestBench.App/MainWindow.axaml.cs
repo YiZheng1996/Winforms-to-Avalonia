@@ -24,10 +24,13 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
         UpdateClock();
+        SizeChanged += (_, _) => UpdateProcessProductInfoLayout();
+        DataContextChanged += (_, _) => UpdateProcessProductInfoLayout();
         _clockTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
         _clockTimer.Tick += (_, _) => UpdateClock();
         _clockTimer.Start();
         Closed += (_, _) => _clockTimer.Stop();
+        UpdateProcessProductInfoLayout();
     }
 
     /// <summary>
@@ -88,6 +91,13 @@ public partial class MainWindow : Window
 
         try
         {
+            var beforeOpen = await shell.CheckProductModelChangeAllowedAsync();
+            if (!beforeOpen.Succeeded)
+            {
+                await ShowFeedbackAsync(beforeOpen);
+                return;
+            }
+
             var options = await shell.LoadProductModelOptionsAsync();
             var dialog = new ProductModelSelectionWindow
             {
@@ -95,12 +105,41 @@ public partial class MainWindow : Window
             };
             var selected = await ShowDialogWithOverlayAsync<ProductModelSelectionOption>(dialog);
             if (selected is not null)
-                shell.SelectProductModel(selected);
+            {
+                var result = await shell.TrySelectProductModelAsync(selected);
+                if (!result.Succeeded)
+                    await ShowFeedbackAsync(result);
+            }
         }
         catch (Exception ex)
         {
+            await ShowFeedbackAsync(OperationFeedback.Failure("产品型号选择未完成，请查看日志"));
             System.Diagnostics.Debug.WriteLine($"产品型号选择失败：{ex}");
         }
+    }
+
+    private void UpdateProcessProductInfoLayout()
+    {
+        if (ProcessProductInfoWide is null || ProcessProductInfoCompact is null)
+            return;
+        var width = WorkspaceRegion?.Bounds.Width ?? Bounds.Width;
+        var compact = width > 0 && width < 1180;
+        var isProcessPage = (DataContext as ShellViewModel)?.IsProcessMonitorPage == true;
+        ProcessProductInfoWide.IsVisible = isProcessPage && !compact;
+        ProcessProductInfoCompact.IsVisible = isProcessPage && compact;
+        ProductInfoBar.MinHeight = isProcessPage && compact ? 104 : 70;
+    }
+
+    private async Task ShowFeedbackAsync(OperationFeedback feedback)
+    {
+        var dialog = new NoticeDialogWindow
+        {
+            DataContext = new NoticeDialogViewModel(
+                feedback.Succeeded ? "操作成功" : "操作失败",
+                feedback.Message,
+                !feedback.Succeeded)
+        };
+        await ShowDialogWithOverlayAsync<object?>(dialog);
     }
 
     /// <summary>

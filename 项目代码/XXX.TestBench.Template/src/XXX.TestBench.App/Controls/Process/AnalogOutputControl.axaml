@@ -1,0 +1,38 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:process="using:XXX.TestBench.App.Controls.Process"
+             xmlns:vm="using:XXX.TestBench.App.ViewModels.Process"
+             x:Class="XXX.TestBench.App.Controls.Process.AnalogOutputControl"
+             x:DataType="vm:AnalogOutputPointViewModel">
+  <Border Background="White" BorderBrush="#D6DEEA" BorderThickness="1" CornerRadius="8" Padding="14">
+    <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto" RowSpacing="7">
+      <Grid ColumnDefinitions="*,Auto">
+        <TextBlock Text="{Binding DisplayName}" FontSize="17" FontWeight="SemiBold" Foreground="#151A24" />
+        <process:PointStatusBadge Grid.Column="1" Text="{Binding StatusText}" State="{Binding State}" />
+      </Grid>
+      <Grid Grid.Row="1" ColumnDefinitions="*,Auto" ColumnSpacing="8">
+        <StackPanel Spacing="2">
+          <TextBlock Text="目标值" FontSize="12" Foreground="#667085" />
+          <TextBox Text="{Binding TargetText, Mode=TwoWay}" Watermark="输入 MPa" MinHeight="36"
+                   AutomationProperties.Name="调压目标" />
+        </StackPanel>
+        <StackPanel Grid.Column="1" Spacing="2" VerticalAlignment="Bottom">
+          <TextBlock Text="MPa" FontSize="13" Foreground="#667085" />
+          <TextBlock Text="{Binding RangeText}" FontSize="11" Foreground="#667085" />
+        </StackPanel>
+      </Grid>
+      <TextBlock Grid.Row="2" Text="{Binding ValidationMessage}" Foreground="#D92D20"
+                 FontSize="11" TextWrapping="Wrap" />
+      <Grid Grid.Row="3" ColumnDefinitions="*,Auto" ColumnSpacing="8">
+        <StackPanel Spacing="2">
+          <TextBlock Text="设定回读" FontSize="12" Foreground="#667085" />
+          <TextBlock Text="{Binding ReadbackText}" FontSize="20" FontWeight="SemiBold" />
+        </StackPanel>
+        <Button Grid.Column="1" Content="应用目标" Command="{Binding ApplyCommand}" MinWidth="92" MinHeight="38"
+                AutomationProperties.Name="应用调压目标" />
+      </Grid>
+      <TextBlock Grid.Row="4" Text="{Binding WriteStateText}" FontSize="12" Foreground="#D97706"
+                 TextTrimming="CharacterEllipsis" />
+    </Grid>
+  </Border>
+</UserControl>

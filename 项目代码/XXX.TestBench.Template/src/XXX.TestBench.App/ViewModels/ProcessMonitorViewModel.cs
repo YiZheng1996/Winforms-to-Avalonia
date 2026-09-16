@@ -5,6 +5,7 @@ using XXX.TestBench.App.Composition;
 using XXX.TestBench.Core.Application;
 using XXX.TestBench.Core.Domain.Devices;
 using XXX.TestBench.Core.Domain.Identity;
+using XXX.TestBench.Core.Ports;
 
 namespace XXX.TestBench.App.ViewModels;
 
@@ -34,17 +35,20 @@ public sealed partial class PointRow : ObservableObject
 }
 
 /// <summary>
-/// 工艺监控页面：仿真点位只读实时值，以及走安全链的受控手动写入。
+/// 工艺监控页面的兼容外壳。具体刷新、绑定和写入职责分拆在同名 partial 文件中。
 /// </summary>
 public sealed partial class ProcessMonitorViewModel : PageViewModel
 {
     private readonly ShellServices _services;
     private readonly UserContext _actor;
+    private readonly IProcessSnapshotReader _snapshotReader;
 
     public ProcessMonitorViewModel(ShellServices services, UserContext actor)
     {
         _services = services;
         _actor = actor;
+        _snapshotReader = new ProcessSnapshotReader();
+        BuildProcessPointModels();
     }
 
     public override string Title => "工艺监控";
@@ -85,91 +89,4 @@ public sealed partial class ProcessMonitorViewModel : PageViewModel
     /// </summary>
     [ObservableProperty]
     private bool _riskConfirmed;
-
-    /// <summary>
-    /// 页面加载命令：读取点位列表并刷新一次实时值。
-    /// </summary>
-    [RelayCommand]
-    public override async Task LoadAsync(CancellationToken ct = default)
-    {
-        IsBusy = true;
-        try
-        {
-            Points.Clear();
-            var runtime = _services.DeviceModes.Runtime;
-            if (runtime is null) { StatusMessage = "设备运行时未初始化"; return; }
-            var points = await runtime.ListPointsAsync(ct);
-            foreach (var p in points)
-                Points.Add(new PointRow
-                {
-                    Code = p.Code,
-                    Address = p.Address,
-                    PointId = p.PointId,
-                    DeviceId = p.DeviceId,
-                    IsWritable = p.IsWritable,
-                    RiskLevel = p.RiskLevel
-                });
-            await RefreshAsync();
-        }
-        finally { IsBusy = false; }
-    }
-
-    /// <summary>
-    /// 刷新命令：只读取运行时缓存，不直接访问设备。
-    /// </summary>
-    [RelayCommand]
-    public Task RefreshAsync()
-    {
-        var runtime = _services.DeviceModes.Runtime;
-        if (runtime is null) return Task.CompletedTask;
-        foreach (var row in Points)
-        {
-            if (runtime.TryGetCachedValue(row.PointId, out var value))
-            {
-                row.Value = value.Value?.ToString() ?? string.Empty;
-                row.Quality = value.Quality switch
-                {
-                    PointQuality.Good => "正常",
-                    PointQuality.Stale => "陈旧",
-                    PointQuality.Bad => "无效",
-                    _ => "未读取"
-                };
-            }
-            else
-            {
-                row.Value = string.Empty;
-                row.Quality = "未读取";
-            }
-        }
-        return Task.CompletedTask;
-    }
-
-    /// <summary>
-    /// 写入命令：把输入值写入当前选中的点位。
-    /// </summary>
-    [RelayCommand(CanExecute = nameof(CanWrite))]
-    public async Task WriteAsync() => await WriteSelectedPointAsync(SelectedPoint);
-
-    private bool CanWrite() => CanWriteSelectedPoint;
-
-    private async Task WriteSelectedPointAsync(PointRow? row)
-    {
-        StatusMessage = string.Empty;
-        try
-        {
-            if (row is null || !row.IsWritable) throw new Core.Common.DomainException("请选择可写点位");
-            var runtime = _services.DeviceModes.Runtime ?? throw new Core.Common.DomainException("设备运行时未初始化");
-            var point = (await runtime.ListPointsAsync()).FirstOrDefault(p =>
-                !string.IsNullOrWhiteSpace(row.PointId)
-                    ? string.Equals(p.PointId, row.PointId, StringComparison.OrdinalIgnoreCase)
-                    : p.Code == row.Code) ?? throw new Core.Common.DomainException("点位不存在");
-            object? value = bool.TryParse(WriteValue, out var b) ? b : (decimal.TryParse(WriteValue, out var d) ? d : WriteValue);
-            var activeRun = await _services.RecordRepository.GetActiveRunningRecordAsync() is not null;
-            await _services.WritePipeline.ExecuteAsync(new WriteCommand(_actor, point, value, runtime.Mode, runtime, activeRun, RiskConfirmed,
-                ExpectedRevision: runtime.ActiveRevision));
-            StatusMessage = $"已写入 {row.Code}={value}";
-            await RefreshAsync();
-        }
-        catch (Exception ex) { StatusMessage = ex.Message; }
-    }
 }

@@ -1,0 +1,123 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:process="using:XXX.TestBench.App.Controls.Process"
+             xmlns:vm="using:XXX.TestBench.App.ViewModels.Process"
+             x:Class="XXX.TestBench.App.Controls.Process.PneumaticDiagramControl"
+             x:DataType="vm:ProcessDiagramViewModel"
+             MinHeight="390">
+  <Border Background="White" BorderBrush="#D6DEEA" BorderThickness="1" CornerRadius="8" Padding="12">
+    <Grid RowDefinitions="Auto,*" RowSpacing="6">
+      <Grid ColumnDefinitions="*,Auto">
+        <StackPanel Orientation="Horizontal" Spacing="12">
+          <TextBlock Text="气路工艺图" FontSize="18" FontWeight="SemiBold" Foreground="#151A24" />
+          <TextBlock Text="示例气路" FontSize="13" Foreground="#667085" VerticalAlignment="Center" />
+        </StackPanel>
+        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="12">
+          <TextBlock Text="绿色：有压" Foreground="#18A654" FontSize="12" />
+          <TextBlock Text="灰色：无压/未知" Foreground="#667085" FontSize="12" />
+          <TextBlock Text="阀门绿色仅代表有效反馈打开" Foreground="#667085" FontSize="12" />
+        </StackPanel>
+      </Grid>
+
+      <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
+        <Viewbox Width="1360" Height="440" Stretch="Uniform">
+          <Canvas Width="1360" Height="440" Background="#FBFCFE">
+            <process:PneumaticPipeControl Width="1360" Height="440"
+              StartPoint="40,190" EndPoint="265,190" PressureState="{Binding SupplyPipeState}" />
+            <process:PneumaticPipeControl Width="1360" Height="440"
+              StartPoint="265,190" EndPoint="465,190" PressureState="{Binding SupplyPipeState}" />
+            <process:PneumaticPipeControl Width="1360" Height="440"
+              StartPoint="465,190" EndPoint="850,190" PressureState="{Binding MainPipeState}" />
+            <process:PneumaticPipeControl Width="1360" Height="440"
+              StartPoint="850,190" EndPoint="1190,190" PressureState="{Binding DutPipeState}" />
+            <process:PneumaticPipeControl Width="1360" Height="440"
+              StartPoint="970,190" EndPoint="970,310" PressureState="{Binding DutPipeState}" />
+            <process:PneumaticPipeControl Width="1360" Height="440"
+              StartPoint="970,310" EndPoint="1135,395" PressureState="{Binding ExhaustPipeState}" IsDashed="True" />
+
+            <Border Canvas.Left="20" Canvas.Top="155" Width="80" Height="70" Background="White"
+                    BorderBrush="#98A2B3" BorderThickness="2" CornerRadius="5">
+              <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="2">
+                <TextBlock Text="气源" FontSize="16" FontWeight="SemiBold" HorizontalAlignment="Center" />
+                <TextBlock Text="{Binding SupplyPressure.ValueText}" FontSize="12" HorizontalAlignment="Center" />
+              </StackPanel>
+            </Border>
+            <Border Canvas.Left="235" Canvas.Top="155" Width="60" Height="70" Background="White"
+                    BorderBrush="#98A2B3" BorderThickness="2" CornerRadius="5">
+              <TextBlock Text="过滤器" HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="14" />
+            </Border>
+            <Border Canvas.Left="410" Canvas.Top="145" Width="110" Height="90" Background="White"
+                    BorderBrush="#0868F7" BorderThickness="2" CornerRadius="5">
+              <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="3">
+                <TextBlock Text="比例调压阀" FontSize="14" FontWeight="SemiBold" />
+                <TextBlock Text="{Binding MainPressure.ValueText}" FontSize="12" />
+              </StackPanel>
+            </Border>
+            <Border Canvas.Left="1135" Canvas.Top="150" Width="110" Height="80" Background="White"
+                    BorderBrush="#0868F7" BorderThickness="2" CornerRadius="5">
+              <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="3">
+                <TextBlock Text="被试件" FontSize="16" FontWeight="SemiBold" />
+                <TextBlock Text="{Binding DutPressure.ValueText}" FontSize="13" />
+              </StackPanel>
+            </Border>
+
+            <process:PneumaticValveSymbol Canvas.Left="790" Canvas.Top="155" Width="120" Height="70"
+              Feedback="{Binding InletFeedback.IsActive}" State="{Binding InletFeedback.State}" Label="进气阀" />
+            <TextBlock Canvas.Left="817" Canvas.Top="225" Text="进气阀" FontSize="13" />
+            <process:PneumaticValveSymbol Canvas.Left="910" Canvas.Top="275" Width="120" Height="70"
+              Feedback="{Binding ExhaustFeedback.IsActive}" State="{Binding ExhaustFeedback.State}" Label="排气阀" />
+            <TextBlock Canvas.Left="937" Canvas.Top="345" Text="排气阀" FontSize="13" />
+            <Border Canvas.Left="1080" Canvas.Top="365" Width="110" Height="55" Background="White"
+                    BorderBrush="#98A2B3" BorderThickness="2" CornerRadius="5">
+              <TextBlock Text="消音器" HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="14" />
+            </Border>
+
+            <Border Canvas.Left="100" Canvas.Top="250" Width="250" Height="120" Background="#FAFCFF"
+                    BorderBrush="#98A2B3" BorderThickness="2" CornerRadius="6">
+              <StackPanel Margin="12" Spacing="6">
+                <TextBlock Text="安全门 / 夹紧" FontSize="15" FontWeight="SemiBold" />
+                <TextBlock Text="{Binding SafetyDoor.ActiveText}" FontSize="13" />
+                <TextBlock Text="{Binding ClampReady.ActiveText}" FontSize="13" />
+              </StackPanel>
+            </Border>
+
+            <Border Canvas.Left="110" Canvas.Top="90" Width="105" Height="48" Background="White"
+                    BorderBrush="#D6DEEA" BorderThickness="1" CornerRadius="5">
+              <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                <TextBlock Text="气源压力" FontSize="11" />
+                <TextBlock Text="{Binding SupplyPressure.ValueText}" FontSize="16" FontWeight="SemiBold" />
+              </StackPanel>
+            </Border>
+            <Border Canvas.Left="630" Canvas.Top="90" Width="105" Height="48" Background="White"
+                    BorderBrush="#D6DEEA" BorderThickness="1" CornerRadius="5">
+              <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                <TextBlock Text="主管压力" FontSize="11" />
+                <TextBlock Text="{Binding MainPressure.ValueText}" FontSize="16" FontWeight="SemiBold" />
+              </StackPanel>
+            </Border>
+            <Border Canvas.Left="1140" Canvas.Top="90" Width="105" Height="48" Background="White"
+                    BorderBrush="#D6DEEA" BorderThickness="1" CornerRadius="5">
+              <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                <TextBlock Text="被试件压力" FontSize="11" />
+                <TextBlock Text="{Binding DutPressure.ValueText}" FontSize="16" FontWeight="SemiBold" />
+              </StackPanel>
+            </Border>
+
+            <StackPanel Canvas.Left="760" Canvas.Top="232" Orientation="Horizontal" Spacing="4">
+              <Button Content="开" Command="{Binding InletValve.OpenCommand}" MinWidth="40" MinHeight="36"
+                      AutomationProperties.Name="气路图打开进气阀" />
+              <Button Content="关" Command="{Binding InletValve.CloseCommand}" MinWidth="40" MinHeight="36"
+                      AutomationProperties.Name="气路图关闭进气阀" />
+            </StackPanel>
+            <StackPanel Canvas.Left="880" Canvas.Top="352" Orientation="Horizontal" Spacing="4">
+              <Button Content="开" Command="{Binding ExhaustValve.OpenCommand}" MinWidth="40" MinHeight="36"
+                      AutomationProperties.Name="气路图打开排气阀" />
+              <Button Content="关" Command="{Binding ExhaustValve.CloseCommand}" MinWidth="40" MinHeight="36"
+                      AutomationProperties.Name="气路图关闭排气阀" />
+            </StackPanel>
+          </Canvas>
+        </Viewbox>
+      </ScrollViewer>
+    </Grid>
+  </Border>
+</UserControl>

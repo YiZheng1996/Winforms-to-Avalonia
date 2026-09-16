@@ -1,0 +1,24 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:process="using:XXX.TestBench.App.Controls.Process"
+             xmlns:vm="using:XXX.TestBench.App.ViewModels.Process"
+             x:Class="XXX.TestBench.App.Controls.Process.DigitalInputControl"
+             x:DataType="vm:DigitalInputPointViewModel">
+  <Border Background="White" BorderBrush="#D6DEEA" BorderThickness="1" CornerRadius="8" Padding="14">
+    <Grid RowDefinitions="Auto,*,Auto" RowSpacing="8">
+      <Grid ColumnDefinitions="*,Auto">
+        <TextBlock Text="{Binding DisplayName}" FontSize="17" FontWeight="SemiBold" Foreground="#151A24" />
+        <process:PointStatusBadge Grid.Column="1" Text="{Binding StatusText}" State="{Binding State}" />
+      </Grid>
+      <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
+        <Ellipse Width="18" Height="18" Fill="#98A2B3" />
+        <StackPanel Spacing="2">
+          <TextBlock Text="{Binding ActiveText}" FontSize="24" FontWeight="SemiBold" Foreground="#151A24" />
+          <TextBlock Text="{Binding DeviceName}" FontSize="12" Foreground="#667085" TextTrimming="CharacterEllipsis" />
+        </StackPanel>
+      </StackPanel>
+      <TextBlock Grid.Row="2" Text="{Binding PointText}" FontSize="12" Foreground="#98A2B3"
+                 TextTrimming="CharacterEllipsis" />
+    </Grid>
+  </Border>
+</UserControl>

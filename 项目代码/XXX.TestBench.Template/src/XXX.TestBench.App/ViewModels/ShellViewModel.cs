@@ -217,7 +217,11 @@ public sealed partial class ShellViewModel : ObservableObject
         private set
         {
             if (SetProperty(ref _currentPage, value))
+            {
                 OnPropertyChanged(nameof(IsOverviewPage));
+                OnPropertyChanged(nameof(IsProcessMonitorPage));
+                OnPropertyChanged(nameof(ShowProductInfoBar));
+            }
         }
     }
 
@@ -225,6 +229,16 @@ public sealed partial class ShellViewModel : ObservableObject
     /// 当前是否为运行总览页面。
     /// </summary>
     public bool IsOverviewPage => CurrentPage is OverviewViewModel;
+
+    /// <summary>
+    /// 当前是否为工艺监控页面；页面级产品上下文不改变总览页判定。
+    /// </summary>
+    public bool IsProcessMonitorPage => CurrentPage is ProcessMonitorViewModel;
+
+    /// <summary>
+    /// 产品上下文栏只在总览和工艺监控页显示，底部控制条仍只属于总览页。
+    /// </summary>
+    public bool ShowProductInfoBar => IsOverviewPage || IsProcessMonitorPage;
 
     /// <summary>
     /// 当前登录用户，未登录时为空。
@@ -311,6 +325,34 @@ public sealed partial class ShellViewModel : ObservableObject
     /// </summary>
     public void SelectProductModel(ProductModelSelectionOption option)
         => SelectedProductModel = option;
+
+    /// <summary>
+    /// 产品选择弹窗打开前的活动试验保护。
+    /// </summary>
+    public async Task<OperationFeedback> CheckProductModelChangeAllowedAsync(
+        CancellationToken ct = default)
+    {
+        if (_services is null)
+            return OperationFeedback.Failure("系统处于故障状态，不能更换产品型号");
+        if (await _services.RecordRepository.GetActiveRunningRecordAsync(ct) is not null)
+            return OperationFeedback.Failure("活动试验期间不能更换产品型号");
+        return OperationFeedback.Success(string.Empty);
+    }
+
+    /// <summary>
+    /// 产品选择应用前再次执行活动试验保护，选择仅更新产品上下文，不改变工艺绑定和量程。
+    /// </summary>
+    public async Task<OperationFeedback> TrySelectProductModelAsync(
+        ProductModelSelectionOption option,
+        CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(option);
+        var allowed = await CheckProductModelChangeAllowedAsync(ct);
+        if (!allowed.Succeeded)
+            return allowed;
+        SelectedProductModel = option;
+        return OperationFeedback.Success("产品型号已更新");
+    }
 
     /// <summary>
     /// 登录命令：账号与密码均非空时才可执行。

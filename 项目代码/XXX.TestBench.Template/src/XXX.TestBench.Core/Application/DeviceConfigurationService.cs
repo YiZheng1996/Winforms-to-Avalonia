@@ -246,6 +246,64 @@ public sealed class DeviceConfigurationService
     }
 
     /// <summary>
+    /// 只修改调用方明确管理的 SignalKey。缺省键保持不变，空值删除绑定；
+    /// expectedRevision 在配置应用锁内比较，避免检查通过后被另一份配置覆盖。
+    /// </summary>
+    public async Task<DeviceConfigurationApplyResult> ApplySignalBindingPatchAsync(
+        UserContext actor,
+        IReadOnlyDictionary<string, string?> patch,
+        string expectedRevision,
+        CancellationToken ct = default,
+        bool s7OptimizedBlockAccessConfirmed = false)
+    {
+        ArgumentNullException.ThrowIfNull(patch);
+        Ensure(actor, PermissionCode.ManageDevices);
+
+        await using var lease = await _operations.EnterConfigurationAsync(ct);
+        var current = await _store.LoadActiveAsync(ct);
+        if (!string.Equals(current.Revision, expectedRevision?.Trim(), StringComparison.Ordinal))
+            return new DeviceConfigurationApplyResult(
+                false,
+                current.Revision,
+                "配置已更新，请重新加载");
+
+        var mergedBindings = new Dictionary<string, string>(
+            current.SignalBindings?.Bindings ?? new Dictionary<string, string>(),
+            StringComparer.OrdinalIgnoreCase);
+        foreach (var entry in patch)
+        {
+            var key = entry.Key?.Trim() ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(key))
+                continue;
+
+            if (string.IsNullOrWhiteSpace(entry.Value))
+                mergedBindings.Remove(key);
+            else
+                mergedBindings[key] = entry.Value.Trim();
+        }
+
+        var candidate = new DeviceConfigurationSnapshot
+        {
+            Revision = "bindings-patch-" + Guid.NewGuid().ToString("N"),
+            Device = current.Device,
+            Points = current.Points,
+            Simulation = current.Simulation,
+            SignalBindings = new SignalBindingsConfig
+            {
+                SchemaVersion = current.SignalBindings?.SchemaVersion
+                    ?? SignalBindingsConfig.CurrentSchemaVersion,
+                Bindings = mergedBindings
+            }
+        };
+        return await ApplyCoreWithLeaseAsync(
+            actor,
+            candidate,
+            current,
+            s7OptimizedBlockAccessConfirmed,
+            ct);
+    }
+
+    /// <summary>
     /// 将候选快照作为一个版本写入并切换生效指针；没有运行时切换委托时只执行存储应用。
     /// </summary>
     public async Task<DeviceConfigurationApplyResult> ApplyAsync(
@@ -278,6 +336,24 @@ public sealed class DeviceConfigurationService
     }
 
     private async Task<DeviceConfigurationApplyResult> ApplyCoreAsync(
+        UserContext actor,
+        DeviceConfigurationSnapshot snapshot,
+        DeviceConfigurationSnapshot? previousSnapshot,
+        bool s7OptimizedBlockAccessConfirmed,
+        CancellationToken ct = default,
+        DeviceConfigurationApplyOptions? applyOptions = null)
+    {
+        await using var lease = await _operations.EnterConfigurationAsync(ct);
+        return await ApplyCoreWithLeaseAsync(
+            actor,
+            snapshot,
+            previousSnapshot,
+            s7OptimizedBlockAccessConfirmed,
+            ct,
+            applyOptions);
+    }
+
+    private async Task<DeviceConfigurationApplyResult> ApplyCoreWithLeaseAsync(
         UserContext actor,
         DeviceConfigurationSnapshot snapshot,
         DeviceConfigurationSnapshot? previousSnapshot,
@@ -320,7 +396,6 @@ public sealed class DeviceConfigurationService
                 S7OptimizedBlockAccessNotice: optimizedBlockAccessNotice);
         }
 
-        await using var lease = await _operations.EnterConfigurationAsync(ct);
         if (_runtimeFactory is not null && _publishRuntime is null)
             return new DeviceConfigurationApplyResult(false, snapshot.Revision, "设备运行时切换未配置发布回调，不能应用");
 

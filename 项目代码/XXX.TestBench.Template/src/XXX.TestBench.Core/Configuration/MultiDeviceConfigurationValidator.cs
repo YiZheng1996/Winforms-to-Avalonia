@@ -235,8 +235,7 @@ public static class MultiDeviceConfigurationValidator
         IEnumerable<RequiredSignal>? requiredSignals,
         ICollection<ConfigurationIssue> issues)
     {
-        if (requiredSignals is null) return;
-        var requirements = requiredSignals
+        var requirements = (requiredSignals ?? Array.Empty<RequiredSignal>())
             .Where(requirement => requirement is not null && !string.IsNullOrWhiteSpace(requirement.SignalKey))
             .GroupBy(requirement => requirement.SignalKey.Trim(), StringComparer.OrdinalIgnoreCase)
             .ToDictionary(group => group.Key, group => group.First(), StringComparer.OrdinalIgnoreCase);
@@ -249,15 +248,38 @@ public static class MultiDeviceConfigurationValidator
         {
             var signalKey = binding.Key?.Trim() ?? string.Empty;
             var pointId = binding.Value?.Trim() ?? string.Empty;
-            if (!requirements.TryGetValue(signalKey, out var requirement))
+            var isProcessSignal = ProcessSignalCatalog.TryGet(signalKey, out var processSignal);
+            if (!isProcessSignal)
             {
-                issues.Add(new($"signal-bindings.{binding.Key}", "绑定键未被任何已注册执行器声明"));
+                if (!requirements.TryGetValue(signalKey, out var requirement))
+                {
+                    // 没有传入执行器目录时保留旧配置兼容性；配置应用服务会传入完整目录，
+                    // 在该边界上拒绝所有既不是执行器、也不是工艺目录的未知键。
+                    if (requiredSignals is not null)
+                        issues.Add(new($"signal-bindings.{binding.Key}", "绑定键未被任何已注册执行器或工艺页面声明"));
+                    continue;
+                }
+
+                if (!points.TryGetValue(pointId, out var executorPoint))
+                    continue;
+                if (!IsTypeCompatible(requirement.ExpectedDataType, executorPoint.RawDataTypeKind))
+                    issues.Add(new($"signal-bindings.{binding.Key}", $"类型不匹配：期望 {DevicePointTypeCatalog.ToDisplayName(requirement.ExpectedDataType)}，实际 {DevicePointTypeCatalog.ToDisplayName(executorPoint.RawDataTypeKind)}"));
+                if (requirement.MaxSampleAge <= TimeSpan.Zero)
+                    issues.Add(new($"signal-bindings.{binding.Key}", "最大样本年龄必须大于 0"));
                 continue;
             }
             if (!points.TryGetValue(pointId, out var point)) continue;
-            if (!IsTypeCompatible(requirement.ExpectedDataType, point.RawDataTypeKind))
-                issues.Add(new($"signal-bindings.{binding.Key}", $"类型不匹配：期望 {DevicePointTypeCatalog.ToDisplayName(requirement.ExpectedDataType)}，实际 {DevicePointTypeCatalog.ToDisplayName(point.RawDataTypeKind)}"));
-            if (requirement.MaxSampleAge <= TimeSpan.Zero)
+            if (!processSignal.AcceptedDataTypes.Contains(point.RawDataTypeKind))
+                issues.Add(new(
+                    $"signal-bindings.{binding.Key}",
+                    $"类型不匹配：期望 {string.Join("/", processSignal.AcceptedDataTypes.Select(type => DevicePointTypeCatalog.ToDisplayName(type))) }，实际 {DevicePointTypeCatalog.ToDisplayName(point.RawDataTypeKind)}"));
+            if (processSignal.IsWritable && !point.IsWritable)
+                issues.Add(new($"signal-bindings.{binding.Key}", "该工艺信号要求绑定可写点位"));
+            if (processSignal.RequiresEngineeringRange
+                && (!point.EffectiveEngMin.HasValue || !point.EffectiveEngMax.HasValue
+                    || point.EffectiveEngMin > point.EffectiveEngMax))
+                issues.Add(new($"signal-bindings.{binding.Key}", "调压目标必须配置可靠的工程量程"));
+            if (processSignal.MaxSampleAge <= TimeSpan.Zero)
                 issues.Add(new($"signal-bindings.{binding.Key}", "最大样本年龄必须大于 0"));
         }
     }
