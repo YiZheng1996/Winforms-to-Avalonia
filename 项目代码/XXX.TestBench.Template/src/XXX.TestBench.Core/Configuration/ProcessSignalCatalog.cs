@@ -80,18 +80,18 @@ public static class ProcessSignalCatalog
 
     public static IReadOnlyList<ProcessSignalDefinition> All { get; } = new[]
     {
-        ReadBool(SafetyDoor, "安全门反馈"),
-        ReadBool(ClampReady, "夹紧到位反馈"),
+        ReadBool(SafetyDoor, "安全门"),
+        ReadBool(ClampReady, "夹紧到位"),
         ReadPressure(SupplyPressure, "气源压力"),
         ReadPressure(MainPressure, "主管压力"),
         ReadPressure(DutPressure, "被试件压力"),
-        WriteBool(InletCommand, "进气阀命令"),
+        WriteBool(InletCommand, "进气阀"),
         ReadBool(InletFeedback, "进气阀反馈"),
-        WriteBool(ExhaustCommand, "排气阀命令"),
+        WriteBool(ExhaustCommand, "排气阀"),
         ReadBool(ExhaustFeedback, "排气阀反馈"),
         new ProcessSignalDefinition(
             PressureSetpoint,
-            "调压目标",
+            "调压设定",
             SignalAccessKind.Write,
             NumericTypes,
             "MPa",

@@ -33,6 +33,7 @@ public abstract class ProcessPointViewModel : ObservableObject
     private DateTime? _timestampUtc;
     private DevicePoint? _point;
     private DateTime? _lastAcceptedTimestampUtc;
+    private bool _isDemoData;
 
     protected ProcessPointViewModel(ProcessSignalDefinition definition)
     {
@@ -90,6 +91,27 @@ public abstract class ProcessPointViewModel : ObservableObject
 
     public bool IsValid => State == ProcessDataState.Good;
 
+    /// <summary>
+    /// 演示数据只用于明确开启后的视觉预览，不改变真实状态、点位绑定或输出安全判断。
+    /// </summary>
+    public bool IsDemoData
+    {
+        get => _isDemoData;
+        private set
+        {
+            if (!SetProperty(ref _isDemoData, value))
+                return;
+            OnPropertyChanged(nameof(DisplayedState));
+            OnPropertyChanged(nameof(DisplayStatusText));
+            OnPropertyChanged(nameof(DisplayPointText));
+            OnDemoModeChanged(value);
+        }
+    }
+
+    public ProcessDataState DisplayedState => IsDemoData ? ProcessDataState.Good : State;
+
+    public string DisplayStatusText => IsDemoData ? "正常" : StatusText;
+
     public string StatusBrushKey => State switch
     {
         ProcessDataState.Good => "Good",
@@ -111,6 +133,8 @@ public abstract class ProcessPointViewModel : ObservableObject
             return string.IsNullOrWhiteSpace(pointCode) ? PointId : pointCode;
         }
     }
+
+    public string DisplayPointText => IsDemoData ? "演示数据" : PointText;
     public string SourceText => IsBound ? DeviceName : "未绑定";
 
     public DevicePoint? Point => _point;
@@ -129,6 +153,13 @@ public abstract class ProcessPointViewModel : ObservableObject
             ? ProcessDataState.Unbound
             : point is null ? ProcessDataState.InvalidBinding : ProcessDataState.Waiting,
             null);
+    }
+
+    public void SetDemoData(bool enabled)
+        => IsDemoData = enabled;
+
+    protected virtual void OnDemoModeChanged(bool enabled)
+    {
     }
 
     public virtual void ApplySample(ProcessSample sample)
@@ -194,12 +225,13 @@ public abstract class ProcessPointViewModel : ObservableObject
 public sealed class DigitalInputPointViewModel : ProcessPointViewModel
 {
     private bool? _isActive;
+    private bool? _demoIsActive;
 
     public DigitalInputPointViewModel(ProcessSignalDefinition definition)
         : base(definition)
     {
-        TrueText = definition.SignalKey == ProcessSignalCatalog.SafetyDoor ? "安全" : "已到位";
-        FalseText = definition.SignalKey == ProcessSignalCatalog.SafetyDoor ? "未确认" : "未到位";
+        TrueText = definition.SignalKey == ProcessSignalCatalog.SafetyDoor ? "已闭合" : "已到位";
+        FalseText = definition.SignalKey == ProcessSignalCatalog.SafetyDoor ? "未闭合" : "未到位";
     }
 
     public string TrueText { get; }
@@ -223,6 +255,14 @@ public sealed class DigitalInputPointViewModel : ProcessPointViewModel
         : IsActive.Value ? TrueText : FalseText;
 
     public bool IsActiveGood => State == ProcessDataState.Good && IsActive == true;
+
+    public bool? DisplayIsActive => IsDemoData ? _demoIsActive : IsActive;
+
+    public string DisplayActiveText => IsDemoData
+        ? (DisplayIsActive == true ? TrueText : FalseText)
+        : ActiveText;
+
+    public bool IsDisplayedActiveGood => IsDemoData || IsActiveGood;
 
     public override void ApplyBinding(DevicePoint? point, string? deviceName, bool isSimulation)
     {
@@ -264,10 +304,20 @@ public sealed class DigitalInputPointViewModel : ProcessPointViewModel
         result = false;
         return false;
     }
+
+    protected override void OnDemoModeChanged(bool enabled)
+    {
+        _demoIsActive = Definition.SignalKey is ProcessSignalCatalog.SafetyDoor
+            or ProcessSignalCatalog.ClampReady;
+        OnPropertyChanged(nameof(DisplayIsActive));
+        OnPropertyChanged(nameof(DisplayActiveText));
+        OnPropertyChanged(nameof(IsDisplayedActiveGood));
+    }
 }
 
 public sealed class DigitalOutputPointViewModel : ProcessPointViewModel
 {
+    private static readonly ICommand DemoCommand = new RelayCommand(() => { });
     private DigitalInputPointViewModel? _feedbackSource;
     private ProcessWriteState _writeState;
     private string _writeStatusText = "待操作";
@@ -306,6 +356,16 @@ public sealed class DigitalOutputPointViewModel : ProcessPointViewModel
 
     public bool IsFeedbackGood
         => FeedbackSource is { State: ProcessDataState.Good, IsActive: not null };
+
+    public string DisplayFeedbackText => IsDemoData
+        ? (Definition.SignalKey == ProcessSignalCatalog.InletCommand ? "已开启" : "已关闭")
+        : FeedbackText;
+
+    public bool IsDisplayedFeedbackGood => IsDemoData || IsFeedbackGood;
+
+    public bool IsDisplayedOpen => IsDemoData
+        ? Definition.SignalKey == ProcessSignalCatalog.InletCommand
+        : FeedbackSource is { State: ProcessDataState.Good, IsActive: true };
 
     public ProcessWriteState WriteState
     {
@@ -357,6 +417,13 @@ public sealed class DigitalOutputPointViewModel : ProcessPointViewModel
         private set => SetProperty(ref _closeCommand, value);
     }
 
+    /// <summary>
+    /// 演示态仅提供可点击的视觉占位命令，不进入真实输出写入链路。
+    /// </summary>
+    public ICommand? DisplayOpenCommand => IsDemoData ? DemoCommand : OpenCommand;
+
+    public ICommand? DisplayCloseCommand => IsDemoData ? DemoCommand : CloseCommand;
+
     public void AttachFeedback(DigitalInputPointViewModel feedback)
         => FeedbackSource = feedback;
 
@@ -394,7 +461,19 @@ public sealed class DigitalOutputPointViewModel : ProcessPointViewModel
             OnPropertyChanged(nameof(Feedback));
             OnPropertyChanged(nameof(FeedbackText));
             OnPropertyChanged(nameof(IsFeedbackGood));
+            OnPropertyChanged(nameof(DisplayFeedbackText));
+            OnPropertyChanged(nameof(IsDisplayedFeedbackGood));
+            OnPropertyChanged(nameof(IsDisplayedOpen));
         }
+    }
+
+    protected override void OnDemoModeChanged(bool enabled)
+    {
+        OnPropertyChanged(nameof(DisplayFeedbackText));
+        OnPropertyChanged(nameof(IsDisplayedFeedbackGood));
+        OnPropertyChanged(nameof(IsDisplayedOpen));
+        OnPropertyChanged(nameof(DisplayOpenCommand));
+        OnPropertyChanged(nameof(DisplayCloseCommand));
     }
 }
 
@@ -426,6 +505,10 @@ public sealed class AnalogInputPointViewModel : ProcessPointViewModel
         ? Value.Value.ToString("F" + Decimals, CultureInfo.InvariantCulture)
         : "--";
 
+    public string DisplayValueText => IsDemoData
+        ? DemoValue.ToString("F" + Decimals, CultureInfo.InvariantCulture)
+        : ValueText;
+
     public ProcessLimitState LimitState
     {
         get => _limitState;
@@ -445,7 +528,13 @@ public sealed class AnalogInputPointViewModel : ProcessPointViewModel
         _ => "未判定"
     };
 
+    public string DisplayLimitText => IsDemoData ? "正常" : LimitText;
+
     public ObservableCollection<ProcessTrendSample> TrendSamples => _trendSamples;
+
+    public IReadOnlyList<ProcessTrendSample> DisplayTrendSamples => IsDemoData
+        ? DemoTrendSamples
+        : TrendSamples;
 
     public override void ApplyBinding(DevicePoint? point, string? deviceName, bool isSimulation)
     {
@@ -521,10 +610,44 @@ public sealed class AnalogInputPointViewModel : ProcessPointViewModel
         result = 0;
         return false;
     }
+
+    private double DemoValue => Definition.SignalKey switch
+    {
+        ProcessSignalCatalog.SupplyPressure => 0.800,
+        ProcessSignalCatalog.MainPressure => 0.628,
+        ProcessSignalCatalog.DutPressure => 0.625,
+        _ => 0.000
+    };
+
+    private static readonly IReadOnlyList<ProcessTrendSample> DemoTrendSamples = new[]
+    {
+        new ProcessTrendSample(DateTime.UnixEpoch.AddSeconds(1), 0.57),
+        new ProcessTrendSample(DateTime.UnixEpoch.AddSeconds(2), 0.59),
+        new ProcessTrendSample(DateTime.UnixEpoch.AddSeconds(3), 0.56),
+        new ProcessTrendSample(DateTime.UnixEpoch.AddSeconds(4), 0.60),
+        new ProcessTrendSample(DateTime.UnixEpoch.AddSeconds(5), 0.58),
+        new ProcessTrendSample(DateTime.UnixEpoch.AddSeconds(6), 0.61),
+        new ProcessTrendSample(DateTime.UnixEpoch.AddSeconds(7), 0.60),
+        new ProcessTrendSample(DateTime.UnixEpoch.AddSeconds(8), 0.63),
+        new ProcessTrendSample(DateTime.UnixEpoch.AddSeconds(9), 0.62),
+        new ProcessTrendSample(DateTime.UnixEpoch.AddSeconds(10), 0.65),
+        new ProcessTrendSample(DateTime.UnixEpoch.AddSeconds(11), 0.63),
+        new ProcessTrendSample(DateTime.UnixEpoch.AddSeconds(12), 0.66),
+        new ProcessTrendSample(DateTime.UnixEpoch.AddSeconds(13), 0.64),
+        new ProcessTrendSample(DateTime.UnixEpoch.AddSeconds(14), 0.68)
+    };
+
+    protected override void OnDemoModeChanged(bool enabled)
+    {
+        OnPropertyChanged(nameof(DisplayValueText));
+        OnPropertyChanged(nameof(DisplayLimitText));
+        OnPropertyChanged(nameof(DisplayTrendSamples));
+    }
 }
 
 public sealed class AnalogOutputPointViewModel : ProcessPointViewModel
 {
+    private static readonly ICommand DemoApplyCommand = new RelayCommand(() => { });
     private string _targetText = string.Empty;
     private decimal? _parsedTarget;
     private bool _isDirty;
@@ -543,18 +666,23 @@ public sealed class AnalogOutputPointViewModel : ProcessPointViewModel
         : base(definition)
     {
         _step = definition.Step ?? 0.001m;
+        DecreaseTargetCommand = new RelayCommand(() => AdjustTarget(-1));
+        IncreaseTargetCommand = new RelayCommand(() => AdjustTarget(1));
     }
 
     public string TargetText
     {
-        get => _targetText;
+        get => IsDemoData ? "0.650" : _targetText;
         set
         {
+            if (IsDemoData)
+                return;
             if (SetProperty(ref _targetText, value))
             {
                 IsEditing = true;
                 IsDirty = true;
                 ValidateTarget();
+                OnPropertyChanged(nameof(TargetSliderValue));
                 (ApplyCommand as IAsyncRelayCommand)?.NotifyCanExecuteChanged();
             }
         }
@@ -603,6 +731,33 @@ public sealed class AnalogOutputPointViewModel : ProcessPointViewModel
     public bool HasReliableRange
         => Min.HasValue && Max.HasValue && Min <= Max;
 
+    public double DisplayMinimum => IsDemoData ? 0d : (double)(Min ?? 0m);
+
+    public double DisplayMaximum => IsDemoData ? 1d : (double)(Max ?? 1m);
+
+    public bool IsTargetSliderEnabled => IsDemoData || HasReliableRange;
+
+    public double TargetSliderValue
+    {
+        get => IsDemoData
+            ? 0.650d
+            : ParsedTarget.HasValue ? (double)ParsedTarget.Value : (double)(Min ?? 0m);
+        set
+        {
+            if (IsDemoData || !HasReliableRange)
+                return;
+            TargetText = ((decimal)value).ToString("F3", CultureInfo.InvariantCulture);
+        }
+    }
+
+    public string DisplayMinimumText => IsDemoData
+        ? "0.000"
+        : Min?.ToString("F3", CultureInfo.InvariantCulture) ?? "--";
+
+    public string DisplayMaximumText => IsDemoData
+        ? "1.000 MPa"
+        : Max?.ToString("F3", CultureInfo.InvariantCulture) + " MPa";
+
     public string RangeText
         => HasReliableRange
             ? $"{Min!.Value.ToString(CultureInfo.InvariantCulture)}～{Max!.Value.ToString(CultureInfo.InvariantCulture)} MPa"
@@ -629,7 +784,9 @@ public sealed class AnalogOutputPointViewModel : ProcessPointViewModel
     }
 
     public string ReadbackText
-        => !_readbackConfigured
+        => IsDemoData
+            ? "0.628"
+            : !_readbackConfigured
             ? "未配置回读"
             : ReadbackState == ProcessDataState.Good && Readback.HasValue
                 ? Readback.Value.ToString("F3", CultureInfo.InvariantCulture)
@@ -679,6 +836,11 @@ public sealed class AnalogOutputPointViewModel : ProcessPointViewModel
         private set => SetProperty(ref _applyCommand, value);
     }
 
+    /// <summary>
+    /// 演示态按钮只用于还原设计稿外观，不允许触发真实调压写入。
+    /// </summary>
+    public ICommand? DisplayApplyCommand => IsDemoData ? DemoApplyCommand : ApplyCommand;
+
     public bool CanApply => IsBound && HasReliableRange && IsDirty
         && ParsedTarget.HasValue && !IsWriteInFlight && ApplyCommand is not null;
 
@@ -703,13 +865,35 @@ public sealed class AnalogOutputPointViewModel : ProcessPointViewModel
         base.ApplyBinding(point, deviceName, isSimulation);
         OnPropertyChanged(nameof(HasReliableRange));
         OnPropertyChanged(nameof(RangeText));
+        OnPropertyChanged(nameof(DisplayMinimum));
+        OnPropertyChanged(nameof(DisplayMaximum));
+        OnPropertyChanged(nameof(IsTargetSliderEnabled));
+        OnPropertyChanged(nameof(TargetSliderValue));
+        OnPropertyChanged(nameof(DisplayMinimumText));
+        OnPropertyChanged(nameof(DisplayMaximumText));
         OnPropertyChanged(nameof(CanApply));
+        OnPropertyChanged(nameof(DisplayApplyCommand));
     }
 
     public void AttachApplyCommand(ICommand command)
     {
         ApplyCommand = command;
         OnPropertyChanged(nameof(CanApply));
+    }
+
+    public ICommand DecreaseTargetCommand { get; }
+
+    public ICommand IncreaseTargetCommand { get; }
+
+    private void AdjustTarget(int direction)
+    {
+        if (IsDemoData || !HasReliableRange)
+            return;
+        var current = decimal.TryParse(TargetText, NumberStyles.Float, CultureInfo.InvariantCulture, out var value)
+            ? value
+            : Min!.Value;
+        var next = Math.Clamp(current + direction * Step, Min!.Value, Max!.Value);
+        TargetText = next.ToString("F3", CultureInfo.InvariantCulture);
     }
 
     public void ApplyReadback(ProcessSample sample)
@@ -787,5 +971,19 @@ public sealed class AnalogOutputPointViewModel : ProcessPointViewModel
         }
         result = 0m;
         return false;
+    }
+
+    protected override void OnDemoModeChanged(bool enabled)
+    {
+        OnPropertyChanged(nameof(TargetText));
+        OnPropertyChanged(nameof(ReadbackText));
+        OnPropertyChanged(nameof(DisplayMinimum));
+        OnPropertyChanged(nameof(DisplayMaximum));
+        OnPropertyChanged(nameof(IsTargetSliderEnabled));
+        OnPropertyChanged(nameof(TargetSliderValue));
+        OnPropertyChanged(nameof(DisplayMinimumText));
+        OnPropertyChanged(nameof(DisplayMaximumText));
+        OnPropertyChanged(nameof(CanApply));
+        OnPropertyChanged(nameof(DisplayApplyCommand));
     }
 }

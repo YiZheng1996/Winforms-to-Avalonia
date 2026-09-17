@@ -73,7 +73,7 @@
     </Style>
   </Window.Styles>
 
-  <Grid RowDefinitions="78,*">
+  <Grid RowDefinitions="66,*">
     <!-- 顶部品牌与用户区 -->
     <Border x:Name="TopHeader" Grid.Row="0" Background="White" BorderBrush="#D6DEEA" BorderThickness="0,0,0,1">
       <Grid ColumnDefinitions="420,*,470" Margin="20,0">
@@ -102,7 +102,7 @@
     </Border>
 
     <!-- 工艺主窗口的完整工控外壳 -->
-    <Grid x:Name="ShellRoot" Grid.Row="1" ColumnDefinitions="178,*">
+    <Grid x:Name="ShellRoot" Grid.Row="1" ColumnDefinitions="194,*">
       <!-- 左侧导航 -->
       <Border Grid.Column="0" Background="White" BorderBrush="#D6DEEA" BorderThickness="0,0,1,0">
         <Grid RowDefinitions="*,Auto">
@@ -310,6 +310,7 @@
         </Border>
 
         <Border x:Name="StatusBar" Grid.Row="3" MinHeight="48" Background="White"
+                IsVisible="{Binding ShowGlobalStatusBar}"
                 BorderBrush="#D6DEEA" BorderThickness="0,1,0,0"
                 AutomationProperties.Name="设备与安全状态">
           <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" Spacing="56" Margin="0,0,34,0">

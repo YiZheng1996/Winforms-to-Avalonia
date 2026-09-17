@@ -221,6 +221,7 @@ public sealed partial class ShellViewModel : ObservableObject
                 OnPropertyChanged(nameof(IsOverviewPage));
                 OnPropertyChanged(nameof(IsProcessMonitorPage));
                 OnPropertyChanged(nameof(ShowProductInfoBar));
+                OnPropertyChanged(nameof(ShowGlobalStatusBar));
             }
         }
     }
@@ -236,9 +237,14 @@ public sealed partial class ShellViewModel : ObservableObject
     public bool IsProcessMonitorPage => CurrentPage is ProcessMonitorViewModel;
 
     /// <summary>
-    /// 产品上下文栏只在总览和工艺监控页显示，底部控制条仍只属于总览页。
+    /// 产品上下文栏只在保留的总览页面显示；工艺界面使用自己的整页布局。
     /// </summary>
-    public bool ShowProductInfoBar => IsOverviewPage || IsProcessMonitorPage;
+    public bool ShowProductInfoBar => IsOverviewPage;
+
+    /// <summary>
+    /// 工艺界面已包含统一状态区，避免与外壳底部状态条重复显示。
+    /// </summary>
+    public bool ShowGlobalStatusBar => !IsProcessMonitorPage;
 
     /// <summary>
     /// 当前登录用户，未登录时为空。
@@ -464,13 +470,12 @@ public sealed partial class ShellViewModel : ObservableObject
         var user = _currentUser;
         var pages = new (string Title, string DisplayTitle, AppIconKind Icon, Func<UserContext, bool> CanOpen, Func<PageViewModel> Create)[]
         {
-            ( "运行总览", "工艺界面", AppIconKind.Overview, actor => actor.HasPermission(PermissionCode.ViewOverview), () => new OverviewViewModel(_services, user) ),
+            ( "运行总览", "工艺界面", AppIconKind.Overview, actor => actor.HasPermission(PermissionCode.ViewOverview), () => new ProcessMonitorViewModel(_services, user) ),
             ( "数据与报表", "报表界面", AppIconKind.Reports, actor => actor.HasPermission(PermissionCode.ViewRecords), () => new DataReportsViewModel(_services, user) ),
             ( "参数管理", "参数管理", AppIconKind.Parameters, actor => actor.HasPermission(PermissionCode.ManageProducts)
                 || actor.HasPermission(PermissionCode.ManageTestPoints)
                 || actor.HasPermission(PermissionCode.ManageTestDefinitions), () => new ParameterManagementViewModel(_services, user) ),
             ( "试验执行", "试验执行", AppIconKind.TestExecution, actor => actor.HasPermission(PermissionCode.ExecuteTests), () => new TestExecutionViewModel(_services, user) ),
-            ( "工艺监控", "工艺监控", AppIconKind.ProcessMonitor, actor => actor.HasPermission(PermissionCode.ManualControl), () => new ProcessMonitorViewModel(_services, user) ),
             ( "设备与校准", "硬件校准", AppIconKind.Calibration, actor => actor.HasPermission(PermissionCode.ManageDevices), () => new DeviceCalibrationViewModel(_services, user) ),
             ( "设备点位", "设备点位", AppIconKind.DevicePoints, actor => actor.HasPermission(PermissionCode.ManageDevices), () => new DevicePointManagementViewModel(_services, user) ),
             ( "日志诊断", "日志管理", AppIconKind.Logs, actor => actor.HasPermission(PermissionCode.ViewLogs), () => new LogDiagnosticsViewModel(_services, user) ),

@@ -18,6 +18,8 @@ public sealed class PneumaticPipeControl : Control
         AvaloniaProperty.Register<PneumaticPipeControl, PipePressureState>(nameof(PressureState));
     public static readonly StyledProperty<bool> IsDashedProperty =
         AvaloniaProperty.Register<PneumaticPipeControl, bool>(nameof(IsDashed));
+    public static readonly StyledProperty<bool> IsControlSignalProperty =
+        AvaloniaProperty.Register<PneumaticPipeControl, bool>(nameof(IsControlSignal));
 
     public Point StartPoint
     {
@@ -43,28 +45,48 @@ public sealed class PneumaticPipeControl : Control
         set => SetValue(IsDashedProperty, value);
     }
 
+    public bool IsControlSignal
+    {
+        get => GetValue(IsControlSignalProperty);
+        set => SetValue(IsControlSignalProperty, value);
+    }
+
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
     {
         base.OnPropertyChanged(change);
         if (change.Property == StartPointProperty
             || change.Property == EndPointProperty
             || change.Property == PressureStateProperty
-            || change.Property == IsDashedProperty)
+            || change.Property == IsDashedProperty
+            || change.Property == IsControlSignalProperty)
             InvalidateVisual();
     }
 
     public override void Render(DrawingContext context)
     {
-        var color = PressureState switch
-        {
-            PipePressureState.Pressurized => Color.Parse("#18A654"),
-            PipePressureState.Unpressurized => Color.Parse("#98A2B3"),
-            _ => Color.Parse("#C5CBD5")
-        };
-        var pen = new Pen(
-            new SolidColorBrush(color),
-            8,
+        var color = IsControlSignal
+            ? Color.Parse("#18A654")
+            : PressureState switch
+            {
+                PipePressureState.Pressurized => Color.Parse("#0868F7"),
+                PipePressureState.Unpressurized => Color.Parse("#98A2B3"),
+                _ => Color.Parse("#B8C4D4")
+            };
+        var pen = new Pen(new SolidColorBrush(color), IsControlSignal ? 2 : 4,
             IsDashed ? DashStyle.Dash : null);
         context.DrawLine(pen, StartPoint, EndPoint);
+
+        // 主气路用小箭头标出流向；控制虚线也保留方向，但不被解释为气管。
+        var direction = new Vector(EndPoint.X - StartPoint.X, EndPoint.Y - StartPoint.Y);
+        var length = direction.Length;
+        if (length < 18)
+            return;
+        var unit = direction / length;
+        var normal = new Vector(-unit.Y, unit.X);
+        var tip = StartPoint + direction * 0.62;
+        var basePoint = tip - unit * (IsControlSignal ? 9 : 13);
+        var wing = IsControlSignal ? 5 : 7;
+        context.DrawLine(pen, tip, basePoint + normal * wing);
+        context.DrawLine(pen, tip, basePoint - normal * wing);
     }
 }

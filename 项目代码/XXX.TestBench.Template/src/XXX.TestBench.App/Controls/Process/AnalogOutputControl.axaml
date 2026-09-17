@@ -1,38 +1,71 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:process="using:XXX.TestBench.App.Controls.Process"
              xmlns:vm="using:XXX.TestBench.App.ViewModels.Process"
              x:Class="XXX.TestBench.App.Controls.Process.AnalogOutputControl"
-             x:DataType="vm:AnalogOutputPointViewModel">
-  <Border Background="White" BorderBrush="#D6DEEA" BorderThickness="1" CornerRadius="8" Padding="14">
-    <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto" RowSpacing="7">
-      <Grid ColumnDefinitions="*,Auto">
-        <TextBlock Text="{Binding DisplayName}" FontSize="17" FontWeight="SemiBold" Foreground="#151A24" />
-        <process:PointStatusBadge Grid.Column="1" Text="{Binding StatusText}" State="{Binding State}" />
-      </Grid>
-      <Grid Grid.Row="1" ColumnDefinitions="*,Auto" ColumnSpacing="8">
-        <StackPanel Spacing="2">
-          <TextBlock Text="目标值" FontSize="12" Foreground="#667085" />
-          <TextBox Text="{Binding TargetText, Mode=TwoWay}" Watermark="输入 MPa" MinHeight="36"
-                   AutomationProperties.Name="调压目标" />
+             x:DataType="vm:AnalogOutputPointViewModel"
+             MinHeight="158">
+  <UserControl.Styles>
+    <Style Selector="Button.adjust-button">
+      <Setter Property="Width" Value="32" />
+      <Setter Property="Height" Value="31" />
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="FontSize" Value="16" />
+      <Setter Property="Background" Value="White" />
+      <Setter Property="Foreground" Value="#182B4A" />
+      <Setter Property="BorderBrush" Value="#D2DCE9" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="4" />
+    </Style>
+    <Style Selector="Button.apply-button">
+      <Setter Property="MinWidth" Value="62" />
+      <Setter Property="Height" Value="31" />
+      <Setter Property="Padding" Value="4,0" />
+      <Setter Property="FontSize" Value="13" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="Background" Value="#0868F7" />
+      <Setter Property="Foreground" Value="White" />
+      <Setter Property="BorderBrush" Value="#0868F7" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="4" />
+    </Style>
+    <Style Selector="Button.apply-button.demo:disabled">
+      <Setter Property="Background" Value="#0868F7" />
+      <Setter Property="Foreground" Value="White" />
+      <Setter Property="BorderBrush" Value="#0868F7" />
+      <Setter Property="Opacity" Value="1" />
+    </Style>
+  </UserControl.Styles>
+
+  <Border Background="#FBFDFF" BorderBrush="#DDE7F2" BorderThickness="1" CornerRadius="6" Padding="12,8">
+    <Grid RowDefinitions="Auto,Auto,Auto,Auto" RowSpacing="4">
+      <Grid ColumnDefinitions="*,Auto" VerticalAlignment="Center">
+        <StackPanel Orientation="Horizontal" Spacing="6">
+          <TextBlock Text="当前回读" FontSize="13" Foreground="#667085" />
+          <TextBlock Text="{Binding ReadbackText}" FontSize="25" FontWeight="Bold" Foreground="#0868F7" />
+          <TextBlock Text="MPa" FontSize="14" Foreground="#182B4A" VerticalAlignment="Center" />
         </StackPanel>
-        <StackPanel Grid.Column="1" Spacing="2" VerticalAlignment="Bottom">
-          <TextBlock Text="MPa" FontSize="13" Foreground="#667085" />
-          <TextBlock Text="{Binding RangeText}" FontSize="11" Foreground="#667085" />
-        </StackPanel>
+        <TextBlock Grid.Column="1" Text="{Binding DisplayStatusText}" FontSize="12" Foreground="#168B49"
+                   VerticalAlignment="Center" />
       </Grid>
-      <TextBlock Grid.Row="2" Text="{Binding ValidationMessage}" Foreground="#D92D20"
-                 FontSize="11" TextWrapping="Wrap" />
-      <Grid Grid.Row="3" ColumnDefinitions="*,Auto" ColumnSpacing="8">
-        <StackPanel Spacing="2">
-          <TextBlock Text="设定回读" FontSize="12" Foreground="#667085" />
-          <TextBlock Text="{Binding ReadbackText}" FontSize="20" FontWeight="SemiBold" />
-        </StackPanel>
-        <Button Grid.Column="1" Content="应用目标" Command="{Binding ApplyCommand}" MinWidth="92" MinHeight="38"
-                AutomationProperties.Name="应用调压目标" />
+      <Grid Grid.Row="1" ColumnDefinitions="Auto,30,70,30,Auto,62" ColumnSpacing="4" VerticalAlignment="Center">
+        <TextBlock Text="目标值" FontSize="13" Foreground="#667085" VerticalAlignment="Center" />
+        <Button Grid.Column="1" Classes="adjust-button" Content="−" Command="{Binding DecreaseTargetCommand}" />
+        <TextBox Grid.Column="2" Text="{Binding TargetText, Mode=TwoWay}" Height="31"
+                 HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
+                 Padding="4,0" FontSize="14" AutomationProperties.Name="调压目标" />
+        <Button Grid.Column="3" Classes="adjust-button" Content="＋" Command="{Binding IncreaseTargetCommand}" />
+        <TextBlock Grid.Column="4" Text="MPa" FontSize="13" Foreground="#182B4A" VerticalAlignment="Center" />
+        <Button Grid.Column="5" Classes="apply-button" Content="应用设定"
+                Classes.demo="{Binding IsDemoData}"
+                Command="{Binding DisplayApplyCommand}" AutomationProperties.Name="应用调压设定" />
       </Grid>
-      <TextBlock Grid.Row="4" Text="{Binding WriteStateText}" FontSize="12" Foreground="#D97706"
-                 TextTrimming="CharacterEllipsis" />
+      <Slider Grid.Row="2" Minimum="{Binding DisplayMinimum}" Maximum="{Binding DisplayMaximum}"
+              Value="{Binding TargetSliderValue, Mode=TwoWay}" IsEnabled="{Binding IsTargetSliderEnabled}"
+              Height="22" Padding="0" AutomationProperties.Name="调压目标滑块" />
+      <Grid Grid.Row="3" ColumnDefinitions="*,Auto">
+        <TextBlock Text="{Binding DisplayMinimumText}" FontSize="11" Foreground="#667085" />
+        <TextBlock Grid.Column="1" Text="{Binding DisplayMaximumText}" FontSize="11" Foreground="#667085" />
+      </Grid>
     </Grid>
   </Border>
 </UserControl>

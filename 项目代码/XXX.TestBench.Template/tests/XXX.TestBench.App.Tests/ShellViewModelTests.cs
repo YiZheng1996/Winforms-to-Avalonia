@@ -30,9 +30,10 @@ public class ShellViewModelTests
         Assert.True(shell.IsAuthenticated);
         Assert.False(shell.MustChangePassword);
         Assert.NotEmpty(shell.NavItems);
-        Assert.Equal(9, shell.NavItems.Count); // Administrator 全权限（任务管理页已移除；设备点位已独立为菜单页）
+        Assert.Equal(8, shell.NavItems.Count); // 工艺监控已并入“工艺界面”，不再重复显示
         Assert.NotNull(shell.CurrentPage);
-        Assert.Equal("运行总览", shell.CurrentPage!.Title);
+        Assert.IsType<ProcessMonitorViewModel>(shell.CurrentPage);
+        Assert.Equal("工艺监控", shell.CurrentPage!.Title);
         Assert.NotEqual("未登录", shell.CurrentUserText);
         Assert.True(authenticationSucceeded);
     }

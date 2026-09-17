@@ -3,120 +3,186 @@
              xmlns:vm="using:XXX.TestBench.App.ViewModels"
              xmlns:process="using:XXX.TestBench.App.Controls.Process"
              x:Class="XXX.TestBench.App.Views.ProcessMonitorView"
+             x:Name="ProcessPageRoot"
              x:DataType="vm:ProcessMonitorViewModel"
              UseLayoutRounding="True">
   <UserControl.Styles>
-    <Style Selector="TextBlock.process-secondary">
-      <Setter Property="Foreground" Value="#667085" />
-      <Setter Property="FontSize" Value="13" />
+    <Style Selector="TextBlock.page-title">
+      <Setter Property="Foreground" Value="#142B4E" />
+      <Setter Property="FontSize" Value="32" />
+      <Setter Property="FontWeight" Value="Bold" />
     </Style>
-    <Style Selector="Button.process-action">
-      <Setter Property="MinHeight" Value="38" />
-      <Setter Property="Padding" Value="14,0" />
+    <Style Selector="TextBlock.page-subtitle">
+      <Setter Property="Foreground" Value="#63718A" />
+      <Setter Property="FontSize" Value="16" />
+    </Style>
+    <Style Selector="Button.demo-button">
+      <Setter Property="MinWidth" Value="126" />
+      <Setter Property="Height" Value="42" />
+      <Setter Property="Padding" Value="16,0" />
+      <Setter Property="Background" Value="#E6F0FF" />
+      <Setter Property="Foreground" Value="#0868F7" />
+      <Setter Property="BorderBrush" Value="#E6F0FF" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="22" />
+      <Setter Property="FontSize" Value="15" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+    <Style Selector="Button.demo-button.active">
+      <Setter Property="Background" Value="#E6F0FF" />
+      <Setter Property="Foreground" Value="#0868F7" />
+      <Setter Property="BorderBrush" Value="#E6F0FF" />
+    </Style>
+    <Style Selector="Button.binding-button">
+      <Setter Property="MinWidth" Value="104" />
+      <Setter Property="Height" Value="38" />
+      <Setter Property="Padding" Value="12,0" />
       <Setter Property="Background" Value="White" />
       <Setter Property="Foreground" Value="#0868F7" />
       <Setter Property="BorderBrush" Value="#0868F7" />
       <Setter Property="BorderThickness" Value="1" />
       <Setter Property="CornerRadius" Value="5" />
     </Style>
-    <Style Selector="Button.process-primary">
-      <Setter Property="Background" Value="#0868F7" />
-      <Setter Property="Foreground" Value="White" />
-      <Setter Property="BorderBrush" Value="#0868F7" />
-    </Style>
-    <Style Selector="Border.process-card">
+    <Style Selector="Border.category-card">
       <Setter Property="Background" Value="White" />
-      <Setter Property="BorderBrush" Value="#D6DEEA" />
+      <Setter Property="BorderBrush" Value="#D6E1EE" />
       <Setter Property="BorderThickness" Value="1" />
-      <Setter Property="CornerRadius" Value="8" />
-      <Setter Property="Padding" Value="12" />
+      <Setter Property="CornerRadius" Value="7" />
+      <Setter Property="Padding" Value="12,10" />
+    </Style>
+    <Style Selector="TextBlock.category-title">
+      <Setter Property="Foreground" Value="#142B4E" />
+      <Setter Property="FontSize" Value="19" />
+      <Setter Property="FontWeight" Value="Bold" />
+    </Style>
+    <Style Selector="Border.footer-status">
+      <Setter Property="Background" Value="White" />
+      <Setter Property="BorderBrush" Value="#D6E1EE" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="6" />
+      <Setter Property="Padding" Value="14,0" />
+    </Style>
+    <Style Selector="Border.status-chip">
+      <Setter Property="Background" Value="#F2F4F7" />
+      <Setter Property="CornerRadius" Value="6" />
+      <Setter Property="Padding" Value="12,7" />
+    </Style>
+    <Style Selector="Border.status-chip.good">
+      <Setter Property="Background" Value="#E8F7EE" />
+    </Style>
+    <Style Selector="Border.status-chip.warning">
+      <Setter Property="Background" Value="#FFF7E6" />
     </Style>
   </UserControl.Styles>
 
-  <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
-    <Grid MinWidth="1000" RowDefinitions="56,390,Auto,44" RowSpacing="10">
-      <Grid Grid.Row="0" ColumnDefinitions="*,Auto,Auto" ColumnSpacing="10">
-        <StackPanel VerticalAlignment="Center" Spacing="2">
-          <TextBlock Text="工艺监控" FontSize="24" FontWeight="Bold" Foreground="#151A24" />
-          <TextBlock Text="{Binding RuntimeStatusText}" Classes="process-secondary" />
+  <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+    <Grid MinWidth="1000" RowDefinitions="52,*,Auto,56" RowSpacing="8">
+      <Grid Grid.Row="0" ColumnDefinitions="*,Auto" ColumnSpacing="10">
+        <StackPanel Orientation="Horizontal" Spacing="20" VerticalAlignment="Center">
+          <TextBlock Text="工艺监控" Classes="page-title" />
+          <TextBlock Text="气路与点位监控" Classes="page-subtitle" VerticalAlignment="Center" />
         </StackPanel>
-        <Button Grid.Column="1" Classes="process-action" Content="刷新"
-                Command="{Binding RefreshCommand}" AutomationProperties.Name="刷新工艺缓存" />
-        <Button Grid.Column="2" Classes="process-action process-primary" Content="点位绑定"
-                IsVisible="{Binding CanManageProcessBindings}" Click="OnPointBindingsClick"
-                AutomationProperties.Name="打开工艺点位绑定" />
+        <Button Grid.Column="1" Classes="demo-button"
+                Classes.active="{Binding IsDemoData}"
+                Content="演示数据" Command="{Binding ToggleDemoDataCommand}"
+                AutomationProperties.Name="切换演示数据" />
       </Grid>
 
-      <process:PneumaticDiagramControl Grid.Row="1" Model="{Binding Diagram}" />
+      <process:PneumaticDiagramControl Grid.Row="1" Model="{Binding #ProcessPageRoot.DataContext.Diagram}" />
 
-      <Grid x:Name="CardGridWide" Grid.Row="2" Height="224" ColumnDefinitions="*,*,*,*" ColumnSpacing="10">
-        <Border Grid.Column="0" Classes="process-card">
+      <Grid x:Name="CardGridWide" Grid.Row="2" Height="230" ColumnDefinitions="*,*,*,*" ColumnSpacing="10">
+        <Border Grid.Column="0" Classes="category-card">
           <Grid RowDefinitions="Auto,*" RowSpacing="8">
-            <TextBlock Text="状态反馈" FontSize="17" FontWeight="SemiBold" />
-            <Grid Grid.Row="1" ColumnDefinitions="*,*" ColumnSpacing="8">
-              <process:DigitalInputControl Model="{Binding SafetyDoor}" />
-              <process:DigitalInputControl Grid.Column="1" Model="{Binding ClampReady}" />
+            <TextBlock Text="DI  状态反馈" Classes="category-title" />
+            <Grid Grid.Row="1" RowDefinitions="*,*" RowSpacing="8">
+              <process:DigitalInputControl Model="{Binding #ProcessPageRoot.DataContext.SafetyDoor}" />
+              <process:DigitalInputControl Grid.Row="1" Model="{Binding #ProcessPageRoot.DataContext.ClampReady}" />
             </Grid>
           </Grid>
         </Border>
-        <Border Grid.Column="1" Classes="process-card">
+        <Border Grid.Column="1" Classes="category-card">
           <Grid RowDefinitions="Auto,*" RowSpacing="8">
-            <TextBlock Text="阀门控制" FontSize="17" FontWeight="SemiBold" />
-            <Grid Grid.Row="1" RowDefinitions="*,*" RowSpacing="6">
-              <process:DigitalOutputControl Model="{Binding InletValve}" />
-              <process:DigitalOutputControl Grid.Row="1" Model="{Binding ExhaustValve}" />
+            <TextBlock Text="DO  阀门控制" Classes="category-title" />
+            <Grid Grid.Row="1" RowDefinitions="*,*" RowSpacing="8">
+              <process:DigitalOutputControl Model="{Binding #ProcessPageRoot.DataContext.InletValve}" />
+              <process:DigitalOutputControl Grid.Row="1" Model="{Binding #ProcessPageRoot.DataContext.ExhaustValve}" />
             </Grid>
           </Grid>
         </Border>
-        <process:AnalogInputControl Grid.Column="2" Model="{Binding MainPressure}" />
-        <process:AnalogOutputControl Grid.Column="3" Model="{Binding PressureSetpoint}" />
+        <Border Grid.Column="2" Classes="category-card">
+          <Grid RowDefinitions="Auto,*" RowSpacing="8">
+            <TextBlock Text="AI  实时采集" Classes="category-title" />
+            <process:AnalogInputControl Grid.Row="1" Model="{Binding #ProcessPageRoot.DataContext.MainPressure}" />
+          </Grid>
+        </Border>
+        <Border Grid.Column="3" Classes="category-card">
+          <Grid RowDefinitions="Auto,*" RowSpacing="8">
+            <TextBlock Text="AO  调压输出" Classes="category-title" />
+            <process:AnalogOutputControl Grid.Row="1" Model="{Binding #ProcessPageRoot.DataContext.PressureSetpoint}" />
+          </Grid>
+        </Border>
       </Grid>
 
-      <Grid x:Name="CardGridCompact" Grid.Row="2" Height="458" RowDefinitions="224,224" ColumnDefinitions="*,*" ColumnSpacing="10" RowSpacing="10"
-            IsVisible="False">
-        <Border Grid.Row="0" Grid.Column="0" Classes="process-card">
+      <Grid x:Name="CardGridCompact" Grid.Row="2" Height="470" IsVisible="False"
+            RowDefinitions="230,230" ColumnDefinitions="*,*" ColumnSpacing="10" RowSpacing="10">
+        <Border Grid.Row="0" Grid.Column="0" Classes="category-card">
           <Grid RowDefinitions="Auto,*" RowSpacing="8">
-            <TextBlock Text="状态反馈" FontSize="17" FontWeight="SemiBold" />
-            <Grid Grid.Row="1" ColumnDefinitions="*,*" ColumnSpacing="8">
-              <process:DigitalInputControl Model="{Binding SafetyDoor}" />
-              <process:DigitalInputControl Grid.Column="1" Model="{Binding ClampReady}" />
+            <TextBlock Text="DI  状态反馈" Classes="category-title" />
+            <Grid Grid.Row="1" RowDefinitions="*,*" RowSpacing="8">
+              <process:DigitalInputControl Model="{Binding #ProcessPageRoot.DataContext.SafetyDoor}" />
+              <process:DigitalInputControl Grid.Row="1" Model="{Binding #ProcessPageRoot.DataContext.ClampReady}" />
             </Grid>
           </Grid>
         </Border>
-        <Border Grid.Row="0" Grid.Column="1" Classes="process-card">
+        <Border Grid.Row="0" Grid.Column="1" Classes="category-card">
           <Grid RowDefinitions="Auto,*" RowSpacing="8">
-            <TextBlock Text="阀门控制" FontSize="17" FontWeight="SemiBold" />
-            <Grid Grid.Row="1" RowDefinitions="*,*" RowSpacing="6">
-              <process:DigitalOutputControl Model="{Binding InletValve}" />
-              <process:DigitalOutputControl Grid.Row="1" Model="{Binding ExhaustValve}" />
+            <TextBlock Text="DO  阀门控制" Classes="category-title" />
+            <Grid Grid.Row="1" RowDefinitions="*,*" RowSpacing="8">
+              <process:DigitalOutputControl Model="{Binding #ProcessPageRoot.DataContext.InletValve}" />
+              <process:DigitalOutputControl Grid.Row="1" Model="{Binding #ProcessPageRoot.DataContext.ExhaustValve}" />
             </Grid>
           </Grid>
         </Border>
-        <process:AnalogInputControl Grid.Row="1" Grid.Column="0" Model="{Binding MainPressure}" />
-        <process:AnalogOutputControl Grid.Row="1" Grid.Column="1" Model="{Binding PressureSetpoint}" />
+        <Border Grid.Row="1" Grid.Column="0" Classes="category-card">
+          <Grid RowDefinitions="Auto,*" RowSpacing="8">
+            <TextBlock Text="AI  实时采集" Classes="category-title" />
+            <process:AnalogInputControl Grid.Row="1" Model="{Binding #ProcessPageRoot.DataContext.MainPressure}" />
+          </Grid>
+        </Border>
+        <Border Grid.Row="1" Grid.Column="1" Classes="category-card">
+          <Grid RowDefinitions="Auto,*" RowSpacing="8">
+            <TextBlock Text="AO  调压输出" Classes="category-title" />
+            <process:AnalogOutputControl Grid.Row="1" Model="{Binding #ProcessPageRoot.DataContext.PressureSetpoint}" />
+          </Grid>
+        </Border>
       </Grid>
 
-      <Border Grid.Row="3" Background="White" BorderBrush="#D6DEEA" BorderThickness="1" CornerRadius="6" Padding="12,0">
-        <StackPanel Orientation="Horizontal" Spacing="18" VerticalAlignment="Center">
-          <TextBlock Text="状态图例" FontWeight="SemiBold" />
-          <StackPanel Orientation="Horizontal" Spacing="5">
-            <Ellipse Width="12" Height="12" Fill="#18A654" />
-            <TextBlock Text="有效" Classes="process-secondary" />
-          </StackPanel>
-          <StackPanel Orientation="Horizontal" Spacing="5">
-            <Ellipse Width="12" Height="12" Fill="#F59E0B" />
-            <TextBlock Text="陈旧/等待" Classes="process-secondary" />
-          </StackPanel>
-          <StackPanel Orientation="Horizontal" Spacing="5">
-            <Ellipse Width="12" Height="12" Fill="#F5222D" />
-            <TextBlock Text="无效/断开" Classes="process-secondary" />
-          </StackPanel>
-          <StackPanel Orientation="Horizontal" Spacing="5">
-            <Ellipse Width="12" Height="12" Fill="#98A2B3" />
-            <TextBlock Text="未知/未绑定" Classes="process-secondary" />
-          </StackPanel>
-          <TextBlock Text="{Binding StatusMessage}" Classes="process-secondary" TextTrimming="CharacterEllipsis" />
-        </StackPanel>
+      <Border x:Name="FooterStatus" Grid.Row="3" Classes="footer-status">
+        <Grid ColumnDefinitions="Auto,Auto,Auto,Auto,*,Auto" ColumnSpacing="16">
+          <TextBlock Text="统一状态" FontSize="16" FontWeight="Bold" Foreground="#142B4E"
+                     VerticalAlignment="Center" />
+          <Border Grid.Column="1" Classes="status-chip good">
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <Ellipse Width="18" Height="18" Fill="#18A654" />
+              <TextBlock Text="正常" FontSize="14" Foreground="#168B49" FontWeight="SemiBold" />
+            </StackPanel>
+          </Border>
+          <Border Grid.Column="2" Classes="status-chip">
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <Ellipse Width="18" Height="18" Fill="Transparent" Stroke="#6D7C92" StrokeThickness="2" />
+              <TextBlock Text="通讯中断" FontSize="14" Foreground="#667085" FontWeight="SemiBold" />
+            </StackPanel>
+          </Border>
+          <Border Grid.Column="3" Classes="status-chip warning">
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <Ellipse Width="18" Height="18" Fill="#F59E0B" />
+              <TextBlock Text="等待反馈" FontSize="14" Foreground="#B76E00" FontWeight="SemiBold" />
+            </StackPanel>
+          </Border>
+          <TextBlock Grid.Column="5" Text="设计效果图 · 示例气路 · 未连接设备"
+                     ToolTip.Tip="{Binding DemoDataHintText}" FontSize="14" Foreground="#63718A"
+                     VerticalAlignment="Center" HorizontalAlignment="Right" />
+        </Grid>
       </Border>
     </Grid>
   </ScrollViewer>

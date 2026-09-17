@@ -12,6 +12,7 @@ public sealed partial class ProcessDiagramViewModel : ObservableObject
     private PipePressureState _mainPipeState = PipePressureState.Unknown;
     private PipePressureState _dutPipeState = PipePressureState.Unknown;
     private PipePressureState _exhaustPipeState = PipePressureState.Unknown;
+    private bool _isDemoData;
 
     public ProcessDiagramViewModel(
         DigitalInputPointViewModel safetyDoor,
@@ -22,7 +23,8 @@ public sealed partial class ProcessDiagramViewModel : ObservableObject
         AnalogInputPointViewModel mainPressure,
         AnalogInputPointViewModel dutPressure,
         DigitalOutputPointViewModel inletValve,
-        DigitalOutputPointViewModel exhaustValve)
+        DigitalOutputPointViewModel exhaustValve,
+        AnalogOutputPointViewModel pressureSetpoint)
     {
         SafetyDoor = safetyDoor;
         ClampReady = clampReady;
@@ -33,6 +35,7 @@ public sealed partial class ProcessDiagramViewModel : ObservableObject
         DutPressure = dutPressure;
         InletValve = inletValve;
         ExhaustValve = exhaustValve;
+        PressureSetpoint = pressureSetpoint;
     }
 
     public DigitalInputPointViewModel SafetyDoor { get; }
@@ -44,6 +47,7 @@ public sealed partial class ProcessDiagramViewModel : ObservableObject
     public AnalogInputPointViewModel DutPressure { get; }
     public DigitalOutputPointViewModel InletValve { get; }
     public DigitalOutputPointViewModel ExhaustValve { get; }
+    public AnalogOutputPointViewModel PressureSetpoint { get; }
 
     public PipePressureState SupplyPipeState
     {
@@ -69,6 +73,24 @@ public sealed partial class ProcessDiagramViewModel : ObservableObject
         private set => SetProperty(ref _exhaustPipeState, value);
     }
 
+    public bool IsDemoData
+    {
+        get => _isDemoData;
+        private set => SetProperty(ref _isDemoData, value);
+    }
+
+    public PipePressureState DisplaySupplyPipeState
+        => IsDemoData ? PipePressureState.Pressurized : SupplyPipeState;
+
+    public PipePressureState DisplayMainPipeState
+        => IsDemoData ? PipePressureState.Pressurized : MainPipeState;
+
+    public PipePressureState DisplayDutPipeState
+        => IsDemoData ? PipePressureState.Pressurized : DutPipeState;
+
+    public PipePressureState DisplayExhaustPipeState
+        => IsDemoData ? PipePressureState.Unpressurized : ExhaustPipeState;
+
     public string ExhaustPipeText => "排放段 · 未配置压力测点";
 
     public void ResetPressureStates()
@@ -77,6 +99,7 @@ public sealed partial class ProcessDiagramViewModel : ObservableObject
         MainPipeState = PipePressureState.Unknown;
         DutPipeState = PipePressureState.Unknown;
         ExhaustPipeState = PipePressureState.Unknown;
+        NotifyDisplayedPipeStates();
     }
 
     public void UpdatePressureStates()
@@ -86,6 +109,23 @@ public sealed partial class ProcessDiagramViewModel : ObservableObject
         DutPipeState = Evaluate(DutPressure, DutPipeState);
         // 排气消音器后没有压力测点，不能由阀命令或上游压力推导。
         ExhaustPipeState = PipePressureState.Unknown;
+        NotifyDisplayedPipeStates();
+    }
+
+    public void SetDemoData(bool enabled)
+    {
+        if (IsDemoData == enabled)
+            return;
+        IsDemoData = enabled;
+        NotifyDisplayedPipeStates();
+    }
+
+    private void NotifyDisplayedPipeStates()
+    {
+        OnPropertyChanged(nameof(DisplaySupplyPipeState));
+        OnPropertyChanged(nameof(DisplayMainPipeState));
+        OnPropertyChanged(nameof(DisplayDutPipeState));
+        OnPropertyChanged(nameof(DisplayExhaustPipeState));
     }
 
     private static PipePressureState Evaluate(

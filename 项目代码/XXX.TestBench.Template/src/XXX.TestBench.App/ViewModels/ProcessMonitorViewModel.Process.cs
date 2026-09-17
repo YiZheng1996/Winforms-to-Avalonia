@@ -65,7 +65,8 @@ public sealed partial class ProcessMonitorViewModel
             MainPressure,
             DutPressure,
             InletValve,
-            ExhaustValve);
+            ExhaustValve,
+            PressureSetpoint);
 
         foreach (var point in new ProcessPointViewModel[]
         {

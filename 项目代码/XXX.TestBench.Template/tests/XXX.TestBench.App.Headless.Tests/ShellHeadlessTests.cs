@@ -407,9 +407,10 @@ public class ShellHeadlessTests
 
         Assert.True(shell.IsAuthenticated);
 
-        Assert.Equal(9, shell.NavItems.Count);
+        Assert.Equal(8, shell.NavItems.Count);
         Assert.NotNull(shell.CurrentPage);
-        Assert.Equal("运行总览", shell.CurrentPage!.Title);
+        Assert.IsType<ProcessMonitorViewModel>(shell.CurrentPage);
+        Assert.Equal("工艺监控", shell.CurrentPage!.Title);
 
         var devicePointNav = shell.NavItems.Single(item => item.Title == "设备点位");
         await RunOnUiAsync(() => shell.NavigateCommand.ExecuteAsync(devicePointNav));
@@ -529,12 +530,16 @@ public class ShellHeadlessTests
         });
         await RunOnUiAsync(() => shell.NavigateCommand.ExecuteAsync(shell.NavItems[0]));
         RunOnUi(window.UpdateLayout);
+        var processPage = Assert.IsType<ProcessMonitorViewModel>(shell.NavItems[0].Page);
+        RunOnUi(() => processPage.ToggleDemoDataCommand.Execute(null));
+        RunOnUi(window.UpdateLayout);
 
         RunOnUi(() => VerifyResponsiveLayout(window, 1440, 900, "main-1440x900.png"));
 
         RunOnUi(() => VerifyResponsiveLayout(window, 1680, 945, "main-1680x945.png"));
         RunOnUi(() => VerifyResponsiveLayout(window, 1920, 1080, "main-1920x1080.png"));
         RunOnUi(() => VerifyResponsiveLayout(window, 1152, 720, "main-1440x900-at-125dpi.png"));
+        RunOnUi(() => VerifyResponsiveLayout(window, 1586, 992, "process-monitor-reference-1586x992.png"));
         await VerifyStatusBarOnEveryPage(window, shell);
 
         RunOnUi(window.Close);
@@ -550,6 +555,7 @@ public class ShellHeadlessTests
         window.WindowState = WindowState.Normal;
         window.Width = width;
         window.Height = height;
+        window.UpdateLayout();
 
         var frame = window.CaptureRenderedFrame();
         Assert.NotNull(frame);
@@ -563,10 +569,11 @@ public class ShellHeadlessTests
         var bottomBar = window.FindControl<Border>("BottomControlBar");
         var statusBar = window.FindControl<Border>("StatusBar");
         var exitButton = window.FindControl<Button>("ExitButton");
-        var overview = window.GetVisualDescendants().OfType<OverviewView>().Single();
-        var schematic = overview.FindControl<Border>("PipeSchematicHost");
-        var taskPanel = overview.FindControl<Border>("PointPanel");
-        var measurementPanel = overview.FindControl<Border>("MeasurementPanel");
+        var processView = window.GetVisualDescendants().OfType<ProcessMonitorView>().Single();
+        var diagram = processView.GetVisualDescendants().OfType<PneumaticDiagramControl>().Single();
+        var analogInputs = processView.GetVisualDescendants().OfType<AnalogInputControl>().ToArray();
+        var cardGrid = processView.FindControl<Grid>("CardGridWide");
+        var footerStatus = processView.FindControl<Border>("FooterStatus");
 
         Assert.NotNull(shellRoot);
         Assert.NotNull(topHeader);
@@ -575,23 +582,57 @@ public class ShellHeadlessTests
         Assert.NotNull(bottomBar);
         Assert.NotNull(statusBar);
         Assert.NotNull(exitButton);
-        Assert.NotNull(schematic);
-        Assert.NotNull(taskPanel);
-        Assert.NotNull(measurementPanel);
+        Assert.NotNull(processView);
+        Assert.NotNull(diagram);
+        Assert.NotNull(diagram.Model);
+        Assert.NotEmpty(analogInputs);
+        Assert.All(analogInputs, analogInput =>
+        {
+            Assert.NotNull(analogInput.Model);
+            Assert.Same(analogInput.Model, analogInput.DataContext);
+        });
+        Assert.NotNull(cardGrid);
+        Assert.NotNull(footerStatus);
         Assert.True(shellRoot.Bounds.Width > 900);
-        Assert.InRange(topHeader.Bounds.Height, 76, 80);
-        Assert.True(productBar.Bounds.Height >= 68);
+        Assert.InRange(topHeader.Bounds.Height, 64, 68);
+        Assert.False(productBar.IsVisible);
         Assert.True(workspace.Bounds.Height > 350);
-        Assert.InRange(bottomBar.Bounds.Height, 74, 78);
-        Assert.True(statusBar.IsVisible);
-        Assert.InRange(statusBar.Bounds.Height, 46, 50);
+        Assert.False(bottomBar.IsVisible);
+        Assert.False(statusBar.IsVisible);
         Assert.InRange(exitButton.Bounds.Height, 46, 50);
-        Assert.True(statusBar.Bounds.Top >= workspace.Bounds.Bottom - 1);
-        Assert.True(statusBar.Bounds.Bottom >= shellRoot.Bounds.Height - 1);
-        Assert.True(schematic.Bounds.Width > 300);
-        Assert.True(schematic.Bounds.Height > 300);
-        Assert.InRange(taskPanel.Bounds.Width, 190, 249);
-        Assert.InRange(measurementPanel.Bounds.Width, 210, 281);
+        Assert.True(diagram.Bounds.Width > 300);
+        Assert.True(diagram.Bounds.Height > 300);
+        Assert.True(cardGrid.Bounds.Width > 600);
+        Assert.True(cardGrid.Bounds.Height > 200);
+        Assert.True(footerStatus.IsVisible);
+        Assert.InRange(footerStatus.Bounds.Height, 54, 58);
+        if (height >= 992)
+        {
+            Assert.True(
+                footerStatus.Bounds.Bottom <= workspace.Bounds.Bottom + 1,
+                $"统一状态栏超出工作区：footer={footerStatus.Bounds}, workspace={workspace.Bounds}");
+        }
+        Assert.Contains(
+            processView.GetVisualDescendants().OfType<TextBlock>(),
+            text => string.Equals(text.Text, "气路工艺图", StringComparison.Ordinal));
+        Assert.Contains(
+            processView.GetVisualDescendants().OfType<TextBlock>(),
+            text => string.Equals(text.Text, "工艺监控", StringComparison.Ordinal));
+        Assert.Contains(
+            processView.GetVisualDescendants().OfType<TextBlock>(),
+            text => string.Equals(text.Text, "0.628", StringComparison.Ordinal));
+        Assert.Contains(
+            processView.GetVisualDescendants().OfType<TextBlock>(),
+            text => string.Equals(text.Text, "0.650", StringComparison.Ordinal));
+        Assert.Contains(
+            processView.GetVisualDescendants().OfType<TextBlock>(),
+            text => string.Equals(text.Text, "已开启", StringComparison.Ordinal));
+        Assert.Contains(
+            processView.GetVisualDescendants().OfType<TextBlock>(),
+            text => string.Equals(text.Text, "已闭合", StringComparison.Ordinal));
+        Assert.Contains(
+            processView.GetVisualDescendants().OfType<TextBlock>(),
+            text => string.Equals(text.Text, "已到位", StringComparison.Ordinal));
 
         var captureDirectory = Environment.GetEnvironmentVariable("TESTBENCH_UI_CAPTURE_DIR");
         if (!string.IsNullOrWhiteSpace(captureDirectory))
@@ -623,6 +664,12 @@ public class ShellHeadlessTests
             RunOnUi(() =>
             {
                 window.UpdateLayout();
+
+                if (item.Page is ProcessMonitorViewModel)
+                {
+                    Assert.False(statusBar.IsVisible, $"工艺页不应重复显示全局状态条：{item.DisplayTitle}。");
+                    return;
+                }
 
                 Assert.True(statusBar.IsVisible, $"状态条在“{item.DisplayTitle}”页面不可见。");
                 Assert.True(statusBar!.Bounds.Top >= workspace!.Bounds.Bottom - 1,
