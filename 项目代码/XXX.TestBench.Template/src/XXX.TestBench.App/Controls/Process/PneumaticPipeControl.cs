@@ -20,6 +20,8 @@ public sealed class PneumaticPipeControl : Control
         AvaloniaProperty.Register<PneumaticPipeControl, bool>(nameof(IsDashed));
     public static readonly StyledProperty<bool> IsControlSignalProperty =
         AvaloniaProperty.Register<PneumaticPipeControl, bool>(nameof(IsControlSignal));
+    public static readonly StyledProperty<double> ArrowPositionProperty =
+        AvaloniaProperty.Register<PneumaticPipeControl, double>(nameof(ArrowPosition), 0.62);
 
     public Point StartPoint
     {
@@ -51,6 +53,15 @@ public sealed class PneumaticPipeControl : Control
         set => SetValue(IsControlSignalProperty, value);
     }
 
+    /// <summary>
+    /// 箭头尖端在当前管段上的相对位置，范围按 0 到 1 解释。
+    /// </summary>
+    public double ArrowPosition
+    {
+        get => GetValue(ArrowPositionProperty);
+        set => SetValue(ArrowPositionProperty, value);
+    }
+
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
     {
         base.OnPropertyChanged(change);
@@ -58,7 +69,8 @@ public sealed class PneumaticPipeControl : Control
             || change.Property == EndPointProperty
             || change.Property == PressureStateProperty
             || change.Property == IsDashedProperty
-            || change.Property == IsControlSignalProperty)
+            || change.Property == IsControlSignalProperty
+            || change.Property == ArrowPositionProperty)
             InvalidateVisual();
     }
 
@@ -83,7 +95,7 @@ public sealed class PneumaticPipeControl : Control
             return;
         var unit = direction / length;
         var normal = new Vector(-unit.Y, unit.X);
-        var tip = StartPoint + direction * 0.62;
+        var tip = StartPoint + direction * Math.Clamp(ArrowPosition, 0.05, 0.95);
         var basePoint = tip - unit * (IsControlSignal ? 9 : 13);
         var wing = IsControlSignal ? 5 : 7;
         context.DrawLine(pen, tip, basePoint + normal * wing);

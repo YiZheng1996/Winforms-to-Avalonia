@@ -27,13 +27,13 @@
   </UserControl.Styles>
 
   <Border Classes="point-row" ToolTip.Tip="{Binding DisplayPointText}">
-    <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="10">
+    <Grid ColumnDefinitions="*,20,Auto" ColumnSpacing="10" VerticalAlignment="Center">
       <TextBlock Text="{Binding DisplayName}" FontSize="15" FontWeight="SemiBold"
                  Foreground="#182B4A" VerticalAlignment="Center" />
-      <Ellipse Grid.Column="1" Width="20" Height="20" Classes="point-light"
+      <Ellipse x:Name="PointLight" Grid.Column="1" Width="20" Height="20" Classes="point-light"
                Classes.good="{Binding IsDisplayedActiveGood}"
-               VerticalAlignment="Center" />
-      <TextBlock Grid.Column="2" Text="{Binding DisplayActiveText}" Classes="point-state"
+               HorizontalAlignment="Center" VerticalAlignment="Center" />
+      <TextBlock x:Name="PointState" Grid.Column="2" Text="{Binding DisplayActiveText}" Classes="point-state"
                  Classes.good="{Binding IsDisplayedActiveGood}" FontSize="15" FontWeight="SemiBold"
                  VerticalAlignment="Center" />
     </Grid>
