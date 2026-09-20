@@ -53,12 +53,12 @@
   </UserControl.Styles>
 
   <Border Classes="point-row" ToolTip.Tip="{Binding DisplayPointText}">
-    <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto" ColumnSpacing="7">
+    <Grid ColumnDefinitions="*,20,Auto,Auto,Auto" ColumnSpacing="7">
       <TextBlock Text="{Binding DisplayName}" FontSize="15" FontWeight="SemiBold"
                  Foreground="#182B4A" VerticalAlignment="Center" />
-      <Ellipse Grid.Column="1" Width="20" Height="20" Classes="point-light"
-               Classes.good="{Binding IsDisplayedOpen}" VerticalAlignment="Center" />
-      <TextBlock Grid.Column="2" Text="{Binding DisplayFeedbackText}" Classes="point-state"
+      <Ellipse x:Name="PointLight" Grid.Column="1" Width="20" Height="20" Classes="point-light"
+               Classes.good="{Binding IsDisplayedOpen}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+      <TextBlock x:Name="PointState" Grid.Column="2" Text="{Binding DisplayFeedbackText}" Classes="point-state"
                  Classes.good="{Binding IsDisplayedOpen}" FontSize="14" FontWeight="SemiBold"
                  VerticalAlignment="Center" />
       <Button Grid.Column="3" Classes="output-button primary" Content="开启"

@@ -327,12 +327,16 @@
                     <TextBlock Text="DO" Classes="readout-type" />
                     <TextBlock Text="进气阀" Classes="readout-name" />
                   </StackPanel>
-                  <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="9">
-                    <Ellipse Width="18" Height="18" Classes="diagram-light"
-                             Classes.good="{Binding InletValve.IsDisplayedOpen}" />
-                    <TextBlock Text="{Binding InletValve.DisplayFeedbackText}" Classes="diagram-state"
-                               Classes.good="{Binding InletValve.IsDisplayedOpen}" />
-                  </StackPanel>
+                  <Grid x:Name="DiagramInletValveStateRow" Grid.Row="1" ColumnDefinitions="20,Auto"
+                        ColumnSpacing="9" VerticalAlignment="Center">
+                    <Ellipse x:Name="DiagramInletValveLight" Grid.Column="0" Width="18" Height="18"
+                             Classes="diagram-light" Classes.good="{Binding InletValve.IsDisplayedOpen}"
+                             HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    <TextBlock x:Name="DiagramInletValveState" Grid.Column="1"
+                               Text="{Binding InletValve.DisplayFeedbackText}" Classes="diagram-state"
+                               Classes.good="{Binding InletValve.IsDisplayedOpen}"
+                               VerticalAlignment="Center" />
+                  </Grid>
                 </Grid>
               </Border>
               <Border Canvas.Left="1136" Canvas.Top="18" Width="152" Height="64" Classes="readout-card">
@@ -395,12 +399,16 @@
                     <TextBlock Text="DO" Classes="readout-type" />
                     <TextBlock Text="排气阀" Classes="readout-name" />
                   </StackPanel>
-                  <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="9">
-                    <Ellipse Width="18" Height="18" Classes="diagram-light"
-                             Classes.good="{Binding ExhaustValve.IsDisplayedOpen}" />
-                    <TextBlock Text="{Binding ExhaustValve.DisplayFeedbackText}" Classes="diagram-state"
-                               Classes.good="{Binding ExhaustValve.IsDisplayedOpen}" />
-                  </StackPanel>
+                  <Grid x:Name="DiagramExhaustValveStateRow" Grid.Row="1" ColumnDefinitions="20,Auto"
+                        ColumnSpacing="9" VerticalAlignment="Center">
+                    <Ellipse x:Name="DiagramExhaustValveLight" Grid.Column="0" Width="18" Height="18"
+                             Classes="diagram-light" Classes.good="{Binding ExhaustValve.IsDisplayedOpen}"
+                             HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    <TextBlock x:Name="DiagramExhaustValveState" Grid.Column="1"
+                               Text="{Binding ExhaustValve.DisplayFeedbackText}" Classes="diagram-state"
+                               Classes.good="{Binding ExhaustValve.IsDisplayedOpen}"
+                               VerticalAlignment="Center" />
+                  </Grid>
                 </Grid>
               </Border>
 
@@ -417,7 +425,8 @@
                           FontWeight="SemiBold" Foreground="#142B4E" />
               <TextBlock x:Name="DiagramRegulatorLabel" Canvas.Left="462" Canvas.Top="222" Text="比例调压阀" FontSize="16"
                           FontWeight="SemiBold" Foreground="#142B4E" />
-              <TextBlock x:Name="DiagramInletLabel" Canvas.Left="858" Canvas.Top="222" Text="进气阀" FontSize="16"
+              <TextBlock x:Name="DiagramInletLabel" Canvas.Left="857" Canvas.Top="222" Width="106"
+                          Text="进气阀" TextAlignment="Center" FontSize="16"
                           FontWeight="SemiBold" Foreground="#142B4E" />
               <TextBlock Canvas.Left="1112" Canvas.Top="424" Text="消声器" FontSize="15"
                           Foreground="#142B4E" />
