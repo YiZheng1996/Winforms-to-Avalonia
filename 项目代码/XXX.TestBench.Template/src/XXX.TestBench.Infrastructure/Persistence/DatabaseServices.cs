@@ -21,6 +21,7 @@ public sealed class DatabaseServices : IDisposable, IAsyncDisposable
         IModelPointConfigRepository modelPointConfigs,
         ITestParameterRepository testParameters,
         IReportRepository reports,
+        IBenchControlStateStore benchControlStates,
         IAuditLog auditLog,
         IUnitOfWorkFactory unitOfWorkFactory)
     {
@@ -35,6 +36,7 @@ public sealed class DatabaseServices : IDisposable, IAsyncDisposable
         ModelPointConfigs = modelPointConfigs;
         TestParameters = testParameters;
         Reports = reports;
+        BenchControlStates = benchControlStates;
         AuditLog = auditLog;
         UnitOfWorkFactory = unitOfWorkFactory;
     }
@@ -51,6 +53,7 @@ public sealed class DatabaseServices : IDisposable, IAsyncDisposable
     public IModelPointConfigRepository ModelPointConfigs { get; }
     public ITestParameterRepository TestParameters { get; }
     public IReportRepository Reports { get; }
+    public IBenchControlStateStore BenchControlStates { get; }
     public IAuditLog AuditLog { get; }
     public IUnitOfWorkFactory UnitOfWorkFactory { get; }
 

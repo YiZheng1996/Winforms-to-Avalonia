@@ -51,6 +51,22 @@ public sealed class ApplicationBootstrapper
             if (!test.Succeeded)
                 throw new InvalidOperationException(test.Message);
             database = await provider.OpenExistingAsync(settings.ActiveProfile, cancellationToken);
+
+            var benchState = await database.BenchControlStates.GetAsync(settings.BenchId, cancellationToken);
+            if (benchState is not null)
+            {
+                if (!string.Equals(benchState.OwnerNodeId, settings.NodeId, StringComparison.Ordinal))
+                    throw new InvalidDataException("数据库台架控制状态属于其他控制节点；启动进入恢复受限状态，不会启用设备。");
+                if (!benchState.IsIdle)
+                    throw new InvalidOperationException(
+                        $"数据库存在未闭合台架操作（{benchState.OperationId:D}，{benchState.Phase}）；启动进入恢复受限状态，不会启用设备。");
+            }
+
+            var activeRecord = await database.Records.GetActiveRunningRecordAsync(settings.BenchId, cancellationToken);
+            if (activeRecord is not null)
+                throw new InvalidOperationException(
+                    $"数据库存在未收尾试验记录（RunId={activeRecord.RunId ?? "未知"}，记录号={activeRecord.RecordNumber}）；启动进入恢复受限状态，不会启用设备。");
+
             return new ApplicationBootstrapResult(settings, database, processLock);
         }
         catch

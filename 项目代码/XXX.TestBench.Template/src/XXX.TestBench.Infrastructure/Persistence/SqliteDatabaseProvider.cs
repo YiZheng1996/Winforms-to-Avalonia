@@ -177,6 +177,7 @@ public sealed class SqliteDatabaseProvider : IDatabaseProvider
             new ModelPointConfigRepository(factory),
             new TestParameterRepository(factory),
             new ReportRepository(factory),
+            new BenchControlStateRepository(factory),
             new SqliteAuditLog(factory),
             new SqliteUnitOfWorkFactory(factory));
     }
