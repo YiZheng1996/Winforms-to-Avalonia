@@ -13,13 +13,10 @@ public class SimulationRuntimeTests
     public async Task Factory_Simulation_ReadsWritesAndMarksSimulation()
     {
         using var env = TestEnv.Create();
-        var store = new JsonConfigStore(env.ConfigRoot);
-        var deviceConfig = await store.LoadAsync<Core.Configuration.DeviceConfig>("device.json");
-        var pointsConfig = await store.LoadAsync<Core.Configuration.PointsConfig>("points.json");
-        var simConfig = await store.LoadAsync<Core.Configuration.SimulationConfig>("simulation.json");
-
-        var factory = new DeviceRuntimeFactory(deviceConfig, pointsConfig, simConfig, new SystemClock());
-        await using var runtime = await factory.CreateAsync(DeviceMode.Simulation);
+        var factory = new DeviceRuntimeFactory(
+            await env.LoadSnapshotAsync(), new SystemClock(),
+            requiredSignals: TestEnv.RegisteredRequiredSignals());
+        await using var runtime = await factory.CreateAsync();
         await runtime.StartAsync();
 
         Assert.True(runtime.IsSimulation);
@@ -40,12 +37,16 @@ public class SimulationRuntimeTests
     public async Task Factory_Hardware_Fails_NoRuntime()
     {
         using var env = TestEnv.Create("Hardware");
-        var store = new JsonConfigStore(env.ConfigRoot);
-        var deviceConfig = await store.LoadAsync<Core.Configuration.DeviceConfig>("device.json");
-        var pointsConfig = await store.LoadAsync<Core.Configuration.PointsConfig>("points.json");
-        var simConfig = await store.LoadAsync<Core.Configuration.SimulationConfig>("simulation.json");
+        var factory = new DeviceRuntimeFactory(
+            await env.LoadSnapshotAsync(), new SystemClock(),
+            requiredSignals: TestEnv.RegisteredRequiredSignals());
+        await using var runtime = await factory.CreateAsync();
+        await runtime.StartAsync();
 
-        var factory = new DeviceRuntimeFactory(deviceConfig, pointsConfig, simConfig, new SystemClock());
-        await Assert.ThrowsAsync<Core.Common.DomainException>(() => factory.CreateAsync(DeviceMode.Hardware));
+        Assert.Equal(DeviceMode.Hardware, runtime.Mode);
+        Assert.False(runtime.IsSimulation);
+        Assert.False(runtime.ActivationReport.AllOnline);
+        Assert.NotEmpty(runtime.ActivationReport.Issues);
+        Assert.Equal(DeviceHealth.Faulted, runtime.Status.Health);
     }
 }

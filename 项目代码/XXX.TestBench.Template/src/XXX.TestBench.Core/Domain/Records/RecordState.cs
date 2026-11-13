@@ -20,5 +20,9 @@ public enum RecordState
     /// <summary>
     /// 人为中止。
     /// </summary>
-    Aborted = 3
+    Aborted = 3,
+    /// <summary>
+    /// 进程或主机异常中断；不能按完成或产品不合格处理。
+    /// </summary>
+    Interrupted = 4
 }

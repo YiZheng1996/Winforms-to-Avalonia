@@ -17,7 +17,6 @@ public sealed class S7NetPlusDeviceRuntime : IDeviceRuntime
     private readonly ChannelEntry _channel;
     private readonly IReadOnlyList<DevicePoint> _points;
     private readonly IReadOnlyDictionary<string, DevicePoint> _pointsById;
-    private readonly IReadOnlyDictionary<string, DevicePoint> _pointsByAddress;
     private readonly IClock _clock;
     private readonly string _revision;
     private readonly IS7PlcClientFactory _clientFactory;
@@ -53,9 +52,6 @@ public sealed class S7NetPlusDeviceRuntime : IDeviceRuntime
         _pointsById = _points
             .Where(point => !string.IsNullOrWhiteSpace(point.PointId))
             .ToDictionary(point => point.PointId, StringComparer.OrdinalIgnoreCase);
-        _pointsByAddress = _points
-            .Where(point => !string.IsNullOrWhiteSpace(point.Address))
-            .ToDictionary(point => point.Address, StringComparer.OrdinalIgnoreCase);
         _activationReport = new RuntimeActivationReport(1, 0, Array.Empty<DeviceActivationIssue>());
     }
 
@@ -185,6 +181,23 @@ public sealed class S7NetPlusDeviceRuntime : IDeviceRuntime
         return Task.FromResult(_points);
     }
 
+    public bool TryGetCachedValue(string pointId, out PointValue value)
+    {
+        value = default!;
+        return false;
+    }
+
+    public IReadOnlyList<PointValue> ListCachedValues() => Array.Empty<PointValue>();
+
+    public DeviceRuntimeInfo GetDeviceStatus(string deviceId)
+    {
+        if (!string.Equals(deviceId?.Trim(), _device.Id, StringComparison.OrdinalIgnoreCase))
+            throw new DomainException($"设备 {deviceId} 不属于当前运行时");
+        return Status;
+    }
+
+    public IReadOnlyList<DeviceRuntimeInfo> ListDeviceStatuses() => new[] { Status };
+
     public Task<PointValue> ReadAsync(DevicePoint point, CancellationToken ct = default)
         => ReadPointAsync(ResolvePoint(point), ct);
 
@@ -286,7 +299,7 @@ public sealed class S7NetPlusDeviceRuntime : IDeviceRuntime
         await _ioGate.WaitAsync(ct);
         try
         {
-            if (current.DataType is DevicePointDataType.Boolean or DevicePointDataType.Bool)
+            if (current.DataType == DevicePointDataType.Bool)
             {
                 if (address.Shape != S7AddressShape.Bit || !address.BitIndex.HasValue)
                     throw new DomainException($"点位“{DisplayPoint(current)}”的布尔地址不是位地址");
@@ -441,13 +454,11 @@ public sealed class S7NetPlusDeviceRuntime : IDeviceRuntime
         DevicePoint? current = null;
         if (!string.IsNullOrWhiteSpace(requested.PointId))
             _pointsById.TryGetValue(requested.PointId, out current);
-        if (current is null && !string.IsNullOrWhiteSpace(requested.Address))
-            _pointsByAddress.TryGetValue(requested.Address, out current);
         if (current is null)
-            throw new DomainException($"点位 {requested.PointId}/{requested.Address} 不在 S7 设备 {_device.Code}");
-        if (!string.IsNullOrWhiteSpace(requested.DeviceId)
-            && !string.Equals(requested.DeviceId, _device.Id, StringComparison.OrdinalIgnoreCase))
-            throw new DomainException($"点位“{DisplayPoint(requested)}”不属于 S7 设备 {_device.Code}");
+            throw new DomainException($"点位缺少有效 PointId，或不在 S7 设备 {_device.Code}");
+        if (!string.Equals(requested.DeviceId, _device.Id, StringComparison.OrdinalIgnoreCase)
+            || !string.Equals(requested.Revision, _revision, StringComparison.Ordinal))
+            throw new DomainException($"点位“{DisplayPoint(requested)}”的设备身份或配置版本已变化");
         return current;
     }
 
@@ -458,14 +469,9 @@ public sealed class S7NetPlusDeviceRuntime : IDeviceRuntime
 
     private (string Host, int Port, int Rack, int Slot) ResolveEndpoint()
     {
-        var options = _device.SiemensS7;
-        var host = options?.Host?.Trim();
-        if (string.IsNullOrWhiteSpace(host)) host = _device.Address?.Trim();
-        if (string.IsNullOrWhiteSpace(host)) host = _channel.Tcp?.Host?.Trim();
-        var port = options?.Port is > 0 and <= 65535
-            ? options.Port
-            : _channel.Tcp?.Port is > 0 and <= 65535 ? _channel.Tcp.Port : 102;
-        return (host ?? string.Empty, port, options?.Rack ?? 0, options?.Slot ?? 0);
+        var options = _device.SiemensS7
+            ?? throw new DomainException($"S7 设备 {_device.Code} 必须配置设备专属端点");
+        return (options.Host.Trim(), options.Port, options.Rack, options.Slot);
     }
 
     private static CpuType ResolveCpuType(string? model)

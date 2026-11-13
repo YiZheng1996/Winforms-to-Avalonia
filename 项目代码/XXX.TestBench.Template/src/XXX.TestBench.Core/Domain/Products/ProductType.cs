@@ -21,4 +21,8 @@ public sealed class ProductType
     /// 创建时间。
     /// </summary>
     public DateTime CreatedAtUtc { get; init; }
+    /// <summary>
+    /// 并发版本；更新启用状态等准备相关字段时递增。
+    /// </summary>
+    public long RowVersion { get; set; }
 }

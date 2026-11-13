@@ -42,4 +42,8 @@ public sealed class TestItemPoint
     /// 更新时间。
     /// </summary>
     public DateTime UpdatedAtUtc { get; set; }
+    /// <summary>
+    /// 并发版本；旧版数据库读取为 0。
+    /// </summary>
+    public long RowVersion { get; set; }
 }

@@ -75,13 +75,7 @@ public sealed class SimulationConfig
     /// 配置结构版本号，必须与程序支持的版本一致。
     /// </summary>
     public int SchemaVersion { get; set; } = CurrentSchemaVersion;
-    /// <summary>
-    /// 各点位的模拟初始值。
-    /// </summary>
-    public Dictionary<string, object?> InitialValues { get; set; } = new();
-    /// <summary>
-    /// v2 按稳定 PointId 保存的初值；旧地址字典仅用于显式迁移。
-    /// </summary>
+    /// <summary>初始值按稳定 PointId 保存。</summary>
     public Dictionary<string, object?> InitialValuesByPointId { get; set; } = new();
     /// <summary>
     /// 点位自动变化规则列表。
@@ -95,21 +89,14 @@ public sealed class SimulationConfig
     /// <summary>
     /// 当前支持的配置版本号。
     /// </summary>
-    public const int LegacySchemaVersion = 1;
-    public const int CurrentSchemaVersion = 2;
+    public const int CurrentSchemaVersion = 3;
 
     /// <summary>
     /// 点位自动变化规则。
     /// </summary>
     public sealed class ChangeRule
     {
-        /// <summary>
-        /// 作用点位的通信地址。
-        /// </summary>
-        public string Address { get; set; } = string.Empty;
-        /// <summary>
-        /// v2 作用点位身份。
-        /// </summary>
+        /// <summary>作用点位身份。</summary>
         public string PointId { get; set; } = string.Empty;
         /// <summary>
         /// 数值变化形式。
@@ -146,13 +133,7 @@ public sealed class SimulationConfig
         /// 场景名称。
         /// </summary>
         public string Name { get; set; } = string.Empty;
-        /// <summary>
-        /// 目标点位地址。
-        /// </summary>
-        public string Address { get; set; } = string.Empty;
-        /// <summary>
-        /// v2 作用点位身份。
-        /// </summary>
+        /// <summary>目标点位身份。</summary>
         public string PointId { get; set; } = string.Empty;
         /// <summary>
         /// 故障行为描述。
@@ -173,38 +154,13 @@ public sealed class SimulationConfig
     /// </summary>
     public void Validate()
     {
-        if (SchemaVersion == LegacySchemaVersion)
-        {
-            ValidateLegacy();
-            return;
-        }
         if (SchemaVersion != CurrentSchemaVersion)
-            throw new ConfigValidationException($"simulation.json schemaVersion={SchemaVersion} 不受支持（支持 {LegacySchemaVersion} 迁移或当前版本 {CurrentSchemaVersion}）");
+            throw new ConfigValidationException($"simulation.json schemaVersion={SchemaVersion} 不受支持（仅支持当前版本 {CurrentSchemaVersion}）");
 
-        ValidateV2();
+        ValidateCurrent();
     }
 
-    private void ValidateLegacy()
-    {
-
-        foreach (var rule in ChangeRules ?? new List<ChangeRule>())
-        {
-            if (string.IsNullOrWhiteSpace(rule.Address))
-                throw new ConfigValidationException("simulation.json 变化规则地址不能为空");
-            if (rule.PatternKind == SimulationChangePattern.Unknown)
-                throw new ConfigValidationException($"simulation.json 变化方式不受支持：{rule.Pattern}");
-        }
-
-        foreach (var scenario in FaultInjectionScenarios ?? new List<FaultInjection>())
-        {
-            if (string.IsNullOrWhiteSpace(scenario.Address))
-                throw new ConfigValidationException("simulation.json 故障注入地址不能为空");
-            if (scenario.BehaviorKind == SimulationFaultBehavior.Unknown)
-                throw new ConfigValidationException($"simulation.json 故障行为不受支持：{scenario.Behavior}");
-        }
-    }
-
-    private void ValidateV2()
+    private void ValidateCurrent()
     {
         foreach (var pair in InitialValuesByPointId ?? new Dictionary<string, object?>())
             if (!Guid.TryParse(pair.Key, out _))

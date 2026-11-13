@@ -31,10 +31,6 @@ public enum PermissionCode
     /// </summary>
     ManageTestDefinitions = 6,
     /// <summary>
-    /// 管理配方。
-    /// </summary>
-    ManageRecipes = 7,
-    /// <summary>
     /// 查看试验记录。
     /// </summary>
     ViewRecords = 8,

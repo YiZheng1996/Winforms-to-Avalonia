@@ -22,10 +22,10 @@ public static class ModbusTypeCapabilities
     public static IReadOnlySet<DevicePointDataType> SupportedTypes => Supported;
 
     public static bool IsSupported(DevicePointDataType type)
-        => Supported.Contains(type) || type == DevicePointDataType.Boolean;
+        => Supported.Contains(type);
 
     public static bool IsBitType(DevicePointDataType type)
-        => type is DevicePointDataType.Bool or DevicePointDataType.Boolean;
+        => type == DevicePointDataType.Bool;
 
     public static bool TryGetRegisterCount(DevicePointDataType type, out int count)
     {
@@ -46,7 +46,7 @@ public static class ModbusTypeCapabilities
         ModbusArea area,
         DevicePointDataType type,
         bool isWritable,
-        DecodeOptions? options,
+        ModbusDataOrderOptions? options,
         out string? reason)
     {
         if (!IsSupported(type))
@@ -55,10 +55,21 @@ public static class ModbusTypeCapabilities
             return false;
         }
 
-        var decode = options ?? new DecodeOptions { ByteOrder = ByteOrder.BigEndian, WordOrder = WordOrder.None };
+        if (options is null)
+        {
+            reason = "Modbus 设备必须配置字节序模式和多寄存器字序";
+            return false;
+        }
+
+        var decode = options;
         if (decode.ByteOrder is not (ByteOrder.BigEndian or ByteOrder.LittleEndian))
         {
-            reason = "Modbus 字节序必须明确选择 BigEndian 或 LittleEndian";
+            reason = "Modbus 字节序必须选择大端模式或小端模式";
+            return false;
+        }
+        if (decode.WordOrder is not (WordOrder.HighWordFirst or WordOrder.LowWordFirst))
+        {
+            reason = "Modbus 设备字序必须选择高字在前或低字在前";
             return false;
         }
 
@@ -72,11 +83,6 @@ public static class ModbusTypeCapabilities
             if (isWritable && area == ModbusArea.DiscreteInput)
             {
                 reason = "DiscreteInput 是只读区，不能配置为可写";
-                return false;
-            }
-            if (decode.WordOrder != WordOrder.None)
-            {
-                reason = "Coil/DiscreteInput 不使用字序，必须为 None";
                 return false;
             }
             reason = null;
@@ -94,26 +100,14 @@ public static class ModbusTypeCapabilities
             return false;
         }
 
-        if (registerCount == 1 && decode.WordOrder != WordOrder.None)
-        {
-            reason = "单寄存器类型的字序必须为 None";
-            return false;
-        }
         if (registerCount > 1 && decode.WordOrder is not (WordOrder.HighWordFirst or WordOrder.LowWordFirst))
         {
-            reason = "32/64 位 Modbus 类型的字序必须明确选择 HighWordFirst 或 LowWordFirst";
+            reason = "32/64 位 Modbus 类型的字序必须选择高字在前或低字在前";
             return false;
         }
         reason = null;
         return true;
     }
-
-    public static DevicePointDataType NormalizeCompatibilityType(
-        ModbusArea area,
-        DevicePointDataType type)
-        => area.IsBitArea() && type == DevicePointDataType.Boolean
-            ? DevicePointDataType.Bool
-            : type;
 
     public static int GetRegisterCount(DevicePointDataType type)
         => TryGetRegisterCount(type, out var count)

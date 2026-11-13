@@ -17,7 +17,7 @@ public class JsonConfigStoreTests
 
         var device = await store.LoadAsync<DeviceConfig>("device.json");
         device.Validate();
-        Assert.Equal(Core.Domain.Devices.DeviceMode.Simulation, device.DeviceMode);
+        Assert.Equal(Core.Domain.Devices.DeviceMode.Simulation, Assert.Single(device.Devices).DeviceMode);
     }
 
     [Fact]

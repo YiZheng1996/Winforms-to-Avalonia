@@ -17,8 +17,8 @@ public sealed record WriteCommand(
     IDeviceRuntime Runtime,
     bool ActiveRunOk,
     bool RiskConfirmed,
-    Func<CancellationToken, Task>? InterlockCheck = null,
-    string? ExpectedRevision = null);
+    string ExpectedRevision,
+    Func<CancellationToken, Task>? InterlockCheck = null);
 
 /// <summary>
 /// 设备写入安全链：按 PointId 重新定位 → 权限 → 目标设备模式（Hardware 必须真实运行时；Simulation 只写仿真状态）→
@@ -30,13 +30,13 @@ public sealed class DeviceWritePipeline
 {
     private readonly IAuditLog _audit;
     private readonly IAppLogger _logger;
-    private readonly DeviceOperationCoordinator? _operations;
+    private readonly DeviceOperationCoordinator _operations;
 
-    public DeviceWritePipeline(IAuditLog audit, IAppLogger logger, DeviceOperationCoordinator? operations = null)
+    public DeviceWritePipeline(IAuditLog audit, IAppLogger logger, DeviceOperationCoordinator operations)
     {
-        _audit = audit;
-        _logger = logger;
-        _operations = operations;
+        _audit = audit ?? throw new ArgumentNullException(nameof(audit));
+        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _operations = operations ?? throw new ArgumentNullException(nameof(operations));
     }
 
     /// <summary>
@@ -44,8 +44,6 @@ public sealed class DeviceWritePipeline
     /// </summary>
     public async Task<PointValue> ExecuteAsync(WriteCommand command, CancellationToken ct = default)
     {
-        if (_operations is null)
-            return await ExecuteCoreAsync(command, ct);
         await using var lease = await _operations.EnterExecutionAsync(ct);
         return await ExecuteCoreAsync(command, ct);
     }
@@ -69,9 +67,8 @@ public sealed class DeviceWritePipeline
         }
 
         // 只能使用目标点位所属设备的状态，不能用其他设备在线替代。
-        var status = string.IsNullOrWhiteSpace(point.DeviceId)
-            ? command.Runtime.Status
-            : command.Runtime.GetDeviceStatus(point.DeviceId);
+        var status = command.Runtime.GetDeviceStatus(point.DeviceId);
+        EnsureStatusIdentity(status, point, command.ExpectedRevision);
         ct.ThrowIfCancellationRequested();
         var targetMode = status.IsSimulation ? DeviceMode.Simulation : DeviceMode.Hardware;
         if (command.Mode != DeviceMode.Mixed && command.Mode != targetMode)
@@ -104,9 +101,7 @@ public sealed class DeviceWritePipeline
             PointValue readback;
             try
             {
-                readback = !string.IsNullOrWhiteSpace(point.PointId)
-                    ? await command.Runtime.ReadFreshAsync(point.PointId, ct)
-                    : await command.Runtime.ReadAsync(point, ct);
+                readback = await command.Runtime.ReadFreshAsync(point.PointId, ct);
             }
             catch (OperationCanceledException)
             {
@@ -122,11 +117,30 @@ public sealed class DeviceWritePipeline
             }
 
             if (readback.Quality != PointQuality.Good)
-                throw new DomainException($"写入回读质量异常（{readback.Quality}）");
-            if (!string.IsNullOrWhiteSpace(readback.PointId)
-                && !string.Equals(readback.PointId, point.PointId, StringComparison.OrdinalIgnoreCase))
-                throw new DeviceWriteUncertainException($"点位 {point.Code} 回读返回了错误的 PointId，结果不确定，禁止自动重发");
-            var readbackRawValue = readback.RawValue ?? readback.Value;
+                throw new DeviceWriteUncertainException($"点位 {point.Code} 写入后回读质量异常（{readback.Quality}），结果不确定，禁止自动重发");
+            if (!string.Equals(readback.PointId, point.PointId, StringComparison.OrdinalIgnoreCase)
+                || !string.Equals(readback.DeviceId, point.DeviceId, StringComparison.OrdinalIgnoreCase)
+                || !string.Equals(readback.Revision, command.ExpectedRevision, StringComparison.Ordinal)
+                || readback.ConnectionGeneration != status.ConnectionGeneration)
+                throw new DeviceWriteUncertainException($"点位 {point.Code} 回读身份、配置版本或连接代次已变化，结果不确定，禁止自动重发");
+
+            DeviceRuntimeInfo statusAfterReadback;
+            try
+            {
+                statusAfterReadback = command.Runtime.GetDeviceStatus(point.DeviceId);
+            }
+            catch (Exception ex)
+            {
+                throw new DeviceWriteUncertainException($"点位 {point.Code} 写入后无法确认设备会话，结果不确定，禁止自动重发：{ex.Message}");
+            }
+            if (!string.Equals(statusAfterReadback.DeviceId, status.DeviceId, StringComparison.OrdinalIgnoreCase)
+                || !string.Equals(statusAfterReadback.Revision, status.Revision, StringComparison.Ordinal)
+                || statusAfterReadback.ConnectionGeneration != status.ConnectionGeneration)
+                throw new DeviceWriteUncertainException($"点位 {point.Code} 写入期间设备会话发生切换，结果不确定，禁止自动重发");
+
+            if (readback.RawValue is null)
+                throw new DeviceWriteUncertainException($"点位 {point.Code} 写入后回读没有原始值，结果不确定，禁止自动重发");
+            var readbackRawValue = readback.RawValue;
             if (!DevicePointValueConverter.RawValuesEqual(point, rawValue, readbackRawValue))
                 throw new DomainException($"写入回读不一致：原始值 {rawValue}，回读 {readbackRawValue}");
 
@@ -175,33 +189,38 @@ public sealed class DeviceWritePipeline
         ArgumentNullException.ThrowIfNull(command.Point);
         ArgumentNullException.ThrowIfNull(command.Runtime);
         var requested = command.Point;
-        if (string.IsNullOrWhiteSpace(requested.PointId))
-        {
-            if (!string.IsNullOrWhiteSpace(command.Runtime.ActiveRevision))
-                throw new DomainException("当前运行时要求使用带 PointId 的生效点位对象，拒绝旧点位对象");
-            return requested;
-        }
+        if (string.IsNullOrWhiteSpace(requested.PointId)
+            || string.IsNullOrWhiteSpace(requested.DeviceId)
+            || string.IsNullOrWhiteSpace(requested.Revision))
+            throw new DomainException("写入点位必须包含 PointId、DeviceId 和 Revision");
+        if (string.IsNullOrWhiteSpace(command.Runtime.ActiveRevision))
+            throw new DomainException("当前运行时缺少生效配置版本，拒绝写入");
+        if (string.IsNullOrWhiteSpace(command.ExpectedRevision)
+            || !string.Equals(command.ExpectedRevision, command.Runtime.ActiveRevision, StringComparison.Ordinal))
+            throw new DomainException("写入请求配置版本缺失或已过期，拒绝写入");
 
         var current = command.Runtime.GetPoint(requested.PointId)
             ?? throw new DomainException($"点位 {requested.PointId} 不在当前生效运行时");
-        if (!string.IsNullOrWhiteSpace(requested.DeviceId)
-            && !string.Equals(requested.DeviceId, current.DeviceId, StringComparison.OrdinalIgnoreCase))
+        if (string.IsNullOrWhiteSpace(current.PointId)
+            || string.IsNullOrWhiteSpace(current.DeviceId)
+            || string.IsNullOrWhiteSpace(current.Revision))
+            throw new DomainException($"当前生效点位 {requested.PointId} 缺少完整身份或版本");
+        if (!string.Equals(requested.DeviceId, current.DeviceId, StringComparison.OrdinalIgnoreCase))
             throw new DomainException($"点位 {requested.PointId} 的设备归属已变化，拒绝写入");
-        if (!string.IsNullOrWhiteSpace(requested.Revision)
-            && !string.IsNullOrWhiteSpace(current.Revision)
-            && !string.Equals(requested.Revision, current.Revision, StringComparison.Ordinal))
+        if (!string.Equals(requested.Revision, current.Revision, StringComparison.Ordinal))
             throw new DomainException($"点位 {requested.PointId} 的配置版本已过期，拒绝写入");
-        if (!string.IsNullOrWhiteSpace(current.Revision)
-            && !string.IsNullOrWhiteSpace(command.Runtime.ActiveRevision)
-            && !string.Equals(current.Revision, command.Runtime.ActiveRevision, StringComparison.Ordinal))
+        if (!string.Equals(current.Revision, command.Runtime.ActiveRevision, StringComparison.Ordinal))
             throw new DomainException($"点位 {requested.PointId} 与当前生效配置版本不一致，拒绝写入");
-        if (!string.IsNullOrWhiteSpace(command.ExpectedRevision)
-            && !string.Equals(command.ExpectedRevision, command.Runtime.ActiveRevision, StringComparison.Ordinal))
-            throw new DomainException("写入请求配置版本已过期，拒绝写入");
-        if (!string.IsNullOrWhiteSpace(current.Revision)
-            && string.IsNullOrWhiteSpace(requested.Revision))
-            throw new DomainException($"点位 {requested.PointId} 缺少配置版本，拒绝使用可能过期的对象");
         return current;
+    }
+
+    private static void EnsureStatusIdentity(DeviceRuntimeInfo status, DevicePoint point, string expectedRevision)
+    {
+        if (!string.Equals(status.DeviceId, point.DeviceId, StringComparison.OrdinalIgnoreCase)
+            || string.IsNullOrWhiteSpace(status.Revision)
+            || !string.Equals(status.Revision, expectedRevision, StringComparison.Ordinal)
+            || status.ConnectionGeneration <= 0)
+            throw new DomainException($"目标设备 {point.DeviceId} 的运行状态缺少匹配身份、版本或有效连接代次");
     }
 
     private static string FormatValue(object? value)

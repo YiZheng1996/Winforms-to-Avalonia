@@ -1,4 +1,3 @@
-using System.Collections.Concurrent;
 using XXX.TestBench.Core.Common;
 using XXX.TestBench.Core.Configuration;
 using XXX.TestBench.Core.Domain.Devices;
@@ -7,82 +6,74 @@ using XXX.TestBench.Core.Ports;
 namespace XXX.TestBench.Devices.Simulation;
 
 /// <summary>
-/// 仿真设备运行时：只操作仿真状态，不连接真实设备。
-/// v2 配置按 PointId 隔离状态；无身份的 v1 点位继续按地址运行，仅作为迁移兼容。
+/// 仿真设备运行时按 PointId 隔离状态，不用地址推断目标点位。
 /// </summary>
 public sealed class SimulationDeviceRuntime : IDeviceRuntime
 {
     private readonly IReadOnlyDictionary<string, DevicePoint> _pointsById;
-    private readonly IReadOnlyDictionary<string, DevicePoint> _pointsByAddress;
     private readonly SimulationConfig _config;
     private readonly IClock _clock;
-    private readonly ConcurrentDictionary<string, object?> _values = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, object?> _values = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, PointValue> _cachedValues = new(StringComparer.OrdinalIgnoreCase);
     private readonly object _gate = new();
     private readonly string _deviceId;
     private readonly string _channelId;
     private readonly string _revision;
+    private readonly SignalBindingsConfig _signalBindings = new();
     private DateTime _startedUtc;
     private bool _started;
     private long _connectionGeneration;
+    private RuntimeActivationReport _activationReport;
 
-    /// <summary>
-    /// v1 兼容构造函数。
-    /// </summary>
-    public SimulationDeviceRuntime(string name, IReadOnlyList<DevicePoint> points, SimulationConfig config, IClock clock)
-        : this(name, string.Empty, string.Empty, string.Empty, points, config, clock)
-    {
-    }
-
-    /// <summary>
-    /// v2 单设备构造函数。
-    /// </summary>
     public SimulationDeviceRuntime(
         DeviceConfig.DeviceEntry device,
         IReadOnlyList<DevicePoint> points,
         SimulationConfig config,
         IClock clock,
-        string revision = "")
-        : this(device.Name, device.Id, device.ChannelId, revision, points, config, clock)
+        string revision)
     {
-    }
+        ArgumentNullException.ThrowIfNull(device);
+        ArgumentNullException.ThrowIfNull(points);
+        ArgumentNullException.ThrowIfNull(config);
+        ArgumentNullException.ThrowIfNull(clock);
+        if (!Guid.TryParse(device.Id, out _) || string.IsNullOrWhiteSpace(device.ChannelId))
+            throw new DomainException("仿真运行时必须提供有效设备身份和通道身份");
+        if (string.IsNullOrWhiteSpace(revision))
+            throw new DomainException("仿真运行时必须提供完整配置版本号");
+        config.Validate();
 
-    private SimulationDeviceRuntime(
-        string name,
-        string deviceId,
-        string channelId,
-        string revision,
-        IReadOnlyList<DevicePoint> points,
-        SimulationConfig config,
-        IClock clock)
-    {
-        Name = name;
-        _deviceId = deviceId;
-        _channelId = channelId;
-        _revision = revision;
+        Name = device.Name;
+        _deviceId = device.Id.Trim();
+        _channelId = device.ChannelId.Trim();
+        _revision = revision.Trim();
         _config = config;
         _clock = clock;
+        _activationReport = new RuntimeActivationReport(1, 0,
+            new[] { new DeviceActivationIssue(_deviceId, Name, "仿真设备尚未启动") });
 
-        var configuredPoints = points
-            .Select(point => !string.IsNullOrWhiteSpace(revision) && string.IsNullOrWhiteSpace(point.Revision)
-                ? point with { Revision = revision }
-                : point)
-            .ToList();
-        _pointsById = configuredPoints
-            .Where(point => !string.IsNullOrWhiteSpace(point.PointId))
-            .ToDictionary(point => point.PointId, StringComparer.OrdinalIgnoreCase);
-        _pointsByAddress = configuredPoints
-            .ToDictionary(point => point.Address, StringComparer.OrdinalIgnoreCase);
+        var pointMap = new Dictionary<string, DevicePoint>(StringComparer.OrdinalIgnoreCase);
+        foreach (var point in points)
+        {
+            if (!Guid.TryParse(point.PointId, out _)
+                || !string.Equals(point.DeviceId, _deviceId, StringComparison.OrdinalIgnoreCase)
+                || !string.Equals(point.Revision, _revision, StringComparison.Ordinal))
+                throw new DomainException($"仿真点位 {point.Code} 缺少有效 PointId、DeviceId 或 Revision");
+            if (!pointMap.TryAdd(point.PointId, point))
+                throw new DomainException($"仿真配置存在重复 PointId：{point.PointId}");
+        }
+        _pointsById = pointMap;
 
-        foreach (var kv in config.InitialValues)
-            _values[kv.Key] = Normalize(kv.Value);
-        foreach (var kv in config.InitialValuesByPointId)
-            _values[kv.Key] = Normalize(kv.Value);
+        foreach (var pair in config.InitialValuesByPointId)
+            if (_pointsById.ContainsKey(pair.Key))
+                _values[pair.Key] = Normalize(pair.Value);
     }
 
     public string Name { get; }
     public DeviceMode Mode => DeviceMode.Simulation;
     public bool IsSimulation => true;
     public string ActiveRevision => _revision;
+    public SignalBindingsConfig SignalBindings => _signalBindings;
+    public RuntimeActivationReport ActivationReport => _activationReport;
 
     public DeviceRuntimeInfo Status
     {
@@ -93,11 +84,11 @@ public sealed class SimulationDeviceRuntime : IDeviceRuntime
                 return new DeviceRuntimeInfo(
                     Name,
                     "Simulation",
-                    "sim://" + Name,
+                    "仿真",
                     IsSimulation: true,
                     Health: _started ? DeviceHealth.Healthy : DeviceHealth.Unknown,
                     IsConnected: _started,
-                    LastError: null,
+                    LastError: _started ? null : "仿真设备尚未启动",
                     DeviceId: _deviceId,
                     ChannelId: _channelId,
                     Revision: _revision,
@@ -116,6 +107,7 @@ public sealed class SimulationDeviceRuntime : IDeviceRuntime
             _started = true;
             _startedUtc = _clock.UtcNow;
             _connectionGeneration++;
+            _activationReport = new RuntimeActivationReport(1, 1, Array.Empty<DeviceActivationIssue>());
         }
         return Task.CompletedTask;
     }
@@ -123,7 +115,12 @@ public sealed class SimulationDeviceRuntime : IDeviceRuntime
     public Task StopAsync(CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
-        lock (_gate) _started = false;
+        lock (_gate)
+        {
+            _started = false;
+            _activationReport = new RuntimeActivationReport(1, 0,
+                new[] { new DeviceActivationIssue(_deviceId, Name, "仿真设备已停止") });
+        }
         return Task.CompletedTask;
     }
 
@@ -132,7 +129,7 @@ public sealed class SimulationDeviceRuntime : IDeviceRuntime
     public Task<IReadOnlyList<DevicePoint>> ListPointsAsync(CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
-        return Task.FromResult<IReadOnlyList<DevicePoint>>(_pointsByAddress.Values.ToList());
+        return Task.FromResult<IReadOnlyList<DevicePoint>>(_pointsById.Values.ToList());
     }
 
     public Task<PointValue> ReadFreshAsync(string pointId, CancellationToken ct = default)
@@ -148,8 +145,10 @@ public sealed class SimulationDeviceRuntime : IDeviceRuntime
         ct.ThrowIfCancellationRequested();
         var current = ResolvePoint(point);
         var quality = GetQuality(current);
-        var value = quality == PointQuality.Unknown ? null : ComputeValue(current);
-        return Task.FromResult(CreateValue(current, quality, value));
+        var rawValue = quality == PointQuality.Unknown ? null : ComputeValue(current);
+        var value = CreateValue(current, quality, rawValue);
+        lock (_gate) _cachedValues[current.PointId] = value;
+        return Task.FromResult(value);
     }
 
     public Task<PointValue> WriteAsync(DevicePoint point, object? value, CancellationToken ct = default)
@@ -161,31 +160,46 @@ public sealed class SimulationDeviceRuntime : IDeviceRuntime
         lock (_gate)
         {
             if (!_started) throw new DomainException($"仿真设备 {Name} 尚未启动");
+            _values[current.PointId] = value;
         }
 
-        // DeviceWritePipeline 已完成工程值→原始值换算；运行时边界接收原始值。
-        _values[KeyFor(current)] = value;
-        return Task.FromResult(CreateValue(current, PointQuality.Good, value));
+        var sample = CreateValue(current, PointQuality.Good, value);
+        lock (_gate) _cachedValues[current.PointId] = sample;
+        return Task.FromResult(sample);
     }
+
+    public bool TryGetCachedValue(string pointId, out PointValue value)
+    {
+        lock (_gate) return _cachedValues.TryGetValue(pointId, out value!);
+    }
+
+    public IReadOnlyList<PointValue> ListCachedValues()
+    {
+        lock (_gate) return _cachedValues.Values.ToList();
+    }
+
+    public DeviceRuntimeInfo GetDeviceStatus(string deviceId)
+    {
+        if (!string.Equals(deviceId, _deviceId, StringComparison.OrdinalIgnoreCase))
+            throw new DomainException($"仿真设备 {Name} 不存在设备身份：{deviceId}");
+        return Status;
+    }
+
+    public IReadOnlyList<DeviceRuntimeInfo> ListDeviceStatuses() => new[] { Status };
 
     public DevicePoint? GetPoint(string pointId)
         => _pointsById.TryGetValue(pointId, out var point) ? point : null;
 
     private DevicePoint ResolvePoint(DevicePoint requested)
     {
-        DevicePoint? current = null;
-        if (!string.IsNullOrWhiteSpace(requested.PointId))
-            _pointsById.TryGetValue(requested.PointId, out current);
-        if (current is null && string.IsNullOrWhiteSpace(requested.PointId))
-            _pointsByAddress.TryGetValue(requested.Address, out current);
-        if (current is null)
-            throw new DomainException($"点位 {requested.PointId}/{requested.Address} 不在仿真设备 {Name}");
-        if (!string.IsNullOrWhiteSpace(requested.DeviceId)
-            && !string.IsNullOrWhiteSpace(_deviceId)
-            && !string.Equals(requested.DeviceId, _deviceId, StringComparison.OrdinalIgnoreCase))
-            throw new DomainException($"点位 {requested.Code} 不属于仿真设备 {Name}");
-        if (!string.IsNullOrWhiteSpace(requested.Code)
-            && !string.Equals(requested.Code, current.Code, StringComparison.OrdinalIgnoreCase))
+        ArgumentNullException.ThrowIfNull(requested);
+        if (string.IsNullOrWhiteSpace(requested.PointId)
+            || !_pointsById.TryGetValue(requested.PointId, out var current))
+            throw new DomainException($"点位缺少有效 PointId，或不在仿真设备 {Name}");
+        if (!string.Equals(requested.DeviceId, _deviceId, StringComparison.OrdinalIgnoreCase)
+            || !string.Equals(requested.Revision, _revision, StringComparison.Ordinal))
+            throw new DomainException($"点位 {requested.Code} 的设备身份或配置版本已变化");
+        if (!string.Equals(requested.Code, current.Code, StringComparison.OrdinalIgnoreCase))
             throw new DomainException($"点位身份已变化：{requested.Code}");
         return current;
     }
@@ -196,19 +210,13 @@ public sealed class SimulationDeviceRuntime : IDeviceRuntime
             _clock.UtcNow,
             point.PointId, _deviceId, _connectionGeneration, _revision, rawValue);
 
-    private string KeyFor(DevicePoint point)
-        => string.IsNullOrWhiteSpace(point.PointId) ? point.Address : point.PointId;
-
     private PointQuality GetQuality(DevicePoint point)
     {
         lock (_gate)
         {
             if (!_started) return PointQuality.Unknown;
-            var injected = _config.SchemaVersion == SimulationConfig.LegacySchemaVersion
-                ? _config.FaultInjectionScenarios.FirstOrDefault(f =>
-                    f.Address.Equals(point.Address, StringComparison.OrdinalIgnoreCase))
-                : _config.FaultInjectionScenarios.FirstOrDefault(f =>
-                    string.Equals(f.PointId, point.PointId, StringComparison.OrdinalIgnoreCase));
+            var injected = _config.FaultInjectionScenarios.FirstOrDefault(f =>
+                string.Equals(f.PointId, point.PointId, StringComparison.OrdinalIgnoreCase));
             return injected is not null && injected.BehaviorKind == SimulationFaultBehavior.Stale
                 ? PointQuality.Stale
                 : PointQuality.Good;
@@ -217,15 +225,11 @@ public sealed class SimulationDeviceRuntime : IDeviceRuntime
 
     private object? ComputeValue(DevicePoint point)
     {
-        var key = KeyFor(point);
-        _values.TryGetValue(key, out var initial);
         lock (_gate)
         {
-            var rule = _config.SchemaVersion == SimulationConfig.LegacySchemaVersion
-                ? _config.ChangeRules.FirstOrDefault(item =>
-                    item.Address.Equals(point.Address, StringComparison.OrdinalIgnoreCase))
-                : _config.ChangeRules.FirstOrDefault(item =>
-                    string.Equals(item.PointId, point.PointId, StringComparison.OrdinalIgnoreCase));
+            _values.TryGetValue(point.PointId, out var initial);
+            var rule = _config.ChangeRules.FirstOrDefault(item =>
+                string.Equals(item.PointId, point.PointId, StringComparison.OrdinalIgnoreCase));
             if (rule is null) return initial;
             if (double.TryParse(initial?.ToString(), out var start))
             {

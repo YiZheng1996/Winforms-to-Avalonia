@@ -26,15 +26,19 @@ public static class ModbusReadBatchPlanner
     public const int MaximumBitCount = 2000;
     public const int MaximumRegisterCount = 125;
 
-    public static IReadOnlyList<ModbusReadBatch> Plan(IEnumerable<DevicePoint> points)
+    public static IReadOnlyList<ModbusReadBatch> Plan(
+        IEnumerable<DevicePoint> points,
+        ModbusDataOrderOptions options,
+        bool requireContiguous = false)
     {
         ArgumentNullException.ThrowIfNull(points);
+        ArgumentNullException.ThrowIfNull(options);
         var parsed = points.Select(point =>
         {
             var address = ModbusAddressParser.Parse(point.Address);
-            var type = ModbusTypeCapabilities.NormalizeCompatibilityType(address.Area, point.DataType);
+            var type = point.DataType;
             var length = address.Area.IsBitArea() ? 1 : ModbusTypeCapabilities.GetRegisterCount(type);
-            if (!ModbusTypeCapabilities.TryValidate(address.Area, type, point.IsWritable, point.DecodeOptions, out var reason))
+            if (!ModbusTypeCapabilities.TryValidate(address.Area, type, point.IsWritable, options, out var reason))
                 throw new DomainException($"点位“{DisplayPoint(point)}”配置无效：{reason}");
             return (Point: point, Address: address, Length: length);
         }).ToList();
@@ -56,6 +60,8 @@ public static class ModbusReadBatchPlanner
                     var currentEnd = checked(current.Address.Offset + current.Length);
                     if (current.Address.Offset < batchEnd)
                         throw new DomainException($"同一 Modbus 数据区存在重叠地址：{current.Address.Canonical}");
+                    if (requireContiguous && items.Count > 0 && current.Address.Offset != batchEnd)
+                        break;
 
                     var proposedEnd = Math.Max(batchEnd, currentEnd);
                     var max = areaGroup.Key.IsBitArea() ? MaximumBitCount : MaximumRegisterCount;

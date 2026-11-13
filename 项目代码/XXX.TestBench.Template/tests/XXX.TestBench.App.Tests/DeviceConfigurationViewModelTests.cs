@@ -4,6 +4,8 @@ using XXX.TestBench.Core.Configuration;
 using XXX.TestBench.Core.Domain.Devices;
 using XXX.TestBench.Core.Domain.Identity;
 using XXX.TestBench.Core.Ports;
+using XXX.TestBench.Devices;
+using XXX.TestBench.Devices.Drivers;
 
 namespace XXX.TestBench.App.Tests;
 
@@ -24,8 +26,7 @@ public sealed class DeviceConfigurationViewModelTests
 
         Assert.True(ok, editor.ValidationMessage);
         Assert.Equal(ChannelTransportKind.Tcp, channel.TransportKind);
-        Assert.Equal(string.Empty, channel.Tcp!.Host);
-        Assert.Equal(0, channel.Tcp.Port);
+        Assert.NotNull(channel.Tcp);
         Assert.Null(channel.Serial);
         Assert.Null(channel.Simulation);
     }
@@ -90,9 +91,17 @@ public sealed class DeviceConfigurationViewModelTests
         Assert.Contains("COM3", editor.SerialPortOptions, StringComparer.OrdinalIgnoreCase);
         Assert.Contains(9600, editor.BaudRateOptions);
         Assert.Contains(115200, editor.BaudRateOptions);
+        Assert.Equal(
+            new[] { "无校验", "偶校验", "奇校验" },
+            editor.ParityOptions.Select(option => option.DisplayName));
+        Assert.Equal(new[] { "1 位", "2 位" }, editor.StopBitsOptions.Select(option => option.DisplayName));
+        Assert.Equal("无校验", editor.SelectedParity?.DisplayName);
+        Assert.Equal("1 位", editor.SelectedStopBits?.DisplayName);
         Assert.True(editor.TryBuild(out var channel), editor.ValidationMessage);
         Assert.Equal("COM3", channel.Serial!.PortName);
         Assert.Equal(9600, channel.Serial.BaudRate);
+        Assert.Equal("None", channel.Serial.Parity);
+        Assert.Equal("One", channel.Serial.StopBits);
     }
 
     [Fact]
@@ -180,7 +189,6 @@ public sealed class DeviceConfigurationViewModelTests
             Device = new DeviceConfig
             {
                 SchemaVersion = DeviceConfig.CurrentSchemaVersion,
-                DeviceMode = DeviceMode.Simulation,
                 Channels = [channel],
                 Devices = []
             },
@@ -193,10 +201,7 @@ public sealed class DeviceConfigurationViewModelTests
             Simulation = new SimulationConfig { SchemaVersion = SimulationConfig.CurrentSchemaVersion },
             SignalBindings = new SignalBindingsConfig()
         };
-        var service = new DeviceConfigurationService(
-            new FakeConfigurationStore(snapshot),
-            new DeviceOperationCoordinator(),
-            new TestAuditLog());
+        var service = CreateConfigurationService(new FakeConfigurationStore(snapshot));
         var transaction = new DeviceConfigurationEditorViewModel(
             snapshot.Device,
             [],
@@ -262,13 +267,117 @@ public sealed class DeviceConfigurationViewModelTests
         editor.SelectedDeviceMode = editor.DeviceModeOptions.Single(option => option.Value == DeviceMode.Simulation);
 
         Assert.Equal("通用设备", Assert.Single(editor.ModelOptions).DisplayName);
+        Assert.Equal(
+            new[] { "大端模式", "小端模式" },
+            editor.ModbusByteOrderOptions.Select(option => option.DisplayName));
+        Assert.Equal(
+            new[] { "高字在前", "低字在前" },
+            editor.ModbusWordOrderOptions.Select(option => option.DisplayName));
+        Assert.Equal("大端模式 · 高字在前", editor.ModbusDataOrderSummaryText);
         Assert.True(editor.TryBuild(out var device), editor.ValidationMessage);
         Assert.Equal(DriverKeyCatalog.ModbusTcp, device.DriverKey);
         Assert.Equal("GENERIC", device.Model);
         Assert.Equal(DeviceMode.Simulation, device.DeviceMode);
+        Assert.Equal(ByteOrder.BigEndian, device.ModbusDataOrder?.ByteOrder);
+        Assert.Equal(WordOrder.HighWordFirst, device.ModbusDataOrder?.WordOrder);
+        Assert.Equal(1, device.ModbusUnitId);
         Assert.DoesNotContain(
             editor.DriverOptions,
             option => string.Equals(option.DriverKey, DriverKeyCatalog.Simulation, StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void DeviceEditor_RequiresExplicitModbusDataOrderWhenEditingAnIncompleteDevice()
+    {
+        var channel = CreateTcpChannel();
+        var current = new DeviceConfig.DeviceEntry
+        {
+            Id = Guid.NewGuid().ToString("D"),
+            Code = "DEV_INCOMPLETE",
+            Name = "待整改 Modbus 设备",
+            ChannelId = channel.Id,
+            DriverKey = DriverKeyCatalog.ModbusTcp,
+            Model = "GENERIC_MODBUS_TCP",
+            DeviceMode = DeviceMode.Simulation,
+            ModbusUnitId = 1,
+            ModbusDataOrder = null,
+            PollIntervalMs = 500,
+            StaleAfterMs = 2000
+        };
+        var editor = new DeviceEditorViewModel(
+            current,
+            [channel],
+            [new UnsupportedDescriptor(DriverKeyCatalog.ModbusTcp, "Modbus TCP")]);
+
+        Assert.Null(editor.SelectedModbusByteOrder);
+        Assert.Null(editor.SelectedModbusWordOrder);
+        Assert.False(editor.CanSave);
+        Assert.False(editor.TryBuild(out _));
+        Assert.Contains("必须选择大端模式或小端模式", editor.ValidationMessage, StringComparison.Ordinal);
+        Assert.Contains("必须选择高字在前或低字在前", editor.ValidationMessage, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void SelectingXinjeModel_FillsOnlyBlankDefaultsAndFixesDataOrder()
+    {
+        var channel = CreateTcpChannel();
+        var editor = new DeviceEditorViewModel(
+            null, [channel], [new ModbusTcpDriverDescriptor()], "DEV_XINJE", channel.Id);
+        editor.SelectedDriver = editor.DriverOptions.Single(option =>
+            option.DriverKey == DriverKeyCatalog.ModbusTcp);
+        editor.ModbusUnitIdText = string.Empty;
+        editor.ModbusPortText = string.Empty;
+        editor.SelectedModel = editor.ModelOptions.Single(model =>
+            model.Key == DeviceModelKeyCatalog.XinjeFieldV1);
+
+        Assert.True(editor.IsXinjeFieldV1);
+        Assert.Equal("1", editor.ModbusUnitIdText);
+        Assert.Equal("502", editor.ModbusPortText);
+        Assert.Equal(ByteOrder.BigEndian, editor.SelectedModbusByteOrder?.Value);
+        Assert.Equal(WordOrder.LowWordFirst, editor.SelectedModbusWordOrder?.Value);
+        Assert.True(editor.TryBuild(out var device), editor.ValidationMessage);
+        Assert.Equal(DeviceModelKeyCatalog.XinjeFieldV1, device.Model);
+        Assert.Equal(string.Empty, editor.ModbusHostText);
+    }
+
+    [Fact]
+    public void LoadingWrongXinjeOrderDoesNotRewriteItUntilExplicitRepair()
+    {
+        var channel = CreateTcpChannel();
+        var current = new DeviceConfig.DeviceEntry
+        {
+            Id = "device-xinje",
+            Code = "DEV_XINJE",
+            Name = "信捷设备",
+            ChannelId = channel.Id,
+            DriverKey = DriverKeyCatalog.ModbusTcp,
+            Model = DeviceModelKeyCatalog.XinjeFieldV1,
+            DeviceMode = DeviceMode.Simulation,
+            ModbusUnitId = 7,
+            PollIntervalMs = 500,
+            StaleAfterMs = 2000,
+            ModbusDataOrder = new ModbusDataOrderOptions
+            {
+                ByteOrder = ByteOrder.BigEndian,
+                WordOrder = WordOrder.HighWordFirst
+            },
+            ModbusTcp = new ModbusTcpConnectionOptions { Host = "10.1.2.3", Port = 1502 }
+        };
+        var editor = new DeviceEditorViewModel(current, [channel], [new ModbusTcpDriverDescriptor()]);
+
+        Assert.Equal(WordOrder.HighWordFirst, editor.SelectedModbusWordOrder?.Value);
+        Assert.False(editor.CanSave);
+        Assert.True(editor.CanRestoreXinjeFieldV1DataOrder);
+        Assert.Contains("当前保存值", editor.XinjeFieldV1DataOrderStatusText, StringComparison.Ordinal);
+
+        editor.RestoreXinjeFieldV1DataOrder();
+
+        Assert.True(editor.CanSave);
+        Assert.Equal(WordOrder.LowWordFirst, editor.SelectedModbusWordOrder?.Value);
+        Assert.True(editor.TryBuild(out var repaired), editor.ValidationMessage);
+        Assert.Equal(7, repaired.ModbusUnitId);
+        Assert.Equal("10.1.2.3", repaired.ModbusTcp?.Host);
+        Assert.Equal(1502, repaired.ModbusTcp?.Port);
     }
 
     [Fact]
@@ -283,8 +392,7 @@ public sealed class DeviceConfigurationViewModelTests
             ChannelId = channel.Id,
             DriverKey = DriverKeyCatalog.Simulation,
             PollIntervalMs = 500,
-            StaleAfterMs = 2000,
-            Enabled = true
+            StaleAfterMs = 2000
         };
         var point = new PointsConfig.PointEntry
         {
@@ -295,7 +403,6 @@ public sealed class DeviceConfigurationViewModelTests
             GroupId = "40000000-0000-5000-8000-000000000001",
             Address = "sim.pressure",
             DataType = "Decimal",
-            RawDataType = "Decimal",
             AddressDefinition = new PointAddressDefinition { LogicalAddress = "sim.pressure" }
         };
         var snapshot = new DeviceConfigurationSnapshot
@@ -304,7 +411,6 @@ public sealed class DeviceConfigurationViewModelTests
             Device = new DeviceConfig
             {
                 SchemaVersion = DeviceConfig.CurrentSchemaVersion,
-                DeviceMode = DeviceMode.Simulation,
                 Channels = [channel],
                 Devices = [device]
             },
@@ -327,7 +433,7 @@ public sealed class DeviceConfigurationViewModelTests
             SignalBindings = new SignalBindingsConfig()
         };
         var store = new FakeConfigurationStore(snapshot);
-        var service = new DeviceConfigurationService(store, new DeviceOperationCoordinator(), new TestAuditLog());
+        var service = CreateConfigurationService(store);
         var editor = new DeviceConfigurationEditorViewModel(
             snapshot.Device, snapshot.Points.Points, snapshot.SignalBindings,
             null, service, Admin());
@@ -346,7 +452,7 @@ public sealed class DeviceConfigurationViewModelTests
             Code = "TCP",
             Name = "TCP 网络通道",
             TransportKind = ChannelTransportKind.Tcp,
-            Tcp = new TcpChannelParameters { Host = "127.0.0.1", Port = 1502 }
+            Tcp = new TcpChannelParameters()
         };
 
     private static UserContext Admin()
@@ -355,6 +461,20 @@ public sealed class DeviceConfigurationViewModelTests
         role.Permissions.Add(PermissionCode.ManageDevices);
         return new UserContext { LoginName = "admin", DisplayName = "管理员", Role = role };
     }
+
+    private static DeviceConfigurationService CreateConfigurationService(IDeviceConfigurationStore store)
+        => new(
+            store,
+            new DeviceOperationCoordinator(),
+            new TestAuditLog(),
+            DriverRegistry.CreateDefault().Descriptors,
+            hasActiveRun: () => false,
+            runtimeFactory: (_, _) => Task.FromException<IDeviceRuntime>(
+                new InvalidOperationException("此编辑器测试不启动设备运行时")),
+            currentRuntime: () => null,
+            publishRuntime: _ => Task.CompletedTask,
+            requiredSignals: Array.Empty<XXX.TestBench.Core.Execution.RequiredSignal>(),
+            markRuntimeFaulted: _ => { });
 
     private sealed class UnsupportedDescriptor(string driverKey, string displayName) : IDeviceDriverDescriptor
     {
@@ -369,13 +489,14 @@ public sealed class DeviceConfigurationViewModelTests
         public IReadOnlyList<DriverValidationIssue> ValidateChannel(ChannelEntry channel) => [];
         public IReadOnlyList<DriverValidationIssue> ValidateDevice(DeviceConfig.DeviceEntry device, ChannelEntry channel) => [];
         public IReadOnlyList<DriverValidationIssue> ValidatePoint(PointsConfig.PointEntry point, DeviceConfig.DeviceEntry device) => [];
-        public string NormalizeAddress(PointsConfig.PointEntry point) => point.Address;
+        public string NormalizeAddress(PointsConfig.PointEntry point, DeviceConfig.DeviceEntry device) => point.Address;
     }
 
     private sealed class FakeConfigurationStore(DeviceConfigurationSnapshot snapshot) : IDeviceConfigurationStore
     {
         private DeviceConfigurationSnapshot _snapshot = snapshot;
         public Task<DeviceConfigurationSnapshot> LoadActiveAsync(CancellationToken ct = default) => Task.FromResult(_snapshot);
+        public Task<DeviceConfigurationSnapshot> LoadPreviousAsync(CancellationToken ct = default) => Task.FromResult(_snapshot);
         public Task<DeviceConfigurationSnapshot> LoadRevisionAsync(string revision, CancellationToken ct = default) => Task.FromResult(_snapshot);
         public Task StageAsync(DeviceConfigurationSnapshot value, CancellationToken ct = default)
         {

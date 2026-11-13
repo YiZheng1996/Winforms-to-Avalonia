@@ -3,7 +3,9 @@
 编制日期：2026-09-14  
 目标项目：`D:\易峥\2026\2026-09\Avalonia_上位机通用模板\项目代码\XXX.TestBench.Template`  
 方案版本：`v1.1`  
-方案性质：基于当前工作树的可直接编码定稿方案，本文不代表 Modbus 功能已经实现或完成实机验证。
+方案性质：基于当前工作树的编码定稿方案。真实 Modbus 设备和现场验收仍需另行验证。
+
+> 当前实现收口（2026-09-15）：Modbus 字节序和多寄存器字序已统一归属 `DeviceConfig.DeviceEntry.ModbusDataOrder`，设备编辑器提供 2×2 四种组合：大端模式/小端模式 × 高字在前/低字在前；点位不再保存或编辑 Modbus 字节序、字序。点位导入模板已切换为唯一 v7 固定 9 列，旧点位级字节序/字序列和旧模板直接拒绝，不做兼容回填。Modbus 站号由 `DeviceConfig.DeviceEntry.ModbusUnitId` 统一配置并由相关页面展示、运行时请求使用。S7 的点位专用 `S7DecodeOptions` 保持独立，不与 Modbus 设备级排列混用。下文早期 v5/v6 方案文字仅作历史背景，以当前源码和测试为准。
 
 ## 1. 结论
 
@@ -53,7 +55,7 @@ TCP 网络通道
 4. Modbus 读取允许在 `Connecting/Offline` 状态发起恢复探测；写入仍只允许在 `Online/Degraded` 状态执行，不能把写操作作为首次连通性探测。
 5. 每次 Modbus 请求必须显式携带请求超时和 `CancellationToken`；一旦超时或取消，当前 TCP/RTU 连接立即作废并关闭，不得交给下一次请求复用。
 6. 新建或重新保存的 Modbus 位点统一持久化为 `DevicePointDataType.Bool`；旧 `Boolean` 只在 Modbus 兼容边界按布尔值读取，不进行全项目枚举替换。
-7. 32/64 位寄存器值的字序没有项目隐式默认值，必须由点位配置明确给出；导入模板升级并提供独立的字节序、字序列。
+7. Modbus 设备必须明确配置字节序模式和多寄存器字序；设备级组合固定为大端模式/小端模式 × 高字在前/低字在前，点位和导入模板不再重复承载。
 8. 候选连接测试不得打开活动运行时已经占用的第二份串口；占用判断由当前发布运行时提供只读查询，不暴露或转移 `SerialPort` 所有权。
 9. `IsImplemented=true` 只能在 TCP/RTU 运行时、连接释放、配置应用、错误映射和相应自动化测试全部完成后统一切换，不能在中间阶段提前开放 Hardware 保存。
 10. 所有软件验证、模拟器验证、虚拟串口验证和真实设备验证继续分别记录；没有真实设备证据时不得写“现场通过”。
@@ -447,29 +449,27 @@ IR:0
 
 ### 7.5 字节序和字序
 
-Modbus 寄存器本身按 16 位无符号值读取。多寄存器值继续使用现有 `DecodeOptions`：
+Modbus 寄存器本身按 16 位无符号值读取。字节序和多寄存器字序由所属设备的 `ModbusDataOrder` 统一提供，点位只声明地址、数据类型和访问权限：
 
-- `ByteOrder.BigEndian`：单个寄存器高字节在前；
-- `ByteOrder.LittleEndian`：交换单个寄存器的两个字节；
-- `WordOrder.HighWordFirst`：高位寄存器在前；
-- `WordOrder.LowWordFirst`：低位寄存器在前。
+- `ByteOrder.BigEndian`：设备使用“大端模式”，单个寄存器高字节在前；
+- `ByteOrder.LittleEndian`：设备使用“小端模式”，交换单个寄存器的两个字节；
+- `WordOrder.HighWordFirst`：设备使用“高字在前”，多寄存器值的高位寄存器在前；
+- `WordOrder.LowWordFirst`：设备使用“低字在前”，多寄存器值的低位寄存器在前。
 
 约束：
 
-1. `Int16/UInt16` 的 `WordOrder` 必须为 `None`；
-2. `Int32/UInt32/Float32/Double` 必须明确保存 `HighWordFirst` 或 `LowWordFirst`；
-3. 不根据测量值“看起来正常”自动切换字节序；
-4. 写入编码必须与读取解码严格对称；
-5. 写入后比较继续使用原始值语义，不能用显示值掩盖编码错误。
+1. 每个 Modbus 设备必须同时保存 `ByteOrder` 和 `WordOrder`，且只能是上述四种组合之一；缺失或非法值直接阻止保存、激活和运行时读取；
+2. `Int16/UInt16`、Bool 和位区点位仍继承设备配置，但编解码只使用其适用的部分；单寄存器和位区不会另造第五种“无字序”状态；
+3. `Int32/UInt32/Float32/Double` 严格使用所属设备的多寄存器字序；不根据测量值“看起来正常”自动切换；
+4. 写入编码必须与读取解码严格对称；写入后比较继续使用原始值语义，不能用显示值掩盖编码错误；
+5. S7 点位仍可使用独立的 `S7DecodeOptions`，该字段对 Modbus 点位非法，不能作为 Modbus 兼容入口。
 
-首版默认和导入规则固定为：
+当前 UI 和导入规则固定为：
 
-- 新建 Modbus 点位的 `ByteOrder` 初始值为 `BigEndian`，这是项目初始值，不宣称所有设备的多字节映射都相同；
-- 16 位类型固定 `WordOrder=None`；
-- 32/64 位类型不得自动补齐 `WordOrder`，未选择时配置校验失败；
-- 旧 v5 导入模板只允许无损导入 Bool/16 位点；遇到 32/64 位点且没有字序列时整行预览失败，提示改用新版模板或在点位编辑器明确选择；
-- 新版模板中的“字节序”为空时可按 `BigEndian` 进入预览，但必须明确显示采用了项目初始值；“字序”对 32/64 位类型为必填；
-- Codec 先把每个 `ushort` 按大端写入规范字节缓冲，再执行明确的字节交换和字交换，禁止直接依赖宿主机端序的 `BitConverter.GetBytes(ushort)`。
+- 设备编辑器显示“字节序模式”和“多寄存器字序”；字节序名称只能是“大端模式/小端模式”，字序名称只能是“高字在前/低字在前”；
+- 点位编辑器只读展示所属设备的站号和数据排列，不提供点位级覆盖；
+- v7 点位模板不包含字节序、字序或站号列，旧 v5/v6 点位级排列列直接拒绝；
+- Codec 先把每个 `ushort` 按大端写入规范字节缓冲，再执行设备配置指定的字节交换和字交换，禁止直接依赖宿主机端序的 `BitConverter.GetBytes(ushort)`；
 
 ### 7.6 地址范围和重叠
 
@@ -1066,16 +1066,18 @@ D:\易峥\2026\2026-09\Avalonia_上位机通用模板\项目代码\XXX.TestBench
 - 数据区下拉框：线圈、离散输入、保持寄存器、输入寄存器；
 - 协议偏移：`0-65535`；
 - 原始数据类型：按数据区动态过滤；
-- 字节序；
-- 32/64 位类型的字序；
+- 所属设备站号只读展示；
+- 所属设备的“大端模式/小端模式”和“高字在前/低字在前”只读展示；
 - 访问权限：输入区强制只读，Holding/Coil 才允许选择读写；
 - 规范地址只读预览，例如 `HR:0`。
+
+字节序、字序和站号只能在设备编辑器中修改。点位编辑器不保存点位级 Modbus 排列；如果候选点位带有该旧字段，驱动校验会直接拒绝。
 
 保存时生成 `Address` 和 `AddressDefinition`。编辑旧点位时先解析已有明确地址；遇到裸数字必须提示客户补充数据区，不猜测。
 
 ### 17.4 导入与导出
 
-模板从当前 v5 升级为 v6，保留现有列顺序并在“数据类型”后新增“字节序”“字序”两列；“地址”列继续要求填写规范地址：
+当前模板为唯一的 v7 固定 9 列，不包含站号、字节序和字序；这些属性属于所属设备，必须在设备编辑器中维护。“地址”列继续要求填写规范地址：
 
 ```text
 C:0
@@ -1093,14 +1095,7 @@ src/XXX.TestBench.Infrastructure/Configuration/DevicePointImporter.cs
 src/XXX.TestBench.Infrastructure/Configuration/DevicePointTemplateExporter.cs
 ```
 
-新增列合同：
-
-| 列 | 允许值 | 必填规则 |
-|---|---|---|
-| 字节序 | 大端、小端 | 可空；空值按项目初始值“大端”进入预览，并明确标记“采用初始值” |
-| 字序 | 高字在前、低字在前 | 32/64 位必填；Bool/16 位必须为空或“无” |
-
-模板版本写入和导入校验必须共同使用 `DevicePointTemplateDefinition.CurrentTemplateVersion = 6`，下载模板、填写说明、示例页、CSV 表头和导入器同步更新，不能只改 Excel 导出。
+模板版本写入和导入校验必须共同使用 `DevicePointTemplateDefinition.CurrentTemplateVersion = 7`，下载模板、填写说明、示例页、CSV 表头和导入器同步更新，不能只改 Excel 导出。
 
 导入预览必须显示：
 
@@ -1110,18 +1105,11 @@ src/XXX.TestBench.Infrastructure/Configuration/DevicePointTemplateExporter.cs
 - 偏移；
 - 数据类型；
 - 是否可写；
-- 字节序及其来源（显式填写/项目初始值）；
-- 字序及其来源；
-- 字节序/字序冲突或缺失；
+- 所属设备站号；
+- 所属设备数据排列；
 - 地址范围重叠。
 
-兼容旧 v5 模板时：
-
-- Bool、`Int16`、`UInt16` 可按 `ByteOrder=BigEndian, WordOrder=None` 进入预览，并明确显示兼容来源；
-- `Int32`、`UInt32`、`Float32`、`Double` 因没有字序列必须逐行报错，不能自动补 `HighWordFirst`；
-- 不根据数值、地址或设备名称猜测字节序/字序；
-- 不把字节序、字序偷偷塞入说明字段；
-- 预览仍有错误时禁止应用，不允许只导入“看起来正常”的多寄存器点位。
+旧 v5/v6 模板以及包含点位级字节序、字序列的文件直接拒绝，不做默认值回填、来源兼容或把属性塞入说明字段。导入预览只读取当前设备已有的站号和数据排列；未配置或非法的 Modbus 设备由设备/驱动校验阻止应用。
 
 ## 18. 原子配置应用
 
@@ -1165,7 +1153,7 @@ Modbus 必须继续使用现有流程：
 | `D:\易峥\2026\2026-09\Avalonia_上位机通用模板\项目代码\XXX.TestBench.Template\src\XXX.TestBench.Core\Configuration\DeviceConfig.cs` | 新端点字段、站号与唯一性校验 |
 | `D:\易峥\2026\2026-09\Avalonia_上位机通用模板\项目代码\XXX.TestBench.Template\src\XXX.TestBench.Core\Configuration\DeviceConfigurationMigrator.cs` | 克隆/迁移 Modbus TCP 端点，不猜裸地址 |
 | `D:\易峥\2026\2026-09\Avalonia_上位机通用模板\项目代码\XXX.TestBench.Template\src\XXX.TestBench.Core\Configuration\MultiDeviceConfigurationValidator.cs` | 通道兼容、点位协议、地址范围重叠校验 |
-| `D:\易峥\2026\2026-09\Avalonia_上位机通用模板\项目代码\XXX.TestBench.Template\src\XXX.TestBench.Core\Configuration\DevicePointTemplateDefinition.cs` | 模板升 v6，增加字节序和字序列及固定选项 |
+| `D:\易峥\2026\2026-09\Avalonia_上位机通用模板\项目代码\XXX.TestBench.Template\src\XXX.TestBench.Core\Configuration\DevicePointTemplateDefinition.cs` | 模板升 v7，固定 9 列；字节序和字序移至设备配置 |
 | `D:\易峥\2026\2026-09\Avalonia_上位机通用模板\项目代码\XXX.TestBench.Template\src\XXX.TestBench.Core\Ports\IDeviceDriverDescriptor.cs` | 增加 `SupportedTransports` |
 | `D:\易峥\2026\2026-09\Avalonia_上位机通用模板\项目代码\XXX.TestBench.Template\src\XXX.TestBench.Core\Domain\Devices\DeviceConnectionTestResult.cs` | 增加驱动、证据层级和 `Executed` |
 | `D:\易峥\2026\2026-09\Avalonia_上位机通用模板\项目代码\XXX.TestBench.Template\src\XXX.TestBench.Devices\XXX.TestBench.Devices.csproj` | 引入 NModbus/NModbus.Serial/System.IO.Ports |
@@ -1177,12 +1165,12 @@ Modbus 必须继续使用现有流程：
 | `D:\易峥\2026\2026-09\Avalonia_上位机通用模板\项目代码\XXX.TestBench.Template\src\XXX.TestBench.Devices\Runtime\MultiDeviceRuntime.cs` | 组合 Modbus 工厂和共享通道资源，提供只读串口占用查询 |
 | `D:\易峥\2026\2026-09\Avalonia_上位机通用模板\项目代码\XXX.TestBench.Template\src\XXX.TestBench.Devices\Runtime\S7DeviceConnectionTester.cs` | 适配新的连接测试结果字段，不改变 S7 连接语义 |
 | `D:\易峥\2026\2026-09\Avalonia_上位机通用模板\项目代码\XXX.TestBench.Template\src\XXX.TestBench.Devices\DeviceRuntimeFactory.cs` | 注入 Modbus 客户端工厂 |
-| `D:\易峥\2026\2026-09\Avalonia_上位机通用模板\项目代码\XXX.TestBench.Template\src\XXX.TestBench.Infrastructure\Configuration\DevicePointImporter.cs` | 读取 v6 字节序/字序，兼容 v5 的无损类型并拒绝缺字序的多寄存器点 |
-| `D:\易峥\2026\2026-09\Avalonia_上位机通用模板\项目代码\XXX.TestBench.Template\src\XXX.TestBench.Infrastructure\Configuration\DevicePointTemplateExporter.cs` | 导出 v6 表头、说明、选项和示例 |
+| `D:\易峥\2026\2026-09\Avalonia_上位机通用模板\项目代码\XXX.TestBench.Template\src\XXX.TestBench.Infrastructure\Configuration\DevicePointImporter.cs` | 只读取 v7 固定 9 列；旧点位级字节序/字序列直接拒绝 |
+| `D:\易峥\2026\2026-09\Avalonia_上位机通用模板\项目代码\XXX.TestBench.Template\src\XXX.TestBench.Infrastructure\Configuration\DevicePointTemplateExporter.cs` | 导出 v7 9 列表头、设备级属性说明和示例 |
 | `D:\易峥\2026\2026-09\Avalonia_上位机通用模板\项目代码\XXX.TestBench.Template\src\XXX.TestBench.App\Composition\AppComposition.cs` | 注册描述器、工厂和组合连接测试器 |
 | `D:\易峥\2026\2026-09\Avalonia_上位机通用模板\项目代码\XXX.TestBench.Template\src\XXX.TestBench.App\ViewModels\DeviceConfigurationViewModels.cs` | 通道过滤驱动、Modbus TCP 端点、公共硬件参数 |
 | `D:\易峥\2026\2026-09\Avalonia_上位机通用模板\项目代码\XXX.TestBench.Template\src\XXX.TestBench.App\ViewModels\DeviceConnectionTestResultFormatter.cs` | 按证据层级输出中文，不写成 S7 专用提示 |
-| `D:\易峥\2026\2026-09\Avalonia_上位机通用模板\项目代码\XXX.TestBench.Template\src\XXX.TestBench.App\ViewModels\DevicePointDialogViewModel.cs` | Modbus 数据区、偏移、类型和字序联动 |
+| `D:\易峥\2026\2026-09\Avalonia_上位机通用模板\项目代码\XXX.TestBench.Template\src\XXX.TestBench.App\ViewModels\DevicePointDialogViewModel.cs` | Modbus 数据区、偏移、类型，以及设备站号/数据排列只读展示 |
 | `D:\易峥\2026\2026-09\Avalonia_上位机通用模板\项目代码\XXX.TestBench.Template\src\XXX.TestBench.App\Views\ChannelEditorDialogWindow.axaml` | 更新通道说明文字 |
 | `D:\易峥\2026\2026-09\Avalonia_上位机通用模板\项目代码\XXX.TestBench.Template\src\XXX.TestBench.App\Views\DeviceEditorDialogWindow.axaml` | Modbus TCP/RTU 参数区与公共硬件参数区 |
 | `D:\易峥\2026\2026-09\Avalonia_上位机通用模板\项目代码\XXX.TestBench.Template\src\XXX.TestBench.App\Views\DevicePointDialogWindow.axaml` | 结构化 Modbus 地址编辑 |
@@ -1565,7 +1553,7 @@ dotnet test "$projectRoot\tests\XXX.TestBench.App.Headless.Tests\XXX.TestBench.A
 10. 地址规范为 `C/DI/HR/IR:offset`，裸数字不被猜测；
 11. 新 Modbus 位点保存为 `Bool`，旧 `Boolean` 兼容不影响其他驱动；
 12. 16/32/64 位 Codec 读写对称且不依赖宿主机端序；
-13. v6 模板具备独立字节序/字序列，旧模板不猜测多寄存器字序；
+13. v7 模板固定为九列，字节序和多寄存器字序由设备级配置提供，旧点位级排列字段直接拒绝；
 14. 批量读取不跨区、站号、设备或协议上限；
 15. 同一串口请求严格串行，不同 TCP 设备可以并行；
 16. 超时、取消、断线和拔插后不复用污染连接；
@@ -1590,12 +1578,12 @@ dotnet test "$projectRoot\tests\XXX.TestBench.App.Headless.Tests\XXX.TestBench.A
 开始 P0 编码前只需完成以下只读检查，不再召开新的协议分类或架构设计讨论：
 
 - [ ] `git status --short --branch` 和目标文件定向 diff 已保存；
-- [ ] 第 6.1 节版本门禁得出“保留 v4”或“升 v5”的唯一结论，并先写失败测试；
-- [ ] 当前所有 `IDeviceDriverDescriptor` 实现者和 `DeviceConnectionTestResult` 构造点已由 `rg` 列全；
-- [ ] 当前模板版本确认仍为 v5，升级目标固定为 v6；
-- [ ] NModbus 版本和许可证与项目文件锁定一致；
-- [ ] 自动化输出目录放在 `D:\Codex相关` 的任务子目录，不写入项目缓存；
-- [ ] 明确本轮不连接、不写入真实设备，真实设备验收继续留在 P8。
+- [x] 第 6.1 节版本门禁保留设备配置 v4；点位导入模板独立升级为 v7，并先写失败测试；
+- [x] 当前所有 `IDeviceDriverDescriptor` 实现者和 `DeviceConnectionTestResult` 构造点已由 `rg` 列全；
+- [x] 当前模板版本已固定为 v7 九列，字节序、字序和站号均由设备属性维护；
+- [x] NModbus 版本和许可证与项目文件锁定一致；
+- [x] 自动化输出目录放在 `D:\Codex相关` 的任务子目录，不写入项目缓存；
+- [x] 明确本轮不连接、不写入真实设备，真实设备验收继续留在 P8。
 
 检查单完成后，本文已达到直接编码标准。实现人员可以按 P0→P8 顺序执行；不得重新引入 Modbus ASCII、厂家自定义协议、裸地址猜测、写入自动重试或每台 RTU 设备独占串口。
 

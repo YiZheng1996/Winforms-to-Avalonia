@@ -6,8 +6,8 @@ using XXX.TestBench.Core.Ports;
 namespace XXX.TestBench.Infrastructure.Configuration;
 
 /// <summary>
-/// 把当前页面范围的真实点位导出为后续可重新导入的 v6 Excel 文件。
-/// 只写模板明确承载的十一列，不写内部身份、隐藏安全字段或运行时值。
+/// 把当前页面范围的真实点位导出为后续可重新导入的 v7 Excel 文件。
+/// 只写模板明确承载的九列，不写内部身份、隐藏安全字段、设备属性或运行时值。
 /// </summary>
 public sealed class DevicePointCatalogExporter : IDevicePointCatalogExporter
 {
@@ -72,14 +72,12 @@ public sealed class DevicePointCatalogExporter : IDevicePointCatalogExporter
             {
                 FormatPointTag(point, device, group, multipleDevices),
                 point.Address ?? string.Empty,
-                DevicePointTypeCatalog.ToDisplayName(point.RawDataTypeKind, point.RawDataType),
-                FormatByteOrder(point),
-                FormatWordOrder(point),
+                DevicePointTypeCatalog.ToDisplayName(point.DataTypeKind),
                 point.IsWritable ? "读写" : "只读",
-                FormatScale(point.EffectiveRawMin),
-                FormatScale(point.EffectiveRawMax),
-                FormatScale(point.EffectiveEngMin),
-                FormatScale(point.EffectiveEngMax),
+                FormatScale(point.RawMin),
+                FormatScale(point.RawMax),
+                FormatScale(point.EngMin),
+                FormatScale(point.EngMax),
                 point.Description ?? string.Empty
             };
 
@@ -93,7 +91,7 @@ public sealed class DevicePointCatalogExporter : IDevicePointCatalogExporter
         instructions.Cell(1, 1).Style.Font.Bold = true;
         instructions.Cell(2, 1).Value = $"范围：{request.ScopeDisplayName}";
         instructions.Cell(3, 1).Value = "用途：批量维护后可重新通过“导入点位”校验和预览。";
-        instructions.Cell(4, 1).Value = "边界：不是完整配置备份；写入策略和风险等级等隐藏字段不会被本文件覆盖，Modbus 字节序和字序按当前模板导出。";
+        instructions.Cell(4, 1).Value = "边界：不是完整配置备份；写入策略、风险等级、站号、Modbus 字节序和字序等设备/隐藏属性不会被本文件覆盖。请在设备属性中维护 Modbus 站号、大端模式/小端模式和高字在前/低字在前。";
         instructions.Cell(5, 1).Value = "注意：导入更新已有可写点位时保留原风险等级；导入把点位改为只读时风险等级归一化为普通。";
         instructions.Column(1).Width = 100;
         instructions.Range(2, 1, 5, 1).Style.Alignment.WrapText = true;
@@ -135,7 +133,6 @@ public sealed class DevicePointCatalogExporter : IDevicePointCatalogExporter
                 "PointTag" => 36,
                 "Address" => 24,
                 "DataType" => 18,
-                "ByteOrder" or "WordOrder" => 20,
                 "Access" => 18,
                 "RawMin" or "RawMax" or "EngMin" or "EngMax" => 14,
                 "Description" => 36,
@@ -189,38 +186,4 @@ public sealed class DevicePointCatalogExporter : IDevicePointCatalogExporter
     private static string FormatScale(decimal? value)
         => value?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? string.Empty;
 
-    /// <summary>
-    /// v6 模板显式承载 Modbus 寄存器字节序；非 Modbus 点位留空，避免把
-    /// S7/仿真的默认行为伪装成 Modbus 配置。历史配置缺少该对象时仍按
-    /// Modbus 首版约定输出大端，随后由导入器继续进行驱动级校验。
-    /// </summary>
-    private static string FormatByteOrder(PointsConfig.PointEntry point)
-    {
-        if (point.ProtocolKind is not (DevicePointProtocol.ModbusRtu or DevicePointProtocol.ModbusTcp))
-            return string.Empty;
-
-        // DecodeOptions 是当前模型的默认字段；如果读取到更早的对象而该字段为空，
-        // 仍按方案规定的 Modbus 初始大端导出，避免导出的 v6 文件丢失可执行语义。
-        return point.DecodeOptions?.ByteOrder switch
-        {
-            null or ByteOrder.BigEndian => "大端",
-            ByteOrder.LittleEndian => "小端",
-            _ => string.Empty
-        };
-    }
-
-    /// <summary>
-    /// v6 模板显式承载 Modbus 多寄存器字序；单寄存器和位点输出“无”。
-    /// 空值不擅自猜测，留给导入预览/驱动校验报告明确错误。
-    /// </summary>
-    private static string FormatWordOrder(PointsConfig.PointEntry point)
-        => point.ProtocolKind is DevicePointProtocol.ModbusRtu or DevicePointProtocol.ModbusTcp
-            ? point.DecodeOptions?.WordOrder switch
-            {
-                WordOrder.None => "无",
-                WordOrder.HighWordFirst => "高字在前",
-                WordOrder.LowWordFirst => "低字在前",
-                _ => string.Empty
-            }
-            : string.Empty;
 }

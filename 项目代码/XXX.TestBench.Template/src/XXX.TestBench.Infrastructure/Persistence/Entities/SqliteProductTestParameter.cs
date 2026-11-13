@@ -43,4 +43,7 @@ internal sealed class SqliteProductTestParameter
     /// </summary>
     [Column(Name = "updated_at_utc")]
     public string UpdatedAtUtc { get; set; } = string.Empty;
+
+    [Column(Name = "row_version")]
+    public long RowVersion { get; set; }
 }

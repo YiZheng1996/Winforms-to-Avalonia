@@ -25,6 +25,11 @@ public sealed class JsonConfigStore : IConfigStore
     {
         var path = Resolve(relativePath);
         if (!File.Exists(path)) throw new Core.Configuration.ConfigValidationException($"配置文件不存在：{relativePath}");
+        if (IsCurrentDeviceConfiguration(typeof(T)))
+        {
+            var bytes = await File.ReadAllBytesAsync(path, ct);
+            return CurrentConfigurationJson.Deserialize<T>(bytes, relativePath);
+        }
         try
         {
             await using var stream = File.OpenRead(path);
@@ -60,8 +65,17 @@ public sealed class JsonConfigStore : IConfigStore
         // 校验写入内容可重新解析
         try
         {
-            await using var check = File.OpenRead(temp);
-            var parsed = await JsonSerializer.DeserializeAsync<T>(check, Options, ct);
+            T? parsed;
+            if (IsCurrentDeviceConfiguration(typeof(T)))
+            {
+                var bytes = await File.ReadAllBytesAsync(temp, ct);
+                parsed = CurrentConfigurationJson.Deserialize<T>(bytes, relativePath);
+            }
+            else
+            {
+                await using var check = File.OpenRead(temp);
+                parsed = await JsonSerializer.DeserializeAsync<T>(check, Options, ct);
+            }
             if (parsed is null) throw new Core.Configuration.ConfigValidationException("保存内容校验失败");
         }
         catch (Exception)
@@ -97,4 +111,10 @@ public sealed class JsonConfigStore : IConfigStore
         PropertyNameCaseInsensitive = true,
         Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter() }
     };
+
+    private static bool IsCurrentDeviceConfiguration(Type type)
+        => type == typeof(Core.Configuration.DeviceConfig)
+           || type == typeof(Core.Configuration.PointsConfig)
+           || type == typeof(Core.Configuration.SimulationConfig)
+           || type == typeof(Core.Configuration.SignalBindingsConfig);
 }

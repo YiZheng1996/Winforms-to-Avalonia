@@ -1,5 +1,6 @@
 using XXX.TestBench.Core.Application;
 using XXX.TestBench.Core.Common;
+using XXX.TestBench.Core.Configuration;
 using XXX.TestBench.Core.Domain.Devices;
 using XXX.TestBench.Core.Domain.Identity;
 using XXX.TestBench.Core.Ports;
@@ -9,15 +10,19 @@ namespace XXX.TestBench.Core.Tests;
 
 public class DeviceWritePipelineTests
 {
-    private static readonly DevicePoint WritablePoint = new("DO_Start", DevicePointProtocol.Simulation, "sim.start", DevicePointDataType.Boolean, true, WriteRiskLevel.Normal, null, null, null, null);
-    private static readonly DevicePoint HighRiskPoint = new("DO_Stop", DevicePointProtocol.Simulation, "sim.stop", DevicePointDataType.Boolean, true, WriteRiskLevel.HighRisk, null, null, null, null);
-    private static readonly DevicePoint ReadOnlyPoint = new("AI_Pressure", DevicePointProtocol.Simulation, "sim.pressure", DevicePointDataType.Decimal, false, WriteRiskLevel.Normal, null, null, null, null);
+    private static readonly DevicePoint WritablePoint = new("DO_Start", DevicePointProtocol.Simulation, "sim.start", DevicePointDataType.Bool, true, WriteRiskLevel.Normal, null, null, null, null,
+        PointId: "10000000-0000-5000-8000-000000000001", DeviceId: "fake-device", Revision: "fake-revision");
+    private static readonly DevicePoint HighRiskPoint = new("DO_Stop", DevicePointProtocol.Simulation, "sim.stop", DevicePointDataType.Bool, true, WriteRiskLevel.HighRisk, null, null, null, null,
+        PointId: "10000000-0000-5000-8000-000000000002", DeviceId: "fake-device", Revision: "fake-revision");
+    private static readonly DevicePoint ReadOnlyPoint = new("AI_Pressure", DevicePointProtocol.Simulation, "sim.pressure", DevicePointDataType.Decimal, false, WriteRiskLevel.Normal, null, null, null, null,
+        PointId: "10000000-0000-5000-8000-000000000003", DeviceId: "fake-device", Revision: "fake-revision");
+    private static readonly DeviceOperationCoordinator Operations = new();
 
     private static (DeviceWritePipeline Pipeline, FakeAuditLog Audit) Create()
     {
         var audit = new FakeAuditLog();
         var logger = new SilentLogger();
-        return (new DeviceWritePipeline(audit, logger), audit);
+        return (new DeviceWritePipeline(audit, logger, Operations), audit);
     }
 
     private sealed class SilentLogger : IAppLogger
@@ -28,7 +33,12 @@ public class DeviceWritePipelineTests
     }
 
     private static WriteCommand Cmd(UserContext actor, DevicePoint point, object? value, DeviceMode mode, IDeviceRuntime runtime,
-        bool activeRun = true, bool confirmed = true) => new(actor, point, value, mode, runtime, activeRun, confirmed);
+        bool activeRun = true, bool confirmed = true)
+    {
+        if (runtime is FakeRuntime fakeRuntime)
+            fakeRuntime.RegisterPoint(point);
+        return new WriteCommand(actor, point, value, mode, runtime, activeRun, confirmed, runtime.ActiveRevision);
+    }
 
     [Fact]
     public async Task Write_SimulationMode_WritesSimulationState()
@@ -226,6 +236,51 @@ public class DeviceWritePipelineTests
         Assert.Contains(audit.Entries, entry => entry.Contains("DeviceWriteUncertain", StringComparison.Ordinal));
     }
 
+    [Fact]
+    public async Task Write_RejectsMissingIdentityOrExpectedRevisionBeforeDriverCall()
+    {
+        var (pipeline, _) = Create();
+        var current = V2Point();
+        var runtime = new IdentityRuntime(current);
+
+        await Assert.ThrowsAsync<DomainException>(() => pipeline.ExecuteAsync(Cmd(
+            TestContexts.With(PermissionCode.ManualControl), current with { PointId = string.Empty }, 1m,
+            DeviceMode.Simulation, runtime)));
+        await Assert.ThrowsAsync<DomainException>(() => pipeline.ExecuteAsync(new WriteCommand(
+            TestContexts.With(PermissionCode.ManualControl), current, 1m, DeviceMode.Simulation, runtime,
+            ActiveRunOk: true, RiskConfirmed: true, ExpectedRevision: string.Empty)));
+
+        Assert.Equal(0, runtime.WriteCount);
+    }
+
+    [Fact]
+    public async Task Write_RejectsFreshReadbackWithoutRawValueAsUncertain()
+    {
+        var (pipeline, audit) = Create();
+        var current = V2Point();
+        var runtime = new IdentityRuntime(current) { OmitRawValue = true };
+
+        await Assert.ThrowsAsync<DeviceWriteUncertainException>(() => pipeline.ExecuteAsync(Cmd(
+            TestContexts.With(PermissionCode.ManualControl), current, 1m, DeviceMode.Simulation, runtime)));
+
+        Assert.Equal(1, runtime.WriteCount);
+        Assert.Contains(audit.Entries, entry => entry.Contains("DeviceWriteUncertain", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task Write_RejectsConnectionGenerationChangeAfterSendAsUncertain()
+    {
+        var (pipeline, audit) = Create();
+        var current = V2Point();
+        var runtime = new IdentityRuntime(current) { ChangeGenerationAfterWrite = true };
+
+        await Assert.ThrowsAsync<DeviceWriteUncertainException>(() => pipeline.ExecuteAsync(Cmd(
+            TestContexts.With(PermissionCode.ManualControl), current, 1m, DeviceMode.Simulation, runtime)));
+
+        Assert.Equal(1, runtime.WriteCount);
+        Assert.Contains(audit.Entries, entry => entry.Contains("DeviceWriteUncertain", StringComparison.Ordinal));
+    }
+
     private static DevicePoint V2Point()
         => new(
             "P_V2",
@@ -249,6 +304,8 @@ public class DeviceWritePipelineTests
         private object? _value;
 
         public bool CancelDuringWrite { get; set; }
+        public bool OmitRawValue { get; set; }
+        public bool ChangeGenerationAfterWrite { get; set; }
         public int WriteCount { get; private set; }
         public int FreshReadCount { get; private set; }
         public object? LastWritten { get; private set; }
@@ -256,8 +313,11 @@ public class DeviceWritePipelineTests
         public DeviceMode Mode => DeviceMode.Simulation;
         public bool IsSimulation => true;
         public DeviceRuntimeInfo Status => new(Name, "simulation", "sim://identity", true,
-            DeviceHealth.Healthy, true, null, current.DeviceId, "channel-2", current.Revision, 1, DeviceConnectionState.Online);
+            DeviceHealth.Healthy, true, null, current.DeviceId, "channel-2", current.Revision,
+            ChangeGenerationAfterWrite && WriteCount > 0 ? 2 : 1, DeviceConnectionState.Online);
         public string ActiveRevision => current.Revision;
+        public SignalBindingsConfig SignalBindings => new();
+        public RuntimeActivationReport ActivationReport => new(1, 1, Array.Empty<DeviceActivationIssue>());
         public Task StartAsync(CancellationToken ct = default) => Task.CompletedTask;
         public Task StopAsync(CancellationToken ct = default) => Task.CompletedTask;
         public ValueTask DisposeAsync() => ValueTask.CompletedTask;
@@ -280,10 +340,22 @@ public class DeviceWritePipelineTests
         }
         public DevicePoint? GetPoint(string pointId)
             => string.Equals(pointId, current.PointId, StringComparison.OrdinalIgnoreCase) ? current : null;
-        public DeviceRuntimeInfo GetDeviceStatus(string deviceId) => Status with { DeviceId = deviceId };
+        public bool TryGetCachedValue(string pointId, out PointValue value)
+        {
+            value = default!;
+            return false;
+        }
+        public IReadOnlyList<PointValue> ListCachedValues() => Array.Empty<PointValue>();
+        public IReadOnlyList<DeviceRuntimeInfo> ListDeviceStatuses() => new[] { Status };
+        public DeviceRuntimeInfo GetDeviceStatus(string deviceId)
+            => string.Equals(deviceId, current.DeviceId, StringComparison.OrdinalIgnoreCase)
+                ? Status
+                : throw new DomainException($"设备 {deviceId} 不在测试运行时");
 
         private PointValue Value(object? value)
             => new(current.Code, current.Address, PointQuality.Good, value, DateTime.UtcNow,
-                current.PointId, current.DeviceId, 1, current.Revision);
+                current.PointId, current.DeviceId,
+                ChangeGenerationAfterWrite && WriteCount > 0 ? 2 : 1,
+                current.Revision, OmitRawValue ? null : value);
     }
 }

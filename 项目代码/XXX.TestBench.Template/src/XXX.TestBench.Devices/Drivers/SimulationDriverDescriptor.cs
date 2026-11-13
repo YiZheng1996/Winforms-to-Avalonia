@@ -11,7 +11,6 @@ public sealed class SimulationDriverDescriptor : IDeviceDriverDescriptor
 {
     private static readonly IReadOnlySet<DevicePointDataType> Supported = new HashSet<DevicePointDataType>
     {
-        DevicePointDataType.Boolean,
         DevicePointDataType.Bool,
         DevicePointDataType.Decimal,
         DevicePointDataType.Int32,
@@ -64,8 +63,8 @@ public sealed class SimulationDriverDescriptor : IDeviceDriverDescriptor
         var issues = new List<DriverValidationIssue>();
         if (string.IsNullOrWhiteSpace(point.Address))
             issues.Add(new("address", "仿真逻辑地址不能为空"));
-        if (!Supported.Contains(point.RawDataTypeKind))
-            issues.Add(new("rawDataType", $"仿真驱动不支持原始数据类型：{point.RawDataType}"));
+        if (!Supported.Contains(point.DataTypeKind))
+            issues.Add(new("dataType", $"仿真驱动不支持数据类型：{point.DataType}"));
         if (point.AddressDefinition is { } address
             && (address.Area is not ("" or "Simulation")
                 || address.Offset.HasValue
@@ -77,6 +76,6 @@ public sealed class SimulationDriverDescriptor : IDeviceDriverDescriptor
         return issues;
     }
 
-    public string NormalizeAddress(PointsConfig.PointEntry point)
+    public string NormalizeAddress(PointsConfig.PointEntry point, DeviceConfig.DeviceEntry device)
         => (point.AddressDefinition?.ToCanonical(point.Address) ?? point.Address).Trim();
 }

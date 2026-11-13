@@ -158,16 +158,23 @@ public sealed class SignalResolver
 
     private async Task<PointValue> ReadFreshAsync(ResolvedSignal signal, CancellationToken ct)
     {
+        var activeRevision = _runtime.ActiveRevision?.Trim();
+        if (string.IsNullOrWhiteSpace(activeRevision))
+            throw new SignalDependencyException("设备运行时缺少生效配置版本");
         var current = _runtime.GetPoint(signal.PointId);
         if (current is null)
             throw new SignalDependencyException($"信号 {signal.SignalKey} 的点位已从当前运行时移除：{signal.PointId}");
         if (!string.Equals(current.PointId, signal.PointId, StringComparison.OrdinalIgnoreCase)
-            || (!string.IsNullOrWhiteSpace(signal.Point.DeviceId)
-                && !string.Equals(current.DeviceId, signal.Point.DeviceId, StringComparison.OrdinalIgnoreCase)))
+            || string.IsNullOrWhiteSpace(current.DeviceId)
+            || !string.Equals(current.DeviceId, signal.Point.DeviceId, StringComparison.OrdinalIgnoreCase)
+            || !string.Equals(current.Revision, activeRevision, StringComparison.Ordinal))
             throw new SignalDependencyException($"信号 {signal.SignalKey} 的点位归属已变化，拒绝使用旧映射");
 
         var status = GetTargetStatus(current);
-        if (status.ConnectionState == DeviceConnectionState.Disabled
+        if (string.IsNullOrWhiteSpace(status.DeviceId)
+            || !string.Equals(status.DeviceId, current.DeviceId, StringComparison.OrdinalIgnoreCase)
+            || !string.Equals(status.Revision, activeRevision, StringComparison.Ordinal)
+            || status.ConnectionState == DeviceConnectionState.Disabled
             || status.Health is not (DeviceHealth.Healthy or DeviceHealth.Degraded)
             || !status.IsConnected)
             throw new SignalDependencyException($"信号 {signal.SignalKey} 所属设备不可用：{status.DeviceId}/{status.Health}");
@@ -186,18 +193,14 @@ public sealed class SignalResolver
             throw new SignalDependencyException($"信号 {signal.SignalKey} 新鲜读取失败：{ex.Message}");
         }
 
+        if (!string.Equals(_runtime.ActiveRevision, activeRevision, StringComparison.Ordinal)
+            || !string.Equals(sample.PointId, signal.PointId, StringComparison.OrdinalIgnoreCase)
+            || !string.Equals(sample.DeviceId, current.DeviceId, StringComparison.OrdinalIgnoreCase)
+            || !string.Equals(sample.Revision, activeRevision, StringComparison.Ordinal)
+            || sample.ConnectionGeneration != status.ConnectionGeneration)
+            throw new SignalDependencyException($"信号 {signal.SignalKey} 的设备会话或样本身份已变化");
         if (sample.Quality != PointQuality.Good)
             throw new SignalDependencyException($"信号 {signal.SignalKey} 质量不可用：{sample.Quality}");
-        if (!string.IsNullOrWhiteSpace(sample.PointId)
-            && !string.Equals(sample.PointId, signal.PointId, StringComparison.OrdinalIgnoreCase))
-            throw new SignalDependencyException($"信号 {signal.SignalKey} 返回了错误的 PointId：{sample.PointId}");
-        if (!string.IsNullOrWhiteSpace(sample.DeviceId)
-            && !string.Equals(sample.DeviceId, signal.Point.DeviceId, StringComparison.OrdinalIgnoreCase))
-            throw new SignalDependencyException($"信号 {signal.SignalKey} 返回了错误的 DeviceId：{sample.DeviceId}");
-        if (!string.IsNullOrWhiteSpace(_runtime.ActiveRevision)
-            && !string.IsNullOrWhiteSpace(sample.Revision)
-            && !string.Equals(sample.Revision, _runtime.ActiveRevision, StringComparison.Ordinal))
-            throw new SignalDependencyException($"信号 {signal.SignalKey} 返回了过期配置版本样本：{sample.Revision}");
         var age = _utcNow() - sample.TimestampUtc;
         if (age > signal.Requirement.MaxSampleAge)
             throw new SignalDependencyException($"信号 {signal.SignalKey} 样本已过期：{age.TotalMilliseconds:0}ms");
@@ -214,6 +217,5 @@ public sealed class SignalResolver
 
     private static bool IsTypeCompatible(DevicePointDataType expected, DevicePointDataType actual)
         => expected == actual
-           || (expected is DevicePointDataType.Boolean or DevicePointDataType.Bool
-               && actual is DevicePointDataType.Boolean or DevicePointDataType.Bool);
+           || expected == DevicePointDataType.Bool && actual == DevicePointDataType.Bool;
 }

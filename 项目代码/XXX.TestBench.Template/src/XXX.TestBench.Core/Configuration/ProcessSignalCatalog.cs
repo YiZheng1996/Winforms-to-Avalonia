@@ -22,7 +22,7 @@ public sealed record ProcessSignalDefinition(
     public bool IsWritable => Access == SignalAccessKind.Write;
 
     public bool IsNumeric => AcceptedDataTypes.Any(type => type is not (
-        DevicePointDataType.Boolean or DevicePointDataType.Bool or DevicePointDataType.String
+        DevicePointDataType.Bool or DevicePointDataType.String
         or DevicePointDataType.Char));
 
     public string RequirementText
@@ -52,7 +52,7 @@ public static class ProcessSignalCatalog
     public static readonly IReadOnlySet<DevicePointDataType> BooleanTypes =
         new HashSet<DevicePointDataType>
         {
-            DevicePointDataType.Boolean,
+            DevicePointDataType.Bool,
             DevicePointDataType.Bool
         };
 

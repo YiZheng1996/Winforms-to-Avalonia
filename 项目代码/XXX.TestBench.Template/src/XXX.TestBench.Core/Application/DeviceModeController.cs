@@ -1,6 +1,5 @@
 using XXX.TestBench.Core.Common;
 using XXX.TestBench.Core.Domain.Devices;
-using XXX.TestBench.Core.Domain.Identity;
 using XXX.TestBench.Core.Ports;
 
 namespace XXX.TestBench.Core.Application;
@@ -60,26 +59,13 @@ public sealed class DeviceModeController
     /// <summary>
     /// 按设备配置创建并启动设备运行时。
     /// </summary>
-    public Task<DeviceModeResult> InitializeAsync(CancellationToken ct = default)
-        => InitializeCoreAsync(null, ct);
-
-    /// <summary>
-    /// 旧的显式模式初始化入口，仅供旧基础设施测试/调用方过渡；页面不再提供全局切换。
-    /// </summary>
-    public Task<DeviceModeResult> InitializeAsync(DeviceMode mode, CancellationToken ct = default)
-        => InitializeCoreAsync(mode, ct);
-
-    private async Task<DeviceModeResult> InitializeCoreAsync(DeviceMode? requestedMode, CancellationToken ct)
+    public async Task<DeviceModeResult> InitializeAsync(CancellationToken ct = default)
     {
         await DisposeRuntimeAsync();
-        var auditMode = requestedMode?.ToString() ?? "PerDevice";
-        if (requestedMode is { } explicitMode)
-            CurrentMode = explicitMode;
+        const string auditMode = "PerDevice";
         try
         {
-            Runtime = requestedMode is { } mode
-                ? await _factory.CreateAsync(mode, ct)
-                : await _factory.CreateAsync(ct);
+            Runtime = await _factory.CreateAsync(ct);
             CurrentMode = Runtime.Mode;
             await Runtime.StartAsync(ct);
             Health = Runtime.Status.Health;
@@ -106,17 +92,6 @@ public sealed class DeviceModeController
             StateChanged?.Invoke(this, EventArgs.Empty);
             return new DeviceModeResult(false, $"设备运行时初始化失败：{ex.Message}");
         }
-    }
-
-    /// <summary>
-    /// 切换设备模式；无管理权限或有活动试验时拒绝。
-    /// </summary>
-    public async Task<DeviceModeResult> SwitchModeAsync(UserContext actor, DeviceMode mode, bool hasActiveTask, CancellationToken ct = default)
-    {
-        Ensure(actor, PermissionCode.ManageDevices);
-        if (hasActiveTask) return new DeviceModeResult(false, "存在活动试验，禁止切换设备模式");
-        if (mode == CurrentMode) return new DeviceModeResult(false, $"当前已是 {mode} 模式");
-        return await InitializeAsync(mode, ct);
     }
 
     /// <summary>
@@ -206,16 +181,4 @@ public sealed class DeviceModeController
         }
     }
 
-    /// <summary>
-    /// 校验权限，越权时写入审计并抛出异常。
-    /// </summary>
-    private void Ensure(UserContext actor, Core.Domain.Identity.PermissionCode permission)
-    {
-        try { actor.EnsurePermission(permission); }
-        catch (AuthorizationException)
-        {
-            _ = _audit.WriteAsync(actor.LoginName, "AccessDenied", permission.ToString(), null);
-            throw;
-        }
-    }
 }

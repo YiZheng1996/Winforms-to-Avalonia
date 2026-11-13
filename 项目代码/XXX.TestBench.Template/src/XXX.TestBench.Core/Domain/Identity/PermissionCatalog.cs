@@ -12,7 +12,7 @@ public sealed record PermissionDescriptor(
 
 /// <summary>
 /// 当前产品线实际启用的权限目录。
-/// ManageRecipes 保留用于历史数据库兼容，但当前没有对应业务入口，因此不在配置界面展示。
+/// Active/ActiveCodes 是当前可授予权限的唯一目录。
 /// </summary>
 public static class PermissionCatalog
 {

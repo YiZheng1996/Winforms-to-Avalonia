@@ -10,10 +10,34 @@ namespace XXX.TestBench.Core.Configuration;
 /// </summary>
 public static class MultiDeviceConfigurationValidator
 {
+    public static IReadOnlyList<ConfigurationIssue> ValidateStructure(DeviceConfigurationSnapshot snapshot)
+        => ValidateCore(snapshot, Array.Empty<IDeviceDriverDescriptor>(), Array.Empty<RequiredSignal>(),
+            validateApplicationSemantics: false);
+
+    public static IReadOnlyList<ConfigurationIssue> ValidateForApplication(
+        DeviceConfigurationSnapshot snapshot,
+        IEnumerable<IDeviceDriverDescriptor> descriptors,
+        IEnumerable<RequiredSignal> requiredSignals)
+    {
+        ArgumentNullException.ThrowIfNull(descriptors);
+        ArgumentNullException.ThrowIfNull(requiredSignals);
+        return ValidateCore(snapshot, descriptors, requiredSignals, validateApplicationSemantics: true);
+    }
+
     public static IReadOnlyList<ConfigurationIssue> Validate(
         DeviceConfigurationSnapshot snapshot,
         IEnumerable<IDeviceDriverDescriptor>? descriptors = null,
         IEnumerable<RequiredSignal>? requiredSignals = null)
+        => descriptors is null && requiredSignals is null
+            ? ValidateStructure(snapshot)
+            : ValidateForApplication(snapshot, descriptors ?? Array.Empty<IDeviceDriverDescriptor>(),
+                requiredSignals ?? Array.Empty<RequiredSignal>());
+
+    private static IReadOnlyList<ConfigurationIssue> ValidateCore(
+        DeviceConfigurationSnapshot snapshot,
+        IEnumerable<IDeviceDriverDescriptor> descriptors,
+        IEnumerable<RequiredSignal> requiredSignals,
+        bool validateApplicationSemantics)
     {
         var issues = new List<ConfigurationIssue>();
         if (snapshot is null)
@@ -40,7 +64,7 @@ public static class MultiDeviceConfigurationValidator
         AddException(issues, "points.json", snapshot.Points.Validate);
         AddException(issues, "simulation.json", snapshot.Simulation.Validate);
 
-        var driverMap = (descriptors ?? Array.Empty<IDeviceDriverDescriptor>())
+        var driverMap = descriptors
             .Where(descriptor => !string.IsNullOrWhiteSpace(descriptor.DriverKey))
             .GroupBy(descriptor => descriptor.DriverKey.Trim(), StringComparer.OrdinalIgnoreCase)
             .ToDictionary(group => group.Key, group => group.First(), StringComparer.OrdinalIgnoreCase);
@@ -53,7 +77,8 @@ public static class MultiDeviceConfigurationValidator
             (snapshot.Points.Points ?? new List<PointsConfig.PointEntry>())
                 .Where(point => point is not null)
                 .Select(point => point.Id).ToHashSet(StringComparer.OrdinalIgnoreCase)));
-        ValidateSignalBindingContracts(snapshot.Points, snapshot.SignalBindings, requiredSignals, issues);
+        if (validateApplicationSemantics)
+            ValidateSignalBindingContracts(snapshot.Points, snapshot.SignalBindings, requiredSignals, issues);
 
         return issues;
     }
@@ -63,9 +88,6 @@ public static class MultiDeviceConfigurationValidator
         PointsConfig pointsConfig,
         ICollection<ConfigurationIssue> issues)
     {
-        if (pointsConfig.SchemaVersion < PointsConfig.CurrentSchemaVersion)
-            return;
-
         var devices = (deviceConfig.Devices ?? new List<DeviceConfig.DeviceEntry>())
             .Where(device => device is not null && !string.IsNullOrWhiteSpace(device.Id))
             .GroupBy(device => device.Id.Trim(), StringComparer.OrdinalIgnoreCase)
@@ -103,6 +125,23 @@ public static class MultiDeviceConfigurationValidator
             throw new ConfigValidationException(string.Join("；", issues.Select(issue => issue.Message)));
     }
 
+    public static void EnsureStructureValid(DeviceConfigurationSnapshot snapshot)
+    {
+        var issues = ValidateStructure(snapshot);
+        if (issues.Count > 0)
+            throw new ConfigValidationException(string.Join("；", issues.Select(issue => issue.Message)));
+    }
+
+    public static void EnsureApplicationValid(
+        DeviceConfigurationSnapshot snapshot,
+        IEnumerable<IDeviceDriverDescriptor> descriptors,
+        IEnumerable<RequiredSignal> requiredSignals)
+    {
+        var issues = ValidateForApplication(snapshot, descriptors, requiredSignals);
+        if (issues.Count > 0)
+            throw new ConfigValidationException(string.Join("；", issues.Select(issue => issue.Message)));
+    }
+
     private static void ValidateDeviceReferences(
         DeviceConfig deviceConfig,
         IReadOnlyDictionary<string, IDeviceDriverDescriptor> drivers,
@@ -124,7 +163,7 @@ public static class MultiDeviceConfigurationValidator
             var path = $"device.json.devices[{device.Code}]";
             if (!channelMap.TryGetValue(device.ChannelId?.Trim() ?? string.Empty, out var channel))
                 continue;
-            if (device.DeviceMode == DeviceMode.Hardware && !channel.Enabled)
+            if (drivers.Count > 0 && device.DeviceMode == DeviceMode.Hardware && !channel.Enabled)
                 issues.Add(new(path + ".channelId", "硬件设备所属通道已禁用"));
 
             if (!drivers.TryGetValue(device.DriverKey?.Trim() ?? string.Empty, out var descriptor))
@@ -159,6 +198,8 @@ public static class MultiDeviceConfigurationValidator
             .GroupBy(device => device.Id.Trim(), StringComparer.OrdinalIgnoreCase)
             .ToDictionary(group => group.Key, group => group.First(), StringComparer.OrdinalIgnoreCase);
         var duplicateAddresses = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var addressRanges = new Dictionary<string, List<(PointsConfig.PointEntry Point, DevicePointAddressRange Range)>>(
+            StringComparer.OrdinalIgnoreCase);
 
         foreach (var point in pointsConfig.Points ?? new List<PointsConfig.PointEntry>())
         {
@@ -187,7 +228,7 @@ public static class MultiDeviceConfigurationValidator
             string normalized;
             try
             {
-                normalized = descriptor.NormalizeAddress(point);
+                normalized = descriptor.NormalizeAddress(point, device);
             }
             catch (Exception ex)
             {
@@ -199,10 +240,38 @@ public static class MultiDeviceConfigurationValidator
             if (!duplicateAddresses.Add(addressKey))
                 issues.Add(new(path + ".address", $"同一设备存在重复规范地址：{normalized}"));
 
-            foreach (var issue in descriptor.ValidatePoint(point, device))
+            var pointIssues = descriptor.ValidatePoint(point, device);
+            foreach (var issue in pointIssues)
                 issues.Add(new(path + "." + issue.Path, issue.Message));
             if (point.IsWritable && point.WritePolicy != PointWritePolicy.ReadBackEqual)
                 issues.Add(new(path + ".writePolicy", "第一版只支持 ReadBackEqual"));
+
+            if (pointIssues.Count == 0)
+            {
+                try
+                {
+                    if (descriptor.GetAddressRange(point, device) is { } range)
+                    {
+                        if (!addressRanges.TryGetValue(device.Id.Trim(), out var deviceRanges))
+                        {
+                            deviceRanges = new List<(PointsConfig.PointEntry, DevicePointAddressRange)>();
+                            addressRanges.Add(device.Id.Trim(), deviceRanges);
+                        }
+                        deviceRanges.Add((point, range));
+                    }
+                }
+                catch (Exception ex)
+                {
+                    issues.Add(new(path + ".address", ex.Message));
+                }
+            }
+        }
+
+        foreach (var ranges in addressRanges.Values)
+        foreach (var rangeIssue in DevicePointAddressRangeValidator.Validate(ranges))
+        {
+            var path = $"points.json.points[{rangeIssue.Point.Code}].address";
+            issues.Add(new(path, rangeIssue.Message));
         }
     }
 
@@ -216,8 +285,6 @@ public static class MultiDeviceConfigurationValidator
             .Select(point => point.Id)
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
-        if ((simulation.InitialValues ?? new Dictionary<string, object?>()).Count > 0)
-            issues.Add(new("simulation.json.initialValues", "v2 必须使用 PointId，不能继续使用地址作为缓存主键"));
         foreach (var pointId in (simulation.InitialValuesByPointId ?? new Dictionary<string, object?>()).Keys)
             if (!pointIds.Contains(pointId))
                 issues.Add(new("simulation.json.initialValuesByPointId", $"引用的 PointId 不存在：{pointId}"));
@@ -232,13 +299,21 @@ public static class MultiDeviceConfigurationValidator
     private static void ValidateSignalBindingContracts(
         PointsConfig pointsConfig,
         SignalBindingsConfig bindingsConfig,
-        IEnumerable<RequiredSignal>? requiredSignals,
+        IEnumerable<RequiredSignal> requiredSignals,
         ICollection<ConfigurationIssue> issues)
     {
-        var requirements = (requiredSignals ?? Array.Empty<RequiredSignal>())
+        var groupedRequirements = requiredSignals
             .Where(requirement => requirement is not null && !string.IsNullOrWhiteSpace(requirement.SignalKey))
             .GroupBy(requirement => requirement.SignalKey.Trim(), StringComparer.OrdinalIgnoreCase)
-            .ToDictionary(group => group.Key, group => group.First(), StringComparer.OrdinalIgnoreCase);
+            .ToList();
+        var requirements = new Dictionary<string, RequiredSignal>(StringComparer.OrdinalIgnoreCase);
+        foreach (var group in groupedRequirements)
+        {
+            var declarations = group.Distinct().ToList();
+            if (declarations.Count > 1)
+                issues.Add(new($"signal-bindings.{group.Key}", "多个执行器对同名信号声明不一致"));
+            requirements[group.Key] = declarations[0];
+        }
         var points = (pointsConfig.Points ?? new List<PointsConfig.PointEntry>())
             .Where(point => point is not null && !string.IsNullOrWhiteSpace(point.Id))
             .GroupBy(point => point.Id.Trim(), StringComparer.OrdinalIgnoreCase)
@@ -253,31 +328,28 @@ public static class MultiDeviceConfigurationValidator
             {
                 if (!requirements.TryGetValue(signalKey, out var requirement))
                 {
-                    // 没有传入执行器目录时保留旧配置兼容性；配置应用服务会传入完整目录，
-                    // 在该边界上拒绝所有既不是执行器、也不是工艺目录的未知键。
-                    if (requiredSignals is not null)
-                        issues.Add(new($"signal-bindings.{binding.Key}", "绑定键未被任何已注册执行器或工艺页面声明"));
+                    issues.Add(new($"signal-bindings.{binding.Key}", "绑定键未被任何已注册执行器或工艺页面声明"));
                     continue;
                 }
 
                 if (!points.TryGetValue(pointId, out var executorPoint))
                     continue;
-                if (!IsTypeCompatible(requirement.ExpectedDataType, executorPoint.RawDataTypeKind))
-                    issues.Add(new($"signal-bindings.{binding.Key}", $"类型不匹配：期望 {DevicePointTypeCatalog.ToDisplayName(requirement.ExpectedDataType)}，实际 {DevicePointTypeCatalog.ToDisplayName(executorPoint.RawDataTypeKind)}"));
+                if (!IsTypeCompatible(requirement.ExpectedDataType, executorPoint.DataTypeKind))
+                    issues.Add(new($"signal-bindings.{binding.Key}", $"类型不匹配：期望 {DevicePointTypeCatalog.ToDisplayName(requirement.ExpectedDataType)}，实际 {DevicePointTypeCatalog.ToDisplayName(executorPoint.DataTypeKind)}"));
                 if (requirement.MaxSampleAge <= TimeSpan.Zero)
                     issues.Add(new($"signal-bindings.{binding.Key}", "最大样本年龄必须大于 0"));
                 continue;
             }
             if (!points.TryGetValue(pointId, out var point)) continue;
-            if (!processSignal.AcceptedDataTypes.Contains(point.RawDataTypeKind))
+            if (!processSignal.AcceptedDataTypes.Contains(point.DataTypeKind))
                 issues.Add(new(
                     $"signal-bindings.{binding.Key}",
-                    $"类型不匹配：期望 {string.Join("/", processSignal.AcceptedDataTypes.Select(type => DevicePointTypeCatalog.ToDisplayName(type))) }，实际 {DevicePointTypeCatalog.ToDisplayName(point.RawDataTypeKind)}"));
+                    $"类型不匹配：期望 {string.Join("/", processSignal.AcceptedDataTypes.Select(type => DevicePointTypeCatalog.ToDisplayName(type))) }，实际 {DevicePointTypeCatalog.ToDisplayName(point.DataTypeKind)}"));
             if (processSignal.IsWritable && !point.IsWritable)
                 issues.Add(new($"signal-bindings.{binding.Key}", "该工艺信号要求绑定可写点位"));
             if (processSignal.RequiresEngineeringRange
-                && (!point.EffectiveEngMin.HasValue || !point.EffectiveEngMax.HasValue
-                    || point.EffectiveEngMin > point.EffectiveEngMax))
+                && (!point.EngMin.HasValue || !point.EngMax.HasValue
+                    || point.EngMin > point.EngMax))
                 issues.Add(new($"signal-bindings.{binding.Key}", "调压目标必须配置可靠的工程量程"));
             if (processSignal.MaxSampleAge <= TimeSpan.Zero)
                 issues.Add(new($"signal-bindings.{binding.Key}", "最大样本年龄必须大于 0"));
@@ -286,8 +358,7 @@ public static class MultiDeviceConfigurationValidator
 
     private static bool IsTypeCompatible(DevicePointDataType expected, DevicePointDataType actual)
         => expected == actual
-           || (expected is DevicePointDataType.Boolean or DevicePointDataType.Bool
-               && actual is DevicePointDataType.Boolean or DevicePointDataType.Bool);
+           || expected == DevicePointDataType.Bool && actual == DevicePointDataType.Bool;
 
     private static void AddException(
         ICollection<ConfigurationIssue> issues,

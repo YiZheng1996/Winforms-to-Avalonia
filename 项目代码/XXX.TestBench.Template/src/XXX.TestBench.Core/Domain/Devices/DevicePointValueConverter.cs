@@ -104,7 +104,7 @@ public static class DevicePointValueConverter
         {
             return dataType switch
             {
-                DevicePointDataType.Boolean or DevicePointDataType.Bool => Convert.ToBoolean(value, System.Globalization.CultureInfo.InvariantCulture),
+                DevicePointDataType.Bool => Convert.ToBoolean(value, System.Globalization.CultureInfo.InvariantCulture),
                 DevicePointDataType.Byte => Convert.ToByte(value, System.Globalization.CultureInfo.InvariantCulture),
                 DevicePointDataType.Char => value is char character ? character : Convert.ToChar(value, System.Globalization.CultureInfo.InvariantCulture),
                 DevicePointDataType.Int16 => Convert.ToInt16(value, System.Globalization.CultureInfo.InvariantCulture),

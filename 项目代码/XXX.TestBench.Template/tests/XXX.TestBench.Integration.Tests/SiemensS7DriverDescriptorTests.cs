@@ -50,11 +50,11 @@ public sealed class SiemensS7DriverDescriptorTests
     }
 
     [Theory]
-    [InlineData("DB142.DBX22.3", DevicePointDataType.Boolean, "S7-1500")]
+    [InlineData("DB142.DBX22.3", DevicePointDataType.Bool, "S7-1500")]
     [InlineData("DB144.DBD88", DevicePointDataType.Float32, "S7-1200")]
     [InlineData("VD800", DevicePointDataType.UInt32, "S7-200 SMART")]
-    [InlineData("V0.1", DevicePointDataType.Boolean, "S7-200 SMART")]
-    [InlineData("M10.1", DevicePointDataType.Boolean, "S7-200 SMART")]
+    [InlineData("V0.1", DevicePointDataType.Bool, "S7-200 SMART")]
+    [InlineData("M10.1", DevicePointDataType.Bool, "S7-200 SMART")]
     public void AcceptsAddressShapesUsedByKepServerReference(
         string address,
         DevicePointDataType type,
@@ -84,7 +84,7 @@ public sealed class SiemensS7DriverDescriptorTests
             Point("DB140.DBB2", DevicePointDataType.Float32),
             Device("S7-1500"));
 
-        Assert.Contains(issues, issue => issue.Path == "rawDataType");
+        Assert.Contains(issues, issue => issue.Path == "dataType");
     }
 
     [Fact]
@@ -94,7 +94,7 @@ public sealed class SiemensS7DriverDescriptorTests
             Point("DB142.DBX22.3", DevicePointDataType.Float32),
             Device("S7-1500"));
 
-        Assert.Contains(issues, issue => issue.Path == "rawDataType");
+        Assert.Contains(issues, issue => issue.Path == "dataType");
     }
 
     [Fact]
@@ -132,7 +132,6 @@ public sealed class SiemensS7DriverDescriptorTests
         {
             Code = "AI.Pressure",
             Address = address,
-            RawDataType = DevicePointTypeCatalog.ToStorage(type),
             DataType = DevicePointTypeCatalog.ToStorage(type)
         };
 

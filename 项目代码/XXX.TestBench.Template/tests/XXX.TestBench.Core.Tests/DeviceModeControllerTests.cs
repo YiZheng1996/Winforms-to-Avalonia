@@ -28,7 +28,7 @@ public class DeviceModeControllerTests
     public async Task InitializeSimulation_Succeeds()
     {
         var (controller, _) = Create();
-        var result = await controller.InitializeAsync(DeviceMode.Simulation);
+        var result = await controller.InitializeAsync();
 
         Assert.True(result.Ok);
         Assert.Equal(DeviceMode.Simulation, controller.CurrentMode);
@@ -37,29 +37,19 @@ public class DeviceModeControllerTests
     }
 
     [Fact]
-    public async Task HardwareInitFailure_KeepsHardwareMode_AndEntersFaulted_NoFallback()
+    public async Task FactoryFailure_EntersFaulted_WithoutSimulationFallback()
     {
-        var (controller, _) = Create();
-        var result = await controller.InitializeAsync(DeviceMode.Hardware);
+        var controller = new DeviceModeController(new FailedRuntimeFactory(), new SilentLogger(), new FakeAuditLog());
+        var result = await controller.InitializeAsync();
 
         Assert.False(result.Ok);
-        Assert.Equal(DeviceMode.Hardware, controller.CurrentMode); // 保留 Hardware 模式
         Assert.Equal(DeviceHealth.Faulted, controller.Health);
-        Assert.Null(controller.Runtime); // 不得创建 Simulation 运行时
+        Assert.Null(controller.Runtime);
     }
 
-    [Fact]
-    public async Task SwitchMode_RequiresManageDevices_AndNoActiveTask()
+    private sealed class FailedRuntimeFactory : IDeviceRuntimeFactory
     {
-        var (controller, _) = Create();
-        var operatorActor = TestContexts.With(PermissionCode.ExecuteTests);
-
-        await Assert.ThrowsAsync<AuthorizationException>(() =>
-            controller.SwitchModeAsync(operatorActor, DeviceMode.Hardware, hasActiveTask: false));
-
-        var maintenance = TestContexts.With(PermissionCode.ManageDevices);
-        var blocked = await controller.SwitchModeAsync(maintenance, DeviceMode.Hardware, hasActiveTask: true);
-        Assert.False(blocked.Ok);
-        Assert.Contains("活动试验", blocked.Error);
+        public Task<IDeviceRuntime> CreateAsync(CancellationToken ct = default)
+            => throw new DomainException("设备快照拒绝创建运行时");
     }
 }

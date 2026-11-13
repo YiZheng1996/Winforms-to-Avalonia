@@ -17,41 +17,39 @@ public class DeviceModeControllerIntegrationTests
     public async Task HardwareInitFailure_KeepsHardwareMode_Faulted_NoFallback()
     {
         using var env = TestEnv.Create("Hardware");
-        var store = new JsonConfigStore(env.ConfigRoot);
-        var deviceConfig = await store.LoadAsync<Core.Configuration.DeviceConfig>("device.json");
-        var pointsConfig = await store.LoadAsync<Core.Configuration.PointsConfig>("points.json");
-        var simConfig = await store.LoadAsync<Core.Configuration.SimulationConfig>("simulation.json");
+        var snapshot = await env.LoadSnapshotAsync();
 
         var dbFactory = new SqliteConnectionFactory(env.DbPath);
         await new SqliteDatabase(dbFactory, new Pbkdf2PasswordHasher()).InitializeAsync();
-        var factory = new DeviceRuntimeFactory(deviceConfig, pointsConfig, simConfig, new SystemClock());
+        var factory = new DeviceRuntimeFactory(
+            snapshot, new SystemClock(), requiredSignals: TestEnv.RegisteredRequiredSignals());
         var audit = new SqliteAuditLog(dbFactory);
         var controller = new DeviceModeController(factory, new FileLogger(Path.Combine(env.DataRoot, "logs")), audit);
 
-        var result = await controller.InitializeAsync(DeviceMode.Hardware);
+        var result = await controller.InitializeAsync();
 
         Assert.False(result.Ok);
         Assert.Equal(DeviceMode.Hardware, controller.CurrentMode);
         Assert.Equal(DeviceHealth.Faulted, controller.Health);
-        Assert.Null(controller.Runtime);
+        Assert.NotNull(controller.Runtime);
+        Assert.False(controller.Runtime!.ActivationReport.AllOnline);
+        Assert.NotEmpty(controller.Runtime.ActivationReport.Issues);
     }
 
     [Fact]
-    public async Task SimulationInit_Succeeds_AndSwitchRequiresPermission()
+    public async Task SimulationInit_Succeeds_FromDeviceConfiguration()
     {
         using var env = TestEnv.Create();
-        var store = new JsonConfigStore(env.ConfigRoot);
-        var deviceConfig = await store.LoadAsync<Core.Configuration.DeviceConfig>("device.json");
-        var pointsConfig = await store.LoadAsync<Core.Configuration.PointsConfig>("points.json");
-        var simConfig = await store.LoadAsync<Core.Configuration.SimulationConfig>("simulation.json");
+        var snapshot = await env.LoadSnapshotAsync();
 
         var dbFactory = new SqliteConnectionFactory(env.DbPath);
         await new SqliteDatabase(dbFactory, new Pbkdf2PasswordHasher()).InitializeAsync();
-        var factory = new DeviceRuntimeFactory(deviceConfig, pointsConfig, simConfig, new SystemClock());
+        var factory = new DeviceRuntimeFactory(
+            snapshot, new SystemClock(), requiredSignals: TestEnv.RegisteredRequiredSignals());
         var audit = new SqliteAuditLog(dbFactory);
         var controller = new DeviceModeController(factory, new FileLogger(Path.Combine(env.DataRoot, "logs")), audit);
 
-        var result = await controller.InitializeAsync(DeviceMode.Simulation);
+        var result = await controller.InitializeAsync();
         Assert.True(result.Ok);
         Assert.Equal(DeviceHealth.Healthy, controller.Health);
         Assert.True(controller.Runtime!.IsSimulation);

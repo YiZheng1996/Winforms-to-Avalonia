@@ -27,12 +27,14 @@ public sealed class DevicePointImportPlannerTests
     }
 
     [Fact]
-    public void MatchedPoint_PreservesWritePolicyAndDecodeOptions()
+    public void MatchedS7Point_PreservesWritePolicyAndS7DecodeOptions()
     {
         var existing = Point("40000000-0000-0000-0000-000000000001", "AI", DeviceA, GroupA,
             writable: true, risk: WriteRiskLevel.Normal);
+        existing.Protocol = "SiemensS7";
+        existing.Address = "DB1.DBD0";
         existing.WritePolicy = PointWritePolicy.ReadBackEqual;
-        existing.DecodeOptions = new DecodeOptions { ByteOrder = ByteOrder.BigEndian, WordOrder = WordOrder.LowWordFirst };
+        existing.S7DecodeOptions = new DecodeOptions { ByteOrder = ByteOrder.BigEndian, WordOrder = WordOrder.LowWordFirst };
         var incoming = IncomingFrom(existing);
         incoming.Description = "批量维护";
 
@@ -40,8 +42,8 @@ public sealed class DevicePointImportPlannerTests
 
         Assert.NotNull(row.Candidate);
         Assert.Equal(existing.WritePolicy, row.Candidate!.WritePolicy);
-        Assert.Equal(existing.DecodeOptions.ByteOrder, row.Candidate.DecodeOptions.ByteOrder);
-        Assert.Equal(existing.DecodeOptions.WordOrder, row.Candidate.DecodeOptions.WordOrder);
+        Assert.Equal(existing.S7DecodeOptions.ByteOrder, row.Candidate!.S7DecodeOptions!.ByteOrder);
+        Assert.Equal(existing.S7DecodeOptions.WordOrder, row.Candidate.S7DecodeOptions.WordOrder);
     }
 
     [Fact]
@@ -215,8 +217,7 @@ public sealed class DevicePointImportPlannerTests
             Address = existing.Address,
             AddressDefinition = existing.AddressDefinition,
             DataType = existing.DataType,
-            RawDataType = existing.RawDataType,
-            DecodeOptions = existing.DecodeOptions,
+            S7DecodeOptions = existing.S7DecodeOptions,
             WritePolicy = existing.WritePolicy,
             IsWritable = existing.IsWritable,
             RiskLevel = existing.RiskLevel,
@@ -246,11 +247,10 @@ public sealed class DevicePointImportPlannerTests
             GroupCode = groupId == GroupA ? "AI" : "OUTPUT",
             Address = "sim." + code,
             DataType = "Decimal",
-            RawDataType = "Decimal",
             IsWritable = writable,
             RiskLevel = risk,
             WritePolicy = PointWritePolicy.ReadBackEqual,
-            DecodeOptions = new DecodeOptions()
+            S7DecodeOptions = new DecodeOptions()
         };
 
     private static IReadOnlyList<PointsConfig.PointGroupEntry> Groups()

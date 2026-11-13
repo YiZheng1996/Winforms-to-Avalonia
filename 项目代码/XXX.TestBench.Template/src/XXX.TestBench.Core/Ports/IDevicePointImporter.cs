@@ -27,16 +27,9 @@ public sealed record DevicePointImportRow(int RowNumber, PointsConfig.PointEntry
 /// 点位导入结果，包含可用的点位与问题清单。
 /// </summary>
 public sealed record DevicePointImportResult(
-    IReadOnlyList<PointsConfig.PointEntry> Points,
-    IReadOnlyList<DevicePointImportIssue> Issues,
-    IReadOnlyList<DevicePointImportRow>? ParsedRows = null)
+    IReadOnlyList<DevicePointImportRow> Rows,
+    IReadOnlyList<DevicePointImportIssue> Issues)
 {
-    public bool IsValid => Points.Count > 0 && Issues.Count == 0;
-
-    /// <summary>
-    /// 返回带原始行号的解析结果；兼容旧调用方构造的两参数结果。
-    /// </summary>
-    public IReadOnlyList<DevicePointImportRow> RowsWithNumbers
-        => ParsedRows
-            ?? Points.Select((entry, index) => new DevicePointImportRow(index + 2, entry)).ToList();
+    public bool IsValid => Rows.Count > 0 && Issues.Count == 0;
+    public IReadOnlyList<PointsConfig.PointEntry> Points => Rows.Select(row => row.Entry).ToArray();
 }

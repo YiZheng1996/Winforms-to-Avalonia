@@ -108,7 +108,7 @@ public sealed class DeviceSession : IAsyncDisposable
                         ? $"{_channel.Serial?.PortName ?? "串口"}，站号 {_configuration.ModbusUnitId?.ToString() ?? "未配置"}"
                         : _channel.TransportKind switch
                         {
-                            ChannelTransportKind.Tcp => $"{_channel.Tcp?.Host}:{_channel.Tcp?.Port}",
+                            ChannelTransportKind.Tcp => $"TCP 通道 {_channel.Code}",
                             ChannelTransportKind.Serial => _channel.Serial?.PortName ?? "串口",
                             ChannelTransportKind.Simulation => "仿真",
                             _ => "未知通道"
@@ -256,7 +256,7 @@ public sealed class DeviceSession : IAsyncDisposable
     {
         var current = ResolvePoint(point);
         EnsureOperational(allowDemotedWrite: true);
-        // 降级期禁止写入是固定安全规则；旧配置中的 DiscardWritesWhileDemoted 只保留用于兼容读取。
+        // 降级期禁止写入是固定安全规则。
         if (IsDemoted)
             throw new DomainException($"设备 {_configuration.Code} 当前处于降级期，写入已丢弃");
 
@@ -421,12 +421,12 @@ public sealed class DeviceSession : IAsyncDisposable
     private DevicePoint ResolvePoint(DevicePoint requested)
     {
         ArgumentNullException.ThrowIfNull(requested);
-        if (!string.IsNullOrWhiteSpace(requested.PointId) && GetPoint(requested.PointId) is { } byId)
-            return byId;
-        if (string.IsNullOrWhiteSpace(requested.PointId)
-            && _points.FirstOrDefault(point => string.Equals(point.Address, requested.Address, StringComparison.OrdinalIgnoreCase)) is { } byAddress)
-            return byAddress;
-        throw new DomainException($"点位 {requested.PointId}/{requested.Address} 不属于设备 {_configuration.Code}");
+        if (string.IsNullOrWhiteSpace(requested.PointId) || GetPoint(requested.PointId) is not { } byId)
+            throw new DomainException($"点位缺少有效 PointId，或不属于设备 {_configuration.Code}");
+        if (!string.Equals(requested.DeviceId, _configuration.Id, StringComparison.OrdinalIgnoreCase)
+            || !string.Equals(requested.Revision, _revision, StringComparison.Ordinal))
+            throw new DomainException($"点位 {requested.Code} 的设备身份或配置版本已变化");
+        return byId;
     }
 
     private void EnsureOperational(bool allowDemotedWrite = false)

@@ -1,4 +1,6 @@
 using XXX.TestBench.App.ViewModels;
+using XXX.TestBench.Core.Application;
+using XXX.TestBench.Core.Configuration;
 using XXX.TestBench.Core.Domain.Devices;
 using XXX.TestBench.Core.Ports;
 
@@ -67,7 +69,9 @@ public sealed class DevicePointDiagnosticsViewModelTests
             harness.Services.AuditLog);
         var initialized = await controller.InitializeAsync();
         Assert.True(initialized.Ok, initialized.Error);
-        var services = harness.Services with { DeviceModes = controller };
+        // 替换测试运行时后，使用绑定到当前 Services 的回退读取器，避免继续使用组合根
+        // 创建时捕获的旧 DeviceModeController。
+        var services = harness.Services with { DeviceModes = controller, DiagnosticReader = null };
         var diagnostics = new DevicePointDiagnosticsViewModel(
             services,
             "测试",
@@ -88,15 +92,13 @@ public sealed class DevicePointDiagnosticsViewModelTests
         Assert.False(feedback.Succeeded);
         Assert.Contains("丢弃", feedback.Message, StringComparison.Ordinal);
         Assert.Equal("已丢弃", diagnostics.Points[0].StatusText);
-        Assert.Contains("旧 Revision", diagnostics.Points[0].ErrorText, StringComparison.Ordinal);
+        Assert.Contains("身份不匹配", diagnostics.Points[0].ErrorText, StringComparison.Ordinal);
     }
 
     private sealed class ControlledRuntimeFactory(ControlledRuntime runtime)
         : XXX.TestBench.Core.Ports.IDeviceRuntimeFactory
     {
-        public Task<XXX.TestBench.Core.Ports.IDeviceRuntime> CreateAsync(
-            DeviceMode mode,
-            CancellationToken ct = default)
+        public Task<XXX.TestBench.Core.Ports.IDeviceRuntime> CreateAsync(CancellationToken ct = default)
             => Task.FromResult<XXX.TestBench.Core.Ports.IDeviceRuntime>(runtime);
     }
 
@@ -112,6 +114,8 @@ public sealed class DevicePointDiagnosticsViewModelTests
             null, "device-1", "channel-1", Revision, 1,
             DeviceConnectionState.Online, DeviceMode.Simulation);
         public string ActiveRevision => Revision;
+        public SignalBindingsConfig SignalBindings => new();
+        public RuntimeActivationReport ActivationReport => new(1, 1, Array.Empty<DeviceActivationIssue>());
 
         public Task StartAsync(CancellationToken ct = default) => Task.CompletedTask;
         public Task StopAsync(CancellationToken ct = default) => Task.CompletedTask;
@@ -128,6 +132,23 @@ public sealed class DevicePointDiagnosticsViewModelTests
             => Task.FromResult(new PointValue(
                 "TEST", "sim.test", PointQuality.Good, 1.2m, DateTime.UtcNow,
                 pointId, "device-1", 1, ReturnedRevision));
+        public DevicePoint? GetPoint(string pointId)
+            => string.Equals(pointId, "point-1", StringComparison.OrdinalIgnoreCase)
+                ? new DevicePoint("TEST", DevicePointProtocol.Simulation, "sim.test",
+                    DevicePointDataType.Decimal, false, WriteRiskLevel.Normal,
+                    null, null, null, null, "测试点", string.Empty, "point-1", "device-1")
+                : null;
+        public bool TryGetCachedValue(string pointId, out PointValue value)
+        {
+            value = default!;
+            return false;
+        }
+        public IReadOnlyList<PointValue> ListCachedValues() => Array.Empty<PointValue>();
+        public DeviceRuntimeInfo GetDeviceStatus(string deviceId)
+            => string.Equals(deviceId, "device-1", StringComparison.OrdinalIgnoreCase)
+                ? Status
+                : throw new InvalidOperationException($"设备 {deviceId} 不属于测试运行时");
+        public IReadOnlyList<DeviceRuntimeInfo> ListDeviceStatuses() => new[] { Status };
         public ValueTask DisposeAsync() => ValueTask.CompletedTask;
     }
 

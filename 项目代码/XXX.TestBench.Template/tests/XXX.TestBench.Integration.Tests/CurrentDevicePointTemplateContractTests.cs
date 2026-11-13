@@ -6,6 +6,7 @@ namespace XXX.TestBench.Integration.Tests;
 public sealed class CurrentDevicePointTemplateContractTests
 {
     [Theory]
+    [InlineData("点位标签,地址,数据类型,字节序,字序,访问权限,原始下限,原始上限,工程下限,工程上限,说明")]
     [InlineData("点位标识,点位编码,点位名称,设备编码,点位分组编码,地址类型,地址参数,原始数据类型,字节序,字序,单位,原始下限,原始上限,工程下限,工程上限,可写,启用,风险等级,说明")]
     [InlineData("点位编码,点位名称,通信方式,设备地址,数据类型,工程单位,原始下限,原始上限,工程下限,工程上限,是否允许写入,写入风险,是否启用,说明")]
     public async Task RemovedTemplateHeadersAreRejected(string removedHeader)

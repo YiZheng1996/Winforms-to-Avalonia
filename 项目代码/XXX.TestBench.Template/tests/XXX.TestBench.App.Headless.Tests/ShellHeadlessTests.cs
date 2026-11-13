@@ -5,11 +5,20 @@ using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Interactivity;
+using Avalonia.Layout;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
+using AvaloniaEllipse = Avalonia.Controls.Shapes.Ellipse;
+using AvaloniaLine = Avalonia.Controls.Shapes.Line;
+using AvaloniaPolyline = Avalonia.Controls.Shapes.Polyline;
+using AvaloniaPolygon = Avalonia.Controls.Shapes.Polygon;
 using XXX.TestBench.App;
 using XXX.TestBench.App.Composition;
+using XXX.TestBench.App.Controls.Process;
+using XXX.TestBench.App.Icons;
 using XXX.TestBench.App.ViewModels;
+using XXX.TestBench.Core.Application;
+using XXX.TestBench.Core.Ports;
 using XXX.TestBench.App.Views;
 using XXX.TestBench.Core.Configuration;
 using XXX.TestBench.Core.Domain.Devices;
@@ -64,7 +73,7 @@ public class ShellHeadlessTests
             TransportKind = ChannelTransportKind.Tcp,
             TimeoutMs = 1000,
             RetryCount = 0,
-            Tcp = new TcpChannelParameters { Host = "127.0.0.1", Port = 1502 }
+            Tcp = new TcpChannelParameters()
         };
         var form = new DeviceEditorViewModel(
             null,
@@ -124,7 +133,7 @@ public class ShellHeadlessTests
             TransportKind = ChannelTransportKind.Tcp,
             TimeoutMs = 1000,
             RetryCount = 0,
-            Tcp = new TcpChannelParameters { Host = "127.0.0.1", Port = 1502 }
+            Tcp = new TcpChannelParameters()
         };
         var form = new DeviceEditorViewModel(
             null,
@@ -160,6 +169,163 @@ public class ShellHeadlessTests
         Assert.NotNull(stationBottom);
         Assert.NotNull(noteTop);
         Assert.True(stationBottom!.Value.Y <= noteTop!.Value.Y);
+
+        dialog.Close();
+        Dispatcher.UIThread.RunJobs(DispatcherPriority.Background);
+    }
+
+    [AvaloniaFact]
+    public void PointGroupDialogKeepsOwnerInHeaderAndFooterVisibleWhenAdvancedDescriptionOpens()
+    {
+        var form = new PointGroupDialogViewModel(
+            isEdit: false,
+            current: null,
+            deviceId: "device-1",
+            deviceName: "新设备");
+        form.GroupName = "压力分组";
+        var dialog = new PointGroupDialogWindow { DataContext = form };
+
+        dialog.Show();
+        dialog.UpdateLayout();
+
+        Assert.Equal("所属设备：新设备", form.OwnerDeviceSummaryText);
+        Assert.True(form.TryBuildResult(out var result));
+        Assert.Equal("device-1", result.DeviceId);
+        Assert.Contains(
+            dialog.GetVisualDescendants().OfType<TextBlock>(),
+            text => text.Text?.ToString() == "所属设备：新设备");
+        Assert.DoesNotContain(
+            dialog.GetVisualDescendants().OfType<TextBox>(),
+            text => text.Text?.ToString() == "新设备");
+
+        var expander = dialog.GetVisualDescendants().OfType<Expander>()
+            .Single(item => item.Header?.ToString() == "高级说明（可选）");
+        expander.IsExpanded = true;
+        dialog.UpdateLayout();
+
+        var description = dialog.GetVisualDescendants().OfType<TextBox>()
+            .Single(text => text.Watermark == "填写分组用途");
+        Assert.True(description.IsVisible);
+        foreach (var buttonText in new[] { "取消", "保存" })
+        {
+            var button = dialog.GetVisualDescendants().OfType<Button>()
+                .Single(item => item.Content?.ToString() == buttonText);
+            Assert.True(button.IsVisible);
+            Assert.True(button.Bounds.Height >= 38);
+            var bottom = button.TranslatePoint(new Point(0, button.Bounds.Height), dialog);
+            Assert.NotNull(bottom);
+            Assert.True(bottom!.Value.Y <= dialog.Bounds.Height);
+        }
+
+        SaveDeviceWizardFrame(dialog, "point-group-dialog-advanced.png");
+        dialog.Close();
+        Dispatcher.UIThread.RunJobs(DispatcherPriority.Background);
+    }
+
+    [AvaloniaFact]
+    public void DevicePointDialogAlignsConfigurationHintIconWithText()
+    {
+        var device = new DevicePointDeviceChoice(
+            "10000000-0000-0000-0000-000000000012",
+            "DEV_SIM",
+            "仿真设备",
+            "simulation",
+            DeviceMode.Simulation);
+        var context = new DevicePointEditContext(
+            "仿真通道",
+            device,
+            new HashSet<DevicePointDataType> { DevicePointDataType.Double },
+            Array.Empty<DevicePointGroupChoice>(),
+            null,
+            GroupLocked: true);
+        var dialog = new DevicePointDialogWindow
+        {
+            DataContext = new DevicePointDialogViewModel(false, null, context)
+        };
+
+        dialog.Show();
+        dialog.UpdateLayout();
+
+        var hintText = dialog.GetVisualDescendants().OfType<TextBlock>()
+            .Single(text => text.Text?.ToString() == "配置修改不会直接写入现场设备");
+        var hintIcon = dialog.GetVisualDescendants().OfType<AppIcon>()
+            .Single(icon => icon.Kind == AppIconKind.Information);
+        var textPoint = hintText.TranslatePoint(new Point(0, 0), dialog);
+        var iconPoint = hintIcon.TranslatePoint(new Point(0, 0), dialog);
+
+        Assert.NotNull(textPoint);
+        Assert.NotNull(iconPoint);
+        Assert.InRange(Math.Abs(iconPoint!.Value.Y - textPoint!.Value.Y), 0, 2);
+        Assert.True(hintIcon.Bounds.Width >= 18);
+        Assert.True(hintIcon.Bounds.Height >= 18);
+
+        dialog.Close();
+        Dispatcher.UIThread.RunJobs(DispatcherPriority.Background);
+    }
+
+    [AvaloniaFact]
+    public void XinjePointDialogShowsNativeAddressAndHidesStructuredModbusFields()
+    {
+        var order = new ModbusDataOrderOptions
+        {
+            ByteOrder = ByteOrder.BigEndian,
+            WordOrder = WordOrder.LowWordFirst
+        };
+        var device = new DevicePointDeviceChoice(
+            "10000000-0000-0000-0000-000000000101",
+            "DEV_XINJE",
+            "信捷 PLC",
+            DriverKeyCatalog.ModbusTcp,
+            DeviceMode.Simulation,
+            DeviceModelKeyCatalog.XinjeFieldV1,
+            "如：D100、HD1000、M400、HM40",
+            "仅支持现场已验证的 D/HD/M/HM；不支持寄存器位地址。",
+            1,
+            order);
+        var context = new DevicePointEditContext(
+            "TCP 通道",
+            device,
+            new HashSet<DevicePointDataType>
+            {
+                DevicePointDataType.Bool,
+                DevicePointDataType.UInt16,
+                DevicePointDataType.Int32,
+                DevicePointDataType.UInt32,
+                DevicePointDataType.Float32
+            },
+            Array.Empty<DevicePointGroupChoice>(),
+            null,
+            GroupLocked: true);
+        var form = new DevicePointDialogViewModel(false, null, context)
+        {
+            PointName = "高速压力",
+            Address = "HD1000"
+        };
+        var dialog = new DevicePointDialogWindow { DataContext = form };
+
+        dialog.Show();
+        dialog.UpdateLayout();
+
+        var nativeAddress = dialog.GetVisualDescendants().OfType<TextBox>()
+            .Single(text => text.Watermark == form.AddressWatermark);
+        var offset = dialog.GetVisualDescendants().OfType<TextBox>()
+            .Single(text => text.Watermark == "0～65535");
+        var area = dialog.GetVisualDescendants().OfType<ComboBox>()
+            .Single(combo => ReferenceEquals(combo.ItemsSource, form.ModbusAreaOptions));
+        Assert.True(nativeAddress.IsVisible);
+        Assert.True(form.IsStandardAddressVisible);
+        Assert.False(form.IsStructuredModbusAddressVisible);
+        Assert.Contains(offset.GetVisualAncestors().OfType<StackPanel>(), panel => !panel.IsVisible);
+        Assert.Contains(area.GetVisualAncestors().OfType<StackPanel>(), panel => !panel.IsVisible);
+        Assert.Equal(
+            new[]
+            {
+                DevicePointDataType.UInt16,
+                DevicePointDataType.Float32,
+                DevicePointDataType.Int32,
+                DevicePointDataType.UInt32
+            }.OrderBy(type => type),
+            form.DataTypeOptions.Select(option => option.Value).OrderBy(type => type));
 
         dialog.Close();
         Dispatcher.UIThread.RunJobs(DispatcherPriority.Background);
@@ -202,6 +368,43 @@ public class ShellHeadlessTests
             Assert.Equal(2, searchBoxes.Length);
             Assert.Contains(searchBoxes, box => box.Watermark == "搜索点位名称、地址或编码");
             Assert.Contains(searchBoxes, box => box.Watermark == "搜索通道、设备或分组");
+            Assert.False(pointPage.EventLog.IsExpanded);
+            var collapsedEventLogPanel = view.GetVisualDescendants().OfType<Border>()
+                .Where(border => border.IsVisible)
+                .Single(border => border.Classes.Contains("point-panel")
+                    && border.GetVisualDescendants().OfType<TextBlock>().Any(text =>
+                        text.Text?.ToString() == "设备事件日志")
+                    && border.GetVisualDescendants().OfType<Button>().Any(button =>
+                        button.Content?.ToString() == "展开"));
+            var collapsedEventLogTitle = collapsedEventLogPanel.GetVisualDescendants().OfType<TextBlock>()
+                .Single(text => text.Text?.ToString() == "设备事件日志");
+            var collapsedEventLogButton = collapsedEventLogPanel.GetVisualDescendants().OfType<Button>()
+                .Single(button => button.Content?.ToString() == "展开");
+            Assert.True(collapsedEventLogPanel.IsVisible);
+            Assert.True(collapsedEventLogPanel.Bounds.Height >= 54);
+            Assert.True(collapsedEventLogTitle.Bounds.Height > 0);
+            Assert.True(collapsedEventLogButton.Bounds.Height >= 38);
+
+            pointPage.EventLog.ToggleExpanded();
+            window.UpdateLayout();
+            Assert.True(pointPage.EventLog.IsExpanded);
+            var expandedEventLogPanel = view.GetVisualDescendants().OfType<Border>()
+                .Where(border => border.IsVisible)
+                .Single(border => border.Classes.Contains("point-panel")
+                    && border.GetVisualDescendants().OfType<TextBlock>().Any(text =>
+                        text.Text?.ToString() == "设备事件日志")
+                    && border.GetVisualDescendants().OfType<Button>().Any(button =>
+                        button.Content?.ToString() == "收起"));
+            var expandedEventLogTitle = expandedEventLogPanel.GetVisualDescendants().OfType<TextBlock>()
+                .Single(text => text.Text?.ToString() == "设备事件日志");
+            var expandedEventLogButton = expandedEventLogPanel.GetVisualDescendants().OfType<Button>()
+                .Single(button => button.Content?.ToString() == "收起");
+            Assert.True(expandedEventLogPanel.Bounds.Height >= 170);
+            Assert.True(expandedEventLogTitle.Bounds.Height > 0);
+            Assert.True(expandedEventLogButton.Bounds.Height >= 38);
+            pointPage.EventLog.ToggleExpanded();
+            window.UpdateLayout();
+            Assert.False(pointPage.EventLog.IsExpanded);
             Assert.DoesNotContain(
                 view.GetVisualDescendants().OfType<Button>(),
                 button => string.Equals(button.Content?.ToString(), "信号绑定", StringComparison.Ordinal));
@@ -231,6 +434,37 @@ public class ShellHeadlessTests
             importExportMenu.Close();
         });
 
+        RunOnUi(() =>
+        {
+            // 模拟当前 Active 设备被配置为 Modbus，确认站号在设备属性卡中可见。
+            var modbusDevice = pointPage.CurrentDeviceEntries.Single(device => device.Code == "DEV_A");
+            var originalDriverKey = modbusDevice.DriverKey;
+            var originalStation = modbusDevice.ModbusUnitId;
+            var originalModel = modbusDevice.Model;
+            modbusDevice.DriverKey = DriverKeyCatalog.ModbusRtu;
+            modbusDevice.Model = "GENERIC_MODBUS_RTU";
+            modbusDevice.ModbusUnitId = 17;
+            var modbusDeviceNode = pointPage.TreeNodes[0].Children
+                .Single(node => node.Code == "CH_SIM")
+                .Children.Single(node => node.Code == "DEV_A");
+            pointPage.SelectedTreeNode = modbusDeviceNode;
+            window.UpdateLayout();
+            var visibleDetailTexts = view!.GetVisualDescendants().OfType<TextBlock>()
+                .Where(text => text.IsVisible)
+                .Select(text => text.Text?.ToString())
+                .Where(text => !string.IsNullOrWhiteSpace(text))
+                .ToArray();
+            Assert.Contains("Modbus 站号", visibleDetailTexts);
+            Assert.Contains("17", visibleDetailTexts);
+            Assert.Contains("通用 Modbus RTU 设备", visibleDetailTexts);
+            Assert.DoesNotContain("GENERIC_MODBUS_RTU", visibleDetailTexts);
+            modbusDevice.DriverKey = originalDriverKey;
+            modbusDevice.Model = originalModel;
+            modbusDevice.ModbusUnitId = originalStation;
+            pointPage.SelectedTreeNode = pointPage.TreeNodes[0];
+            window.UpdateLayout();
+        });
+
         var diagnosticsViewModel = pointPage.CreateDiagnosticsViewModel();
         Assert.NotNull(diagnosticsViewModel);
         await RunOnUiAsync(() => diagnosticsViewModel!.LoadAsync());
@@ -254,16 +488,17 @@ public class ShellHeadlessTests
         if (!string.IsNullOrWhiteSpace(captureDirectory))
         {
             Directory.CreateDirectory(captureDirectory);
-            var frame = window.CaptureRenderedFrame();
+            var frame = RunOnUi(() => window.CaptureRenderedFrame());
             Assert.NotNull(frame);
-            frame.Save(Path.Combine(captureDirectory, "device-points-search-permission.png"));
+            frame!.Save(Path.Combine(captureDirectory, "device-points-search-permission.png"));
         }
 
             RunOnUi(window.Close);
         }
         finally
         {
-            await composition.DeviceModes!.ShutdownAsync();
+            if (composition.DeviceModes is { } deviceModes)
+                await deviceModes.ShutdownAsync();
         }
     }
 
@@ -280,7 +515,8 @@ public class ShellHeadlessTests
     private static (string ConfigRoot, string DataRoot) CreateTempConfig()
     {
         var root = Path.Combine(
-            @"D:\Codex相关\设备点位简化改造\headless-runs",
+            Path.GetTempPath(),
+            "headless-runs",
             "testbench-headless-" + Guid.NewGuid().ToString("N")[..8]);
         var configRoot = Path.Combine(root, "config");
         var dataRoot = Path.Combine(root, "data");
@@ -298,42 +534,46 @@ public class ShellHeadlessTests
         """);
         File.WriteAllText(Path.Combine(configRoot, "device.json"), """
         {
-          "schemaVersion": 3,
-          "pollIntervalMs": 500,
-          "timeoutMs": 1000,
+          "schemaVersion": 5,
           "channels": [
-            { "id": "10000000-0000-0000-0000-000000000001", "code": "CH_SIM", "name": "仿真设备网络通道", "transportKind": "Tcp", "enabled": true, "timeoutMs": 1000, "retryCount": 0, "tcp": { "host": "127.0.0.1", "port": 102 } },
-            { "id": "10000000-0000-0000-0000-000000000002", "code": "CH_EMPTY", "name": "备用网络通道", "transportKind": "Tcp", "enabled": true, "timeoutMs": 1000, "retryCount": 0, "tcp": { "host": "127.0.0.1", "port": 103 } }
+            { "id": "10000000-0000-0000-0000-000000000001", "code": "CH_SIM", "name": "仿真设备网络通道", "transportKind": "Tcp", "enabled": true, "timeoutMs": 1000, "retryCount": 0, "tcp": {} },
+            { "id": "10000000-0000-0000-0000-000000000002", "code": "CH_EMPTY", "name": "备用网络通道", "transportKind": "Tcp", "enabled": true, "timeoutMs": 1000, "retryCount": 0, "tcp": {} }
           ],
           "devices": [
-            { "id": "20000000-0000-0000-0000-000000000001", "code": "DEV_A", "name": "设备 A", "deviceMode": "Simulation", "protocol": "SiemensS7", "address": "127.0.0.1", "channelId": "10000000-0000-0000-0000-000000000001", "driverKey": "siemens-s7", "model": "S7-1500", "pollIntervalMs": 500, "staleAfterMs": 1500 },
-            { "id": "20000000-0000-0000-0000-000000000002", "code": "DEV_B", "name": "设备 B", "deviceMode": "Simulation", "protocol": "SiemensS7", "address": "127.0.0.1", "channelId": "10000000-0000-0000-0000-000000000001", "driverKey": "siemens-s7", "model": "S7-1500", "pollIntervalMs": 500, "staleAfterMs": 1500 }
+            { "id": "20000000-0000-0000-0000-000000000001", "code": "DEV_A", "name": "设备 A", "deviceMode": "Simulation", "channelId": "10000000-0000-0000-0000-000000000001", "driverKey": "siemens-s7", "model": "S7-1500", "pollIntervalMs": 500, "staleAfterMs": 1500, "scanMode": "FixedInterval", "timing": { "connectTimeoutMs": 1000, "requestTimeoutMs": 500, "retryCount": 0, "interRequestDelayMs": 0 }, "autoDemotion": { "enabled": true, "failureThreshold": 3, "demotionPeriodMs": 10000 }, "siemensS7": { "host": "127.0.0.1", "port": 102, "rack": 0, "slot": 0 } },
+            { "id": "20000000-0000-0000-0000-000000000002", "code": "DEV_B", "name": "设备 B", "deviceMode": "Simulation", "channelId": "10000000-0000-0000-0000-000000000001", "driverKey": "siemens-s7", "model": "S7-1500", "pollIntervalMs": 500, "staleAfterMs": 1500, "scanMode": "FixedInterval", "timing": { "connectTimeoutMs": 1000, "requestTimeoutMs": 500, "retryCount": 0, "interRequestDelayMs": 0 }, "autoDemotion": { "enabled": true, "failureThreshold": 3, "demotionPeriodMs": 10000 }, "siemensS7": { "host": "127.0.0.1", "port": 103, "rack": 0, "slot": 0 } }
           ]
         }
         """);
         File.WriteAllText(Path.Combine(configRoot, "points.json"), """
         {
-          "schemaVersion": 3,
+          "schemaVersion": 4,
           "groups": [
-            { "id": "30000000-0000-0000-0000-000000000001", "deviceId": "20000000-0000-0000-0000-000000000001", "code": "DEFAULT", "name": "未分组", "sortOrder": 0 },
-            { "id": "30000000-0000-0000-0000-000000000002", "deviceId": "20000000-0000-0000-0000-000000000001", "code": "PRESSURE", "name": "压力", "sortOrder": 10 },
-            { "id": "30000000-0000-0000-0000-000000000003", "deviceId": "20000000-0000-0000-0000-000000000002", "code": "DEFAULT", "name": "未分组", "sortOrder": 0 }
+            { "id": "30000000-0000-0000-0000-000000000001", "deviceId": "20000000-0000-0000-0000-000000000001", "code": "DEFAULT", "name": "未分组", "description": "设备默认分组", "sortOrder": 0 },
+            { "id": "30000000-0000-0000-0000-000000000002", "deviceId": "20000000-0000-0000-0000-000000000001", "code": "PRESSURE", "name": "压力", "description": "压力点位", "sortOrder": 10 },
+            { "id": "30000000-0000-0000-0000-000000000003", "deviceId": "20000000-0000-0000-0000-000000000002", "code": "DEFAULT", "name": "未分组", "description": "设备默认分组", "sortOrder": 0 }
           ],
           "points": [
-            { "id": "40000000-0000-0000-0000-000000000001", "code": "AI_PRESSURE", "name": "入口压力", "protocol": "SiemensS7", "deviceId": "20000000-0000-0000-0000-000000000001", "groupId": "30000000-0000-0000-0000-000000000002", "address": "DB1.DBD0", "dataType": "Decimal", "rawDataType": "Decimal", "writePolicy": "ReadBackEqual", "isWritable": false, "riskLevel": "Normal" },
-            { "id": "40000000-0000-0000-0000-000000000002", "code": "DO_START", "name": "启动命令", "protocol": "SiemensS7", "deviceId": "20000000-0000-0000-0000-000000000002", "groupId": "30000000-0000-0000-0000-000000000003", "address": "DB1.DBX4.0", "dataType": "Boolean", "rawDataType": "Boolean", "writePolicy": "ReadBackEqual", "isWritable": true, "riskLevel": "HighRisk" }
+            { "id": "40000000-0000-0000-0000-000000000001", "code": "AI_PRESSURE", "name": "入口压力", "protocol": "SiemensS7", "deviceId": "20000000-0000-0000-0000-000000000001", "groupId": "30000000-0000-0000-0000-000000000002", "address": "DB1.DBD0", "dataType": "Float32", "decodeOptions": { "byteOrder": "BigEndian", "wordOrder": "None" }, "isWritable": false, "riskLevel": "Normal", "rawMin": 0, "rawMax": 10000, "engMin": 0, "engMax": 10, "description": "仿真压力" },
+            { "id": "40000000-0000-0000-0000-000000000002", "code": "DO_START", "name": "启动命令", "protocol": "SiemensS7", "deviceId": "20000000-0000-0000-0000-000000000002", "groupId": "30000000-0000-0000-0000-000000000003", "address": "DB1.DBX4.0", "dataType": "Bool", "decodeOptions": { "byteOrder": "BigEndian", "wordOrder": "None" }, "writePolicy": "ReadBackEqual", "isWritable": true, "riskLevel": "HighRisk", "description": "仿真启动命令" }
           ]
         }
         """);
         File.WriteAllText(Path.Combine(configRoot, "simulation.json"), """
         {
-          "schemaVersion": 2,
+          "schemaVersion": 3,
           "initialValuesByPointId": {
             "40000000-0000-0000-0000-000000000001": 0.0,
             "40000000-0000-0000-0000-000000000002": false
           },
           "changeRules": [],
           "faultInjectionScenarios": []
+        }
+        """);
+        File.WriteAllText(Path.Combine(configRoot, "signal-bindings.json"), """
+        {
+          "schemaVersion": 1,
+          "bindings": { "AI_Pressure": "40000000-0000-0000-0000-000000000001" }
         }
         """);
         return (configRoot, dataRoot);
@@ -500,13 +740,17 @@ public class ShellHeadlessTests
             pointEditorFrame.Save(Path.Combine(captureDirectory, "point-editor.png"));
             pointDialog.Close();
 
+            var previewPlan = new DevicePointImportPlanner().Build(
+                new[] { new DevicePointImportRow(2, devicePointViewModel.CurrentEntries[0]) },
+                devicePointViewModel.CurrentEntries,
+                devicePointViewModel.CurrentGroups);
             var importDialog = new DevicePointImportPreviewWindow
             {
                 DataContext = new DevicePointImportPreviewViewModel(
-                    devicePointViewModel.CurrentEntries,
+                    previewPlan,
                     devicePointViewModel.CurrentEntries.Count,
-                    devicePointViewModel.CurrentEntries,
-                    devicePointViewModel.CurrentGroups)
+                    devicePointViewModel.CurrentGroups,
+                    devicePointViewModel.CurrentDeviceEntries)
             };
             importDialog.Show();
             importDialog.UpdateLayout();
@@ -530,8 +774,19 @@ public class ShellHeadlessTests
         });
         await RunOnUiAsync(() => shell.NavigateCommand.ExecuteAsync(shell.NavItems[0]));
         RunOnUi(window.UpdateLayout);
-        var processPage = Assert.IsType<ProcessMonitorViewModel>(shell.NavItems[0].Page);
-        RunOnUi(() => processPage.ToggleDemoDataCommand.Execute(null));
+        Assert.IsType<ProcessMonitorViewModel>(shell.NavItems[0].Page);
+        RunOnUi(() =>
+        {
+            shell.SelectProductModel(new ProductModelSelectionOption(
+                11, "气密试验", 27, "TB-2026A", true, DateTime.UtcNow));
+            shell.ProductNumberInput = "CP20260916001";
+            shell.VehicleNumberInput = "CR400AF-0217";
+        });
+        await RunOnUiAsync(async () =>
+        {
+            var confirmation = await shell.TryConfirmProductContextAsync();
+            Assert.True(confirmation.Succeeded);
+        });
         RunOnUi(window.UpdateLayout);
 
         RunOnUi(() => VerifyResponsiveLayout(window, 1440, 900, "main-1440x900.png"));
@@ -546,7 +801,8 @@ public class ShellHeadlessTests
         }
         finally
         {
-            await composition.DeviceModes!.ShutdownAsync();
+            if (composition.DeviceModes is { } deviceModes)
+                await deviceModes.ShutdownAsync();
         }
     }
 
@@ -565,47 +821,232 @@ public class ShellHeadlessTests
         var shellRoot = window.FindControl<Grid>("ShellRoot");
         var topHeader = window.FindControl<Border>("TopHeader");
         var productBar = window.FindControl<Border>("ProductInfoBar");
+        var productInfoCard = window.FindControl<Border>("ProductInfoCard");
         var workspace = window.FindControl<Border>("WorkspaceRegion");
         var bottomBar = window.FindControl<Border>("BottomControlBar");
         var statusBar = window.FindControl<Border>("StatusBar");
         var exitButton = window.FindControl<Button>("ExitButton");
         var processView = window.GetVisualDescendants().OfType<ProcessMonitorView>().Single();
+        var processScrollViewer = processView.FindControl<ScrollViewer>("ProcessScrollViewer");
         var diagram = processView.GetVisualDescendants().OfType<PneumaticDiagramControl>().Single();
+        var diagramScaleViewbox = diagram.FindControl<Viewbox>("DiagramScaleViewbox");
         var analogInputs = processView.GetVisualDescendants().OfType<AnalogInputControl>().ToArray();
-        var cardGrid = processView.FindControl<Grid>("CardGridWide");
+        var valveSymbols = processView.GetVisualDescendants().OfType<PneumaticValveSymbol>().ToArray();
+        var mainPipe = diagram.FindControl<PneumaticPipeControl>("DiagramMainPipe");
+        var inletValveControlSignal = diagram.FindControl<PneumaticPipeControl>("DiagramInletValveControlSignal");
+        var exhaustValveLowerPipe = diagram.FindControl<PneumaticPipeControl>("DiagramExhaustValveLowerPipe");
+        var pressureSetpointCard = diagram.FindControl<Border>("DiagramPressureSetpointCard");
+        var pressureDecreaseButton = diagram.FindControl<Button>("DiagramPressureDecreaseButton");
+        var pressureIncreaseButton = diagram.FindControl<Button>("DiagramPressureIncreaseButton");
+        var pressureSetpointInput = diagram.FindControl<Border>("DiagramPressureSetpointInput");
+        var pressureSetpointSignal = diagram.FindControl<AvaloniaLine>("DiagramPressureSetpointSignal");
+        var pressureSetpointSpring = diagram.FindControl<AvaloniaPolyline>("DiagramPressureSetpointSpring");
+        var supplyPressureGauge = diagram.FindControl<Border>("DiagramSupplyPressureGauge");
+        var mainPressureGauge = diagram.FindControl<Border>("DiagramMainPressureGauge");
+        var dutPressureGauge = diagram.FindControl<Border>("DiagramDutPressureGauge");
+        var dutHousing = diagram.FindControl<Border>("DiagramDutHousing");
+        var dutPressureLine = diagram.FindControl<AvaloniaLine>("DiagramDutPressureLine");
+        var supplyPressureNode = diagram.FindControl<AvaloniaEllipse>("DiagramSupplyPressureNode");
+        var mainPressureNode = diagram.FindControl<AvaloniaEllipse>("DiagramMainPressureNode");
+        var exhaustBranchNode = diagram.FindControl<AvaloniaEllipse>("DiagramExhaustBranchNode");
+        var supplyDirection = diagram.FindControl<AvaloniaPolygon>("DiagramSupplyDirection");
+        var atmosphereDirection = diagram.FindControl<AvaloniaPolygon>("DiagramAtmosphereDirection");
+        var supplyEndpoint = diagram.FindControl<Border>("DiagramSupplyEndpoint");
+        var atmosphereEndpoint = diagram.FindControl<Border>("DiagramAtmosphereEndpoint");
+        var supplyLabel = diagram.FindControl<TextBlock>("DiagramSupplyLabel");
+        var filterLabel = diagram.FindControl<TextBlock>("DiagramFilterLabel");
+        var regulatorLabel = diagram.FindControl<TextBlock>("DiagramRegulatorLabel");
+        var inletLabel = diagram.FindControl<TextBlock>("DiagramInletLabel");
+        var dutLabel = diagram.FindControl<TextBlock>("DiagramDutLabel");
+        var safetyDoorName = diagram.FindControl<TextBlock>("DiagramSafetyDoorName");
+        var safetyDoorLight = diagram.FindControl<AvaloniaEllipse>("DiagramSafetyDoorLight");
+        var safetyDoorState = diagram.FindControl<TextBlock>("DiagramSafetyDoorState");
+        var clampReadyName = diagram.FindControl<TextBlock>("DiagramClampReadyName");
+        var clampReadyLight = diagram.FindControl<AvaloniaEllipse>("DiagramClampReadyLight");
+        var clampReadyState = diagram.FindControl<TextBlock>("DiagramClampReadyState");
+        var atmosphereLabel = diagram.FindControl<TextBlock>("DiagramAtmosphereLabel");
+        var digitalInput = processView.GetVisualDescendants().OfType<DigitalInputControl>().First();
+        var pointLight = digitalInput.FindControl<AvaloniaEllipse>("PointLight");
+        var pointState = digitalInput.FindControl<TextBlock>("PointState");
+        var cardGridWide = processView.FindControl<Grid>("CardGridWide");
+        var cardGridCompact = processView.FindControl<Grid>("CardGridCompact");
         var footerStatus = processView.FindControl<Border>("FooterStatus");
+        var normalStatusChip = processView.FindControl<Border>("NormalStatusChip");
+        var communicationStatusChip = processView.FindControl<Border>("CommunicationStatusChip");
+        var awaitingFeedbackStatusChip = processView.FindControl<Border>("AwaitingFeedbackStatusChip");
 
         Assert.NotNull(shellRoot);
         Assert.NotNull(topHeader);
         Assert.NotNull(productBar);
+        Assert.NotNull(productInfoCard);
         Assert.NotNull(workspace);
         Assert.NotNull(bottomBar);
         Assert.NotNull(statusBar);
         Assert.NotNull(exitButton);
         Assert.NotNull(processView);
+        Assert.NotNull(processScrollViewer);
         Assert.NotNull(diagram);
         Assert.NotNull(diagram.Model);
+        Assert.NotNull(diagramScaleViewbox);
+        Assert.NotNull(mainPipe);
+        Assert.NotNull(inletValveControlSignal);
+        Assert.NotNull(exhaustValveLowerPipe);
+        Assert.Equal("Both", diagramScaleViewbox.StretchDirection.ToString());
+        Assert.Equal(new Thickness(72, 18), diagramScaleViewbox.Margin);
         Assert.NotEmpty(analogInputs);
+        Assert.Equal(2, valveSymbols.Length);
+        Assert.NotNull(pressureSetpointCard);
+        Assert.NotNull(pressureDecreaseButton);
+        Assert.NotNull(pressureIncreaseButton);
+        Assert.NotNull(pressureSetpointInput);
+        Assert.NotNull(pressureSetpointSignal);
+        Assert.NotNull(pressureSetpointSpring);
+        Assert.NotNull(supplyPressureGauge);
+        Assert.NotNull(mainPressureGauge);
+        Assert.NotNull(dutPressureGauge);
+        Assert.NotNull(dutHousing);
+        Assert.NotNull(dutPressureLine);
+        Assert.NotNull(supplyPressureNode);
+        Assert.NotNull(mainPressureNode);
+        Assert.NotNull(exhaustBranchNode);
+        Assert.NotNull(supplyDirection);
+        Assert.NotNull(atmosphereDirection);
+        Assert.NotNull(supplyEndpoint);
+        Assert.NotNull(atmosphereEndpoint);
+        Assert.NotNull(supplyLabel);
+        Assert.NotNull(filterLabel);
+        Assert.NotNull(regulatorLabel);
+        Assert.NotNull(inletLabel);
+        Assert.NotNull(dutLabel);
+        Assert.NotNull(safetyDoorName);
+        Assert.NotNull(safetyDoorLight);
+        Assert.NotNull(safetyDoorState);
+        Assert.NotNull(clampReadyName);
+        Assert.NotNull(clampReadyLight);
+        Assert.NotNull(clampReadyState);
+        Assert.NotNull(atmosphereLabel);
+        Assert.NotNull(pointLight);
+        Assert.NotNull(pointState);
+        var inletValveSymbol = Assert.Single(valveSymbols, valve => !valve.IsVertical);
+        var exhaustValveSymbol = Assert.Single(valveSymbols, valve => valve.IsVertical);
+        Assert.InRange(inletValveSymbol.Bounds.Width, 105, 107);
+        Assert.InRange(inletValveSymbol.Bounds.Height, 67, 69);
+        Assert.InRange(exhaustValveSymbol.Bounds.Width, 91, 93);
+        Assert.InRange(exhaustValveSymbol.Bounds.Height, 83, 85);
         Assert.All(analogInputs, analogInput =>
         {
             Assert.NotNull(analogInput.Model);
             Assert.Same(analogInput.Model, analogInput.DataContext);
         });
-        Assert.NotNull(cardGrid);
+        Assert.NotNull(cardGridWide);
+        Assert.NotNull(cardGridCompact);
         Assert.NotNull(footerStatus);
+        Assert.NotNull(normalStatusChip);
+        Assert.NotNull(communicationStatusChip);
+        Assert.NotNull(awaitingFeedbackStatusChip);
         Assert.True(shellRoot.Bounds.Width > 900);
         Assert.InRange(topHeader.Bounds.Height, 64, 68);
-        Assert.False(productBar.IsVisible);
+        Assert.True(productBar.IsVisible);
+        Assert.InRange(productBar.Bounds.Width - productInfoCard.Bounds.Width, 23, 25);
+        Assert.InRange(pressureSetpointCard.Bounds.Width, 227, 229);
+        Assert.InRange(pressureSetpointCard.Bounds.Height, 63, 65);
+        Assert.InRange(pressureDecreaseButton.Bounds.Width, 23, 25);
+        Assert.InRange(pressureDecreaseButton.Bounds.Height, 24, 26);
+        Assert.InRange(pressureIncreaseButton.Bounds.Width, 23, 25);
+        Assert.InRange(pressureIncreaseButton.Bounds.Height, 24, 26);
+        Assert.InRange(pressureSetpointInput.Bounds.Width, 69, 71);
+        Assert.InRange(pressureSetpointInput.Bounds.Height, 28, 30);
+        var pressureSetpointValue = pressureSetpointInput.GetVisualDescendants().OfType<TextBlock>().Single();
+        Assert.InRange(pressureSetpointValue.FontSize, 15, 17);
+        Assert.Equal(395, Canvas.GetLeft(pressureSetpointCard));
+        Assert.Equal(509, pressureSetpointSignal.StartPoint.X);
+        Assert.Equal(509, pressureSetpointSignal.EndPoint.X);
+        Assert.Equal(82, pressureSetpointSignal.StartPoint.Y);
+        Assert.Equal(114, pressureSetpointSignal.EndPoint.Y);
+        Assert.Equal(910, inletValveControlSignal.StartPoint.X);
+        Assert.Equal(910, inletValveControlSignal.EndPoint.X);
+        Assert.Equal(84, inletValveControlSignal.StartPoint.Y);
+        Assert.Equal(143, inletValveControlSignal.EndPoint.Y);
+        Assert.Equal(1017, exhaustValveLowerPipe.StartPoint.X);
+        Assert.Equal(1017, exhaustValveLowerPipe.EndPoint.X);
+        Assert.Equal(306, exhaustValveLowerPipe.StartPoint.Y);
+        Assert.Equal(404, exhaustValveLowerPipe.EndPoint.Y);
+        Assert.Equal(0.56, mainPipe.ArrowPosition);
+        Assert.Equal(151, dutPressureLine.StartPoint.Y);
+        Assert.Equal(82, dutPressureLine.EndPoint.Y);
+        Assert.Empty(dutHousing.GetVisualDescendants().OfType<AvaloniaLine>());
+        Assert.Empty(dutHousing.GetVisualDescendants().OfType<AvaloniaPolyline>());
+        Assert.Same(dutHousing, dutLabel.Parent);
+        Assert.Equal(509, pressureSetpointSpring.Points[0].X);
+        Assert.Equal(114, pressureSetpointSpring.Points[0].Y);
+        Assert.Equal(509, pressureSetpointSpring.Points[^1].X);
+        Assert.Equal(147, pressureSetpointSpring.Points[^1].Y);
+        Assert.Equal(105, Canvas.GetTop(supplyPressureGauge));
+        Assert.Equal(105, Canvas.GetTop(mainPressureGauge));
+        Assert.Equal(105, Canvas.GetTop(dutPressureGauge));
+        Assert.Equal(170, Canvas.GetTop(supplyPressureNode));
+        Assert.Equal(170, Canvas.GetTop(mainPressureNode));
+        Assert.Equal(170, Canvas.GetTop(exhaustBranchNode));
+        Assert.Equal(214, Canvas.GetTop(supplyEndpoint));
+        Assert.Equal(386, Canvas.GetTop(atmosphereEndpoint));
+        Assert.True(supplyDirection.Points[1].X > supplyDirection.Points[0].X);
+        Assert.True(atmosphereDirection.Points[1].X > atmosphereDirection.Points[0].X);
+        Assert.Equal(VerticalAlignment.Center, supplyLabel.VerticalAlignment);
+        Assert.Equal(222, Canvas.GetTop(filterLabel));
+        Assert.Equal(222, Canvas.GetTop(regulatorLabel));
+        Assert.Equal(222, Canvas.GetTop(inletLabel));
+        Assert.Single(
+            diagram.GetVisualDescendants().OfType<TextBlock>(),
+            text => string.Equals(text.Text, "排气阀", StringComparison.Ordinal));
+        Assert.True(safetyDoorName.Bounds.Width >= 40);
+        Assert.True(clampReadyName.Bounds.Width >= 54);
+        Assert.True(atmosphereLabel.Bounds.Width >= 50);
+        Assert.True(atmosphereLabel.Bounds.Right <= 1360);
+        Assert.Equal(VerticalAlignment.Center, safetyDoorLight.VerticalAlignment);
+        Assert.Equal(VerticalAlignment.Center, safetyDoorState.VerticalAlignment);
+        Assert.Equal(VerticalAlignment.Center, clampReadyLight.VerticalAlignment);
+        Assert.Equal(VerticalAlignment.Center, clampReadyState.VerticalAlignment);
+        Assert.InRange(Math.Abs(safetyDoorLight.Bounds.Center.Y - safetyDoorState.Bounds.Center.Y), 0, 1);
+        Assert.InRange(Math.Abs(clampReadyLight.Bounds.Center.Y - clampReadyState.Bounds.Center.Y), 0, 1);
+        Assert.Equal(VerticalAlignment.Center, pointLight.VerticalAlignment);
+        Assert.Equal(VerticalAlignment.Center, pointState.VerticalAlignment);
+        Assert.InRange(Math.Abs(pointLight.Bounds.Center.Y - pointState.Bounds.Center.Y), 0, 1);
         Assert.True(workspace.Bounds.Height > 350);
         Assert.False(bottomBar.IsVisible);
         Assert.False(statusBar.IsVisible);
         Assert.InRange(exitButton.Bounds.Height, 46, 50);
         Assert.True(diagram.Bounds.Width > 300);
         Assert.True(diagram.Bounds.Height > 300);
-        Assert.True(cardGrid.Bounds.Width > 600);
-        Assert.True(cardGrid.Bounds.Height > 200);
+        var compactLayout = processView.Bounds.Width < 1320;
+        Assert.Equal(!compactLayout, cardGridWide.IsVisible);
+        Assert.Equal(compactLayout, cardGridCompact.IsVisible);
+        Assert.Equal(
+            compactLayout ? "Auto" : "Disabled",
+            processScrollViewer.VerticalScrollBarVisibility.ToString());
+        var visibleCardGrid = compactLayout ? cardGridCompact : cardGridWide;
+        Assert.True(visibleCardGrid.Bounds.Width > 600);
+        Assert.True(visibleCardGrid.Bounds.Height > 200);
         Assert.True(footerStatus.IsVisible);
         Assert.InRange(footerStatus.Bounds.Height, 54, 58);
+        Assert.InRange(normalStatusChip.Bounds.Width, 103, 105);
+        Assert.InRange(communicationStatusChip.Bounds.Width, 127, 129);
+        Assert.InRange(awaitingFeedbackStatusChip.Bounds.Width, 127, 129);
+        Assert.All(
+            new[] { normalStatusChip, communicationStatusChip, awaitingFeedbackStatusChip },
+            chip => Assert.InRange(chip.Bounds.Height, 37, 39));
+        if (!compactLayout)
+        {
+            Assert.True(
+                processScrollViewer.Extent.Height <= processScrollViewer.Viewport.Height + 1,
+                $"宽屏工艺页不应产生纵向溢出：extent={processScrollViewer.Extent}, viewport={processScrollViewer.Viewport}");
+            var footerBottom = footerStatus.TranslatePoint(
+                new Point(0, footerStatus.Bounds.Height),
+                processView);
+            Assert.NotNull(footerBottom);
+            Assert.True(
+                footerBottom!.Value.Y <= processView.Bounds.Height + 1,
+                $"宽屏统一状态栏不应超出可视区：footerBottom={footerBottom}, processView={processView.Bounds}");
+        }
         if (height >= 992)
         {
             Assert.True(
@@ -615,9 +1056,30 @@ public class ShellHeadlessTests
         Assert.Contains(
             processView.GetVisualDescendants().OfType<TextBlock>(),
             text => string.Equals(text.Text, "气路工艺图", StringComparison.Ordinal));
-        Assert.Contains(
+        Assert.DoesNotContain(
             processView.GetVisualDescendants().OfType<TextBlock>(),
             text => string.Equals(text.Text, "工艺监控", StringComparison.Ordinal));
+        Assert.DoesNotContain(
+            processView.GetVisualDescendants().OfType<TextBlock>(),
+            text => string.Equals(text.Text, "气路与点位监控", StringComparison.Ordinal));
+        Assert.DoesNotContain(
+            processView.GetVisualDescendants().OfType<Button>(),
+            button => string.Equals(button.Content?.ToString(), "演示数据", StringComparison.Ordinal));
+        Assert.Contains(
+            productBar.GetVisualDescendants().OfType<TextBlock>(),
+            text => string.Equals(text.Text, "产品类型", StringComparison.Ordinal));
+        Assert.Contains(
+            productBar.GetVisualDescendants().OfType<TextBlock>(),
+            text => string.Equals(text.Text, "产品型号", StringComparison.Ordinal));
+        Assert.Contains(
+            productBar.GetVisualDescendants().OfType<TextBlock>(),
+            text => string.Equals(text.Text, "产品信息已确认", StringComparison.Ordinal));
+        Assert.Contains(
+            productBar.GetVisualDescendants().OfType<TextBox>(),
+            textBox => string.Equals(textBox.Text, "CP20260916001", StringComparison.Ordinal));
+        Assert.Contains(
+            productBar.GetVisualDescendants().OfType<Button>(),
+            button => string.Equals(button.Content?.ToString(), "确认选择", StringComparison.Ordinal));
         Assert.Contains(
             processView.GetVisualDescendants().OfType<TextBlock>(),
             text => string.Equals(text.Text, "0.628", StringComparison.Ordinal));

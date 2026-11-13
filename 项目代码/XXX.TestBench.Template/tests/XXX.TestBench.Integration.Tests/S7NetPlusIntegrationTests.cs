@@ -26,7 +26,6 @@ public sealed class S7NetPlusIntegrationTests
             Code = "AI_PRESSURE",
             Address = "DB1.DBD0",
             DataType = "Decimal",
-            RawDataType = "Decimal"
         };
         var hardware = new DeviceConfig.DeviceEntry
         {
@@ -51,21 +50,21 @@ public sealed class S7NetPlusIntegrationTests
     public void S7ReadBatchPlanner_UsesPointNameInCustomerError()
     {
         var point = new DevicePoint(
-            "AI_PRESSURE",
-            DevicePointProtocol.SiemensS7,
-            "DB1.DBD0",
-            DevicePointDataType.Decimal,
-            false,
-            WriteRiskLevel.Normal,
-            null,
-            null,
-            null,
-            null,
-            "压力",
-            "",
-            Guid.NewGuid().ToString("D"),
-            "device-1",
-            DriverKeyCatalog.SiemensS7);
+            Code: "AI_PRESSURE",
+            Protocol: DevicePointProtocol.SiemensS7,
+            Address: "DB1.DBD0",
+            DataType: DevicePointDataType.Decimal,
+            IsWritable: false,
+            RiskLevel: WriteRiskLevel.Normal,
+            RawMin: null,
+            RawMax: null,
+            EngMin: null,
+            EngMax: null,
+            PointId: Guid.NewGuid().ToString("D"),
+            DeviceId: "device-1",
+            Revision: "test-revision",
+            Name: "压力",
+            DriverKey: DriverKeyCatalog.SiemensS7);
 
         var error = Assert.Throws<DomainException>(() => S7ReadBatchPlanner.Plan(new[] { point }));
 
@@ -122,7 +121,7 @@ public sealed class S7NetPlusIntegrationTests
         var point = Point(DevicePointDataType.UInt32, "DB1.DBD0");
         point = point with
         {
-            DecodeOptions = new DecodeOptions
+            S7DecodeOptions = new DecodeOptions
             {
                 ByteOrder = ByteOrder.LittleEndian,
                 WordOrder = WordOrder.LowWordFirst
@@ -160,7 +159,7 @@ public sealed class S7NetPlusIntegrationTests
             Enabled = true,
             TimeoutMs = 1000,
             RetryCount = 0,
-            Tcp = new TcpChannelParameters { Host = "127.0.0.1", Port = 102 }
+            Tcp = new TcpChannelParameters()
         };
         var device = new DeviceConfig.DeviceEntry
         {
@@ -171,25 +170,27 @@ public sealed class S7NetPlusIntegrationTests
             DriverKey = DriverKeyCatalog.SiemensS7,
             Model = "S7-1200",
             ChannelId = channel.Id,
+            SiemensS7 = new SiemensS7ConnectionOptions { Host = "127.0.0.1", Port = 102, Rack = 0, Slot = 0 },
             PollIntervalMs = 500,
             StaleAfterMs = 2000
         };
         var point = new DevicePoint(
-            "AI_PRESSURE",
-            DevicePointProtocol.SiemensS7,
-            "DB1.DBD0",
-            DevicePointDataType.Decimal,
-            false,
-            WriteRiskLevel.Normal,
-            null,
-            null,
-            null,
-            null,
-            "压力",
-            "旧 Decimal 点",
-            Guid.NewGuid().ToString(),
-            device.Id,
-            DriverKeyCatalog.SiemensS7);
+            Code: "AI_PRESSURE",
+            Protocol: DevicePointProtocol.SiemensS7,
+            Address: "DB1.DBD0",
+            DataType: DevicePointDataType.Decimal,
+            IsWritable: false,
+            RiskLevel: WriteRiskLevel.Normal,
+            RawMin: null,
+            RawMax: null,
+            EngMin: null,
+            EngMax: null,
+            PointId: Guid.NewGuid().ToString("D"),
+            DeviceId: device.Id,
+            Revision: "test-revision",
+            Name: "压力",
+            Description: "旧 Decimal 点",
+            DriverKey: DriverKeyCatalog.SiemensS7);
         await using var channels = new ChannelManager(new[] { channel });
         await using var session = new DeviceSession(
             device,
@@ -219,7 +220,7 @@ public sealed class S7NetPlusIntegrationTests
             Enabled = true,
             TimeoutMs = 200,
             RetryCount = 0,
-            Tcp = new TcpChannelParameters { Host = "127.0.0.1", Port = 1 }
+            Tcp = new TcpChannelParameters()
         };
         var device = new DeviceConfig.DeviceEntry
         {
@@ -230,25 +231,27 @@ public sealed class S7NetPlusIntegrationTests
             DriverKey = DriverKeyCatalog.SiemensS7,
             Model = "S7-1200",
             ChannelId = channel.Id,
+            SiemensS7 = new SiemensS7ConnectionOptions { Host = "127.0.0.1", Port = 102, Rack = 0, Slot = 0 },
             PollIntervalMs = 500,
             StaleAfterMs = 2000
         };
         var point = new DevicePoint(
-            "AI_PRESSURE",
-            DevicePointProtocol.SiemensS7,
-            "DB1.DBD0",
-            DevicePointDataType.Float32,
-            false,
-            WriteRiskLevel.Normal,
-            null,
-            null,
-            null,
-            null,
-            "压力",
-            "连接失败测试",
-            Guid.NewGuid().ToString(),
-            device.Id,
-            DriverKeyCatalog.SiemensS7);
+            Code: "AI_PRESSURE",
+            Protocol: DevicePointProtocol.SiemensS7,
+            Address: "DB1.DBD0",
+            DataType: DevicePointDataType.Float32,
+            IsWritable: false,
+            RiskLevel: WriteRiskLevel.Normal,
+            RawMin: null,
+            RawMax: null,
+            EngMin: null,
+            EngMax: null,
+            PointId: Guid.NewGuid().ToString("D"),
+            DeviceId: device.Id,
+            Revision: "test-revision",
+            Name: "压力",
+            Description: "连接失败测试",
+            DriverKey: DriverKeyCatalog.SiemensS7);
         await using var channels = new ChannelManager(new[] { channel });
         await using var session = new DeviceSession(
             device,
@@ -279,7 +282,7 @@ public sealed class S7NetPlusIntegrationTests
             Code = "CH_PLC",
             Name = "PLC 通道",
             TransportKind = ChannelTransportKind.Tcp,
-            Tcp = new TcpChannelParameters { Host = "127.0.0.1", Port = 102 }
+            Tcp = new TcpChannelParameters()
         };
         var device = new DeviceConfig.DeviceEntry
         {
@@ -289,7 +292,8 @@ public sealed class S7NetPlusIntegrationTests
             DeviceMode = DeviceMode.Hardware,
             DriverKey = DriverKeyCatalog.SiemensS7,
             Model = "S7-1200",
-            ChannelId = channel.Id
+            ChannelId = channel.Id,
+            SiemensS7 = new SiemensS7ConnectionOptions { Host = "127.0.0.1", Port = 102, Rack = 0, Slot = 0 }
         };
         var point = Point(DevicePointDataType.Float32, "DB1.DBD0") with { DeviceId = device.Id };
 

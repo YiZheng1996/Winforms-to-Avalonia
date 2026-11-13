@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>XXX.TestBench.Upgrade</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../src/XXX.TestBench.Core/XXX.TestBench.Core.csproj" />
+    <ProjectReference Include="../../src/XXX.TestBench.Infrastructure/XXX.TestBench.Infrastructure.csproj" />
+    <ProjectReference Include="../../src/XXX.TestBench.Devices/XXX.TestBench.Devices.csproj" />
+  </ItemGroup>
+</Project>

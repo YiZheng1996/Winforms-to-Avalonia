@@ -1,6 +1,5 @@
 using XXX.TestBench.Core.Common;
 using XXX.TestBench.Core.Domain.Devices;
-using System.Text.Json.Serialization;
 
 namespace XXX.TestBench.Core.Configuration;
 
@@ -14,20 +13,6 @@ public sealed class DeviceConfig
     /// </summary>
     public int SchemaVersion { get; set; } = CurrentSchemaVersion;
     /// <summary>
-    /// 旧版项目级运行模式。当前版本不再使用，运行模式由每台设备单独维护。
-    /// 仅保留该属性以便读取历史对象；当前配置序列化时不会写出。
-    /// </summary>
-    [JsonIgnore]
-    public DeviceMode DeviceMode { get; set; }
-    /// <summary>
-    /// 数据轮询间隔，单位毫秒。
-    /// </summary>
-    public int PollIntervalMs { get; set; } = 500;
-    /// <summary>
-    /// 通信超时时间，单位毫秒。
-    /// </summary>
-    public int TimeoutMs { get; set; } = 1000;
-    /// <summary>
     /// 设备连接项列表。
     /// </summary>
     public List<DeviceEntry> Devices { get; set; } = new();
@@ -40,9 +25,7 @@ public sealed class DeviceConfig
     /// <summary>
     /// 当前支持的配置版本号。
     /// </summary>
-    public const int LegacySchemaVersion = 1;
-    public const int PreviousSchemaVersion = 3;
-    public const int CurrentSchemaVersion = 4;
+    public const int CurrentSchemaVersion = 5;
 
     /// <summary>
     /// 单个设备连接项。
@@ -66,14 +49,6 @@ public sealed class DeviceConfig
         /// </summary>
         public DeviceMode DeviceMode { get; set; } = DeviceMode.Simulation;
         /// <summary>
-        /// v1 兼容字段；v2 驱动由 DriverKey 指定。
-        /// </summary>
-        public string Protocol { get; set; } = string.Empty;
-        /// <summary>
-        /// v1 兼容字段；v2 连接参数由 ChannelId 指向通道。
-        /// </summary>
-        public string Address { get; set; } = string.Empty;
-        /// <summary>
         /// v2 所属通道身份。
         /// </summary>
         public string ChannelId { get; set; } = string.Empty;
@@ -89,6 +64,11 @@ public sealed class DeviceConfig
         /// Modbus 从站号；非 Modbus 设备不使用。
         /// </summary>
         public int? ModbusUnitId { get; set; }
+        /// <summary>
+        /// Modbus 设备级字节序和多寄存器字序；同一设备下的点位统一使用，
+        /// 非 Modbus 设备必须为空。
+        /// </summary>
+        public ModbusDataOrderOptions? ModbusDataOrder { get; set; }
         /// <summary>
         /// 单设备轮询周期，单位毫秒。
         /// </summary>
@@ -117,11 +97,6 @@ public sealed class DeviceConfig
         /// Modbus TCP 的设备专属连接端点；Modbus RTU 不使用该字段。
         /// </summary>
         public ModbusTcpConnectionOptions? ModbusTcp { get; set; }
-        /// <summary>
-        /// 旧版设备启用标记。当前版本创建后即参与运行，不再提供启用/停用开关。
-        /// </summary>
-        [JsonIgnore]
-        public bool Enabled { get; set; } = true;
     }
 
     /// <summary>
@@ -129,14 +104,8 @@ public sealed class DeviceConfig
     /// </summary>
     public void Validate()
     {
-        if (SchemaVersion == LegacySchemaVersion)
-        {
-            ValidateLegacy();
-            return;
-        }
-        if (SchemaVersion != PreviousSchemaVersion && SchemaVersion != CurrentSchemaVersion)
-            throw new ConfigValidationException($"device.json schemaVersion={SchemaVersion} 不受支持（支持 {LegacySchemaVersion} 迁移或当前版本 {CurrentSchemaVersion}）");
-        var isV4 = SchemaVersion == CurrentSchemaVersion;
+        if (SchemaVersion != CurrentSchemaVersion)
+            throw new ConfigValidationException($"device.json schemaVersion={SchemaVersion} 不受支持（仅支持当前版本 {CurrentSchemaVersion}）");
         var issues = new List<ConfigurationIssue>();
         var channels = Channels ?? new List<ChannelEntry>();
         var devices = Devices ?? new List<DeviceEntry>();
@@ -147,12 +116,7 @@ public sealed class DeviceConfig
                 issues.Add(new($"device.json.channels[{index}]", "不能为空"));
                 continue;
             }
-            var hasLegacyTargetEndpoint = isV4
-                && channels[index].Tcp is not null
-                && (!string.IsNullOrWhiteSpace(channels[index].Tcp!.Host) || channels[index].Tcp!.Port != 0)
-                && devices.Any(device => device is not null && device.SiemensS7 is null);
-            issues.AddRange(channels[index].Validate($"device.json.channels[{index}]",
-                allowLegacyTargetEndpoint: !isV4 || hasLegacyTargetEndpoint));
+            issues.AddRange(channels[index].Validate($"device.json.channels[{index}]"));
         }
 
         var channelIds = channels.Where(channel => channel is not null).Select(channel => channel.Id).ToList();
@@ -194,30 +158,24 @@ public sealed class DeviceConfig
                 issues.Add(new($"device.json.devices[{device.Code}].pollIntervalMs", "必须大于 0"));
             if (device.StaleAfterMs <= 0)
                 issues.Add(new($"device.json.devices[{device.Code}].staleAfterMs", "必须大于 0"));
-            if (isV4)
+            if (device.ScanMode is not (DeviceScanMode.FixedInterval or DeviceScanMode.OnDemand))
+                issues.Add(new($"device.json.devices[{device.Code}].scanMode", $"采集策略非法：{device.ScanMode}"));
+            var timing = device.Timing ?? new DeviceTimingOptions();
+            issues.AddRange(timing.Validate($"device.json.devices[{device.Code}].timing"));
+            issues.AddRange((device.AutoDemotion ?? new()).Validate($"device.json.devices[{device.Code}].autoDemotion"));
+            var minimumStale = Math.Max(device.PollIntervalMs * 2, timing.RequestTimeoutMs + 100);
+            if (device.StaleAfterMs < minimumStale)
+                issues.Add(new($"device.json.devices[{device.Code}].staleAfterMs", $"必须不小于 {minimumStale} ms"));
+
+            if (string.Equals(device.DriverKey, DriverKeyCatalog.SiemensS7, StringComparison.OrdinalIgnoreCase))
             {
-                if (device.ScanMode is not (DeviceScanMode.FixedInterval or DeviceScanMode.OnDemand))
-                    issues.Add(new($"device.json.devices[{device.Code}].scanMode", $"采集策略非法：{device.ScanMode}"));
-                var timing = device.Timing ?? new DeviceTimingOptions();
-                issues.AddRange(timing.Validate($"device.json.devices[{device.Code}].timing"));
-                issues.AddRange((device.AutoDemotion ?? new()).Validate($"device.json.devices[{device.Code}].autoDemotion"));
-                var minimumStale = Math.Max(device.PollIntervalMs * 2, timing.RequestTimeoutMs + 100);
-                if (device.StaleAfterMs < minimumStale)
-                    issues.Add(new($"device.json.devices[{device.Code}].staleAfterMs", $"必须不小于 {minimumStale} ms"));
-
-                if (string.Equals(device.DriverKey, DriverKeyCatalog.SiemensS7, StringComparison.OrdinalIgnoreCase))
-                {
-                    var legacyEndpointAvailable = !string.IsNullOrWhiteSpace(device.Address)
-                        || channels.FirstOrDefault(channel => string.Equals(channel.Id, device.ChannelId, StringComparison.OrdinalIgnoreCase))?.Tcp is
-                           { Host: { Length: > 0 }, Port: > 0 };
-                    if (device.SiemensS7 is null && !legacyEndpointAvailable)
-                        issues.Add(new($"device.json.devices[{device.Code}].siemensS7", "硬件 Siemens S7 必须配置设备专属端点"));
-                    else if (device.SiemensS7 is not null)
-                        issues.AddRange(device.SiemensS7.Validate($"device.json.devices[{device.Code}].siemensS7"));
-                }
-
-                ValidateModbusDevice(device, issues);
+                if (device.SiemensS7 is null)
+                    issues.Add(new($"device.json.devices[{device.Code}].siemensS7", "Siemens S7 必须配置设备专属端点"));
+                else
+                    issues.AddRange(device.SiemensS7.Validate($"device.json.devices[{device.Code}].siemensS7"));
             }
+
+            ValidateModbusDevice(device, issues);
         }
 
         ValidateModbusUniqueness(devices, issues);
@@ -256,7 +214,21 @@ public sealed class DeviceConfig
                 issues.Add(new($"device.json.devices[{device.Code}].modbusTcp", "只有 Modbus TCP 设备可以配置 TCP 端点"));
             if (device.ModbusUnitId.HasValue)
                 issues.Add(new($"device.json.devices[{device.Code}].modbusUnitId", "非 Modbus 设备不能配置站号"));
+            if (device.ModbusDataOrder is not null)
+                issues.Add(new($"device.json.devices[{device.Code}].modbusDataOrder", "非 Modbus 设备不能配置字节序和字序"));
             return;
+        }
+
+        if (device.ModbusDataOrder is null)
+        {
+            issues.Add(new($"device.json.devices[{device.Code}].modbusDataOrder", "Modbus 设备必须配置字节序和字序"));
+        }
+        else
+        {
+            if (device.ModbusDataOrder.ByteOrder is not (ByteOrder.BigEndian or ByteOrder.LittleEndian))
+                issues.Add(new($"device.json.devices[{device.Code}].modbusDataOrder.byteOrder", "必须选择大端模式或小端模式"));
+            if (device.ModbusDataOrder.WordOrder is not (WordOrder.HighWordFirst or WordOrder.LowWordFirst))
+                issues.Add(new($"device.json.devices[{device.Code}].modbusDataOrder.wordOrder", "必须选择高字在前或低字在前"));
         }
 
         if (!device.ModbusUnitId.HasValue || device.ModbusUnitId.Value is < 1 or > 247)
@@ -308,10 +280,4 @@ public sealed class DeviceConfig
                 issues.Add(new($"device.json.devices[{device.Code}].modbusUnitId", "同一 TCP 地址和站号下 Modbus TCP 设备不能重复"));
     }
 
-    private void ValidateLegacy()
-    {
-        // 旧版对象只做最小结构校验，当前版本不再读取项目级模式。
-        if (DeviceMode is not (DeviceMode.Simulation or DeviceMode.Hardware))
-            throw new ConfigValidationException($"device.json deviceMode={DeviceMode} 非法");
-    }
 }

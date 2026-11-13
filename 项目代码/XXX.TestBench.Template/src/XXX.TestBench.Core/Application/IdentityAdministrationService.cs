@@ -233,8 +233,6 @@ public sealed class IdentityAdministrationService
             throw new DomainException("系统管理员权限固定为全部权限");
 
         var normalized = NormalizePermissions(permissions);
-        var reserved = role.Permissions.Where(permission => !PermissionCatalog.ActiveCodes.Contains(permission));
-        normalized.UnionWith(reserved);
         var before = role.Permissions.ToHashSet();
         await using var uow = _unitOfWorkFactory.Create();
         await uow.BeginTransactionAsync(ct);
@@ -273,7 +271,15 @@ public sealed class IdentityAdministrationService
 
     private static HashSet<PermissionCode> NormalizePermissions(IEnumerable<PermissionCode> permissions)
     {
-        var normalized = PermissionCatalog.Normalize(permissions);
+        ArgumentNullException.ThrowIfNull(permissions);
+        var requested = permissions.ToArray();
+        var unsupported = requested.Where(permission => !PermissionCatalog.ActiveCodes.Contains(permission))
+            .Distinct()
+            .OrderBy(permission => (int)permission)
+            .ToArray();
+        if (unsupported.Length > 0)
+            throw new DomainException("权限列表包含当前不支持的数值：" + string.Join(",", unsupported.Select(permission => (int)permission)));
+        var normalized = PermissionCatalog.Normalize(requested);
         if (normalized.Count == 0)
             throw new DomainException("角色至少需要保留一项有效权限");
         return normalized;

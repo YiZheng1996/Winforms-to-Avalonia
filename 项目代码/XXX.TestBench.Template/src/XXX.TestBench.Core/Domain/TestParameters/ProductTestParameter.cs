@@ -1,0 +1,42 @@
+namespace XXX.TestBench.Core.Domain.TestParameters;
+
+/// <summary>
+/// 产品级试验参数，每个“产品类型 + 产品型号”组合一行。
+/// </summary>
+public sealed class ProductTestParameter
+{
+    /// <summary>
+    /// 所属产品类型编号。
+    /// </summary>
+    public int ProductTypeId { get; init; }
+
+    /// <summary>
+    /// 所属产品型号编号。
+    /// </summary>
+    public int ProductModelId { get; init; }
+
+    /// <summary>
+    /// 试验电压（伏）。
+    /// </summary>
+    public double TestVoltageV { get; set; }
+
+    /// <summary>
+    /// 保护电流（毫安）。
+    /// </summary>
+    public double ProtectCurrentMa { get; set; }
+
+    /// <summary>
+    /// 最后修改人。
+    /// </summary>
+    public string UpdatedBy { get; set; } = string.Empty;
+
+    /// <summary>
+    /// 最后修改时间。
+    /// </summary>
+    public DateTime UpdatedAtUtc { get; set; }
+
+    /// <summary>
+    /// 并发版本；更新成功后递增。
+    /// </summary>
+    public long RowVersion { get; set; }
+}

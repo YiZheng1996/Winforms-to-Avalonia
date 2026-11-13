@@ -23,10 +23,9 @@ public sealed class DevicePointImporterTests
             Assert.Equal("温度", point.Name);
             Assert.Equal("Simulation", point.Protocol);
             Assert.Equal("Decimal", point.DataType);
-            Assert.Equal(ByteOrder.BigEndian, point.DecodeOptions.ByteOrder);
-            Assert.Equal("v5 兼容/项目初始值", point.ByteOrderSource);
+            Assert.Null(point.S7DecodeOptions);
             Assert.Equal(0m, point.RawMin);
-            Assert.Equal(120m, point.EffectiveEngMax);
+            Assert.Equal(120m, point.EngMax);
             Assert.False(point.IsWritable);
         }
         finally { TryDelete(path); }
@@ -39,7 +38,7 @@ public sealed class DevicePointImporterTests
         try
         {
             var headers = string.Join(',', DevicePointTemplateDefinition.Columns.Select(column => column.Header));
-            var row = string.Join(',', "AI.P1", "sim.same", "小数", "", "", "只读", "", "", "", "", "");
+            var row = string.Join(',', "AI.P1", "sim.same", "小数", "只读", "", "", "", "", "");
             await File.WriteAllTextAsync(path, $"{headers}\n{row}\n{row}");
 
             var result = await new DevicePointImporter().ImportAsync(path);
@@ -65,7 +64,7 @@ public sealed class DevicePointImporterTests
                 sheet.Cell(2, 1).Value = "AI.压力";
                 sheet.Cell(2, 2).Value = "sim.pressure";
                 sheet.Cell(2, 3).Value = "小数";
-                sheet.Cell(2, 6).Value = "只读";
+                sheet.Cell(2, 4).Value = "只读";
                 workbook.SaveAs(path);
             }
 
@@ -107,19 +106,19 @@ public sealed class DevicePointImporterTests
                 var sheet = workbook.Worksheet(DevicePointTemplateDefinition.DataSheetName);
             for (var i = 0; i < DevicePointTemplateDefinition.Columns.Count; i++)
                 Assert.Equal(DevicePointTemplateDefinition.Columns[i].Header, sheet.Cell(1, i + 1).GetString());
-                Assert.Equal(4, sheet.DataValidations.Count());
+                Assert.Equal(2, sheet.DataValidations.Count());
                 Assert.True(sheet.Cell(1, 1).HasComment);
                 Assert.Equal(DevicePointTemplateDefinition.ExamplesSheetName, workbook.Worksheet(3).Name);
                 Assert.Equal("试验压力", workbook.Worksheet(DevicePointTemplateDefinition.ExamplesSheetName).Cell(2, 1).GetString().Split('.').Last());
                 sheet.Cell(2, 1).Value = "AI.模板压力";
                 sheet.Cell(2, 2).Value = "sim.template";
                 sheet.Cell(2, 3).Value = "小数";
-                sheet.Cell(2, 6).Value = "读写";
+                sheet.Cell(2, 4).Value = "读写";
+                sheet.Cell(2, 5).Value = 0;
+                sheet.Cell(2, 6).Value = 10000;
                 sheet.Cell(2, 7).Value = 0;
-                sheet.Cell(2, 8).Value = 10000;
-                sheet.Cell(2, 9).Value = 0;
-                sheet.Cell(2, 10).Value = 10;
-                sheet.Cell(2, 11).Value = "由模板生成";
+                sheet.Cell(2, 8).Value = 10;
+                sheet.Cell(2, 9).Value = "由模板生成";
                 workbook.Save();
             }
 
@@ -140,7 +139,7 @@ public sealed class DevicePointImporterTests
         try
         {
             var headers = string.Join(',', DevicePointTemplateDefinition.Columns.Select(column => column.Header));
-             var row = string.Join(',', "AI.P1", "sim.p1", "现场类型", "", "", "只读", "", "", "", "", "");
+             var row = string.Join(',', "AI.P1", "sim.p1", "现场类型", "只读", "", "", "", "", "");
             await File.WriteAllTextAsync(path, $"{headers}\n{row}");
 
             var result = await new DevicePointImporter().ImportAsync(path);
@@ -152,12 +151,12 @@ public sealed class DevicePointImporterTests
     }
 
     [Fact]
-    public async Task V6CsvImport_PreservesModbusAddressAndDecodeOptions()
+    public async Task RemovedV6CsvWithPointOrderColumns_IsRejected()
     {
         var path = TempFile(".csv");
         try
         {
-            var headers = string.Join(',', DevicePointTemplateDefinition.Columns.Select(column => column.Header));
+            var headers = "点位标签,地址,数据类型,字节序,字序,访问权限,原始下限,原始上限,工程下限,工程上限,说明";
             var row = string.Join(',',
                 "DEV_MODBUS/AI.温度",
                 "40001",
@@ -174,22 +173,14 @@ public sealed class DevicePointImporterTests
 
             var result = await new DevicePointImporter().ImportAsync(path);
 
-            Assert.True(result.IsValid, string.Join("；", result.Issues.Select(issue => issue.Message)));
-            var point = Assert.Single(result.Points);
-            Assert.Equal("HR:0", point.Address);
-            Assert.Equal("40001", point.OriginalAddress);
-            Assert.Equal("HR", point.AddressDefinition?.Area);
-            Assert.Equal(0, point.AddressDefinition?.Offset);
-            Assert.Equal(ByteOrder.BigEndian, point.DecodeOptions.ByteOrder);
-            Assert.Equal(WordOrder.HighWordFirst, point.DecodeOptions.WordOrder);
-            Assert.Equal("显式填写", point.ByteOrderSource);
-            Assert.Equal("显式填写", point.WordOrderSource);
+            Assert.False(result.IsValid);
+            Assert.Contains(result.Issues, issue => issue.Message.Contains("模板列数量不正确", StringComparison.Ordinal));
         }
         finally { TryDelete(path); }
     }
 
     [Fact]
-    public async Task LegacyV5ModbusMultiRegisterRow_IsRejectedWithoutGuessingWordOrder()
+    public async Task CurrentTemplate_ModbusPointDoesNotCreatePointLevelDecodeOptions()
     {
         var path = TempFile(".csv");
         try
@@ -200,8 +191,11 @@ public sealed class DevicePointImporterTests
 
             var result = await new DevicePointImporter().ImportAsync(path);
 
-            Assert.False(result.IsValid);
-            Assert.Contains(result.Issues, issue => issue.Message.Contains("不能自动猜测", StringComparison.Ordinal));
+            Assert.True(result.IsValid, string.Join("；", result.Issues.Select(issue => issue.Message)));
+            var point = Assert.Single(result.Points);
+            Assert.Equal("HR:0", point.Address);
+            Assert.Equal("40001", point.OriginalAddress);
+            Assert.Null(point.S7DecodeOptions);
         }
         finally { TryDelete(path); }
     }

@@ -87,10 +87,10 @@ public sealed class ProductRepository : SqliteRepositoryBase, IProductRepository
     {
         var id = await InsertIdentityAsync(new SqliteProductType
         {
-            Code = CompatibilityCode("type"),
             Name = type.Name,
             IsEnabled = type.IsEnabled ? 1 : 0,
-            CreatedAtUtc = type.CreatedAtUtc.ToString("O")
+            CreatedAtUtc = type.CreatedAtUtc.ToString("O"),
+            RowVersion = type.RowVersion
         }, ct);
         type.Id = checked((int)id);
     }
@@ -103,10 +103,11 @@ public sealed class ProductRepository : SqliteRepositoryBase, IProductRepository
         var id = await InsertIdentityAsync(new SqliteProductModel
         {
             ProductTypeId = model.ProductTypeId,
-            Code = CompatibilityCode("model"),
             Name = model.Name,
             IsEnabled = model.IsEnabled ? 1 : 0,
-            CreatedAtUtc = model.CreatedAtUtc.ToString("O")
+            CreatedAtUtc = model.CreatedAtUtc.ToString("O"),
+            RowVersion = model.RowVersion,
+            SequenceRevision = model.SequenceRevision
         }, ct);
         model.Id = checked((int)id);
     }
@@ -117,11 +118,17 @@ public sealed class ProductRepository : SqliteRepositoryBase, IProductRepository
     public Task UpdateTypeAsync(ProductType type, CancellationToken ct = default)
         => RunDbAsync(() =>
         {
-            Update<SqliteProductType>()
+            var expectedVersion = type.RowVersion;
+            var affected = Update<SqliteProductType>()
                 .Where(x => x.Id == type.Id)
+                .Where(x => x.RowVersion == expectedVersion)
                 .Set(x => x.Name, type.Name)
                 .Set(x => x.IsEnabled, type.IsEnabled ? 1 : 0)
+                .Set(x => x.RowVersion, checked(expectedVersion + 1))
                 .ExecuteAffrows();
+            if (affected != 1)
+                throw new XXX.TestBench.Core.Common.DomainException("产品类型已被其他用户修改，请刷新后重试。");
+            type.RowVersion = checked(expectedVersion + 1);
         }, ct);
 
     /// <summary>
@@ -130,11 +137,17 @@ public sealed class ProductRepository : SqliteRepositoryBase, IProductRepository
     public Task UpdateModelAsync(ProductModel model, CancellationToken ct = default)
         => RunDbAsync(() =>
         {
-            Update<SqliteProductModel>()
+            var expectedVersion = model.RowVersion;
+            var affected = Update<SqliteProductModel>()
                 .Where(x => x.Id == model.Id)
+                .Where(x => x.RowVersion == expectedVersion)
                 .Set(x => x.Name, model.Name)
                 .Set(x => x.IsEnabled, model.IsEnabled ? 1 : 0)
+                .Set(x => x.RowVersion, checked(expectedVersion + 1))
                 .ExecuteAffrows();
+            if (affected != 1)
+                throw new XXX.TestBench.Core.Common.DomainException("产品型号已被其他用户修改，请刷新后重试。");
+            model.RowVersion = checked(expectedVersion + 1);
         }, ct);
 
     /// <summary>
@@ -214,7 +227,8 @@ public sealed class ProductRepository : SqliteRepositoryBase, IProductRepository
         Id = row.Id,
         Name = row.Name,
         IsEnabled = row.IsEnabled != 0,
-        CreatedAtUtc = ParseUtc(row.CreatedAtUtc)
+        CreatedAtUtc = ParseUtc(row.CreatedAtUtc),
+        RowVersion = row.RowVersion
     };
 
     private static ProductModel Map(SqliteProductModel row) => new()
@@ -223,11 +237,9 @@ public sealed class ProductRepository : SqliteRepositoryBase, IProductRepository
         ProductTypeId = row.ProductTypeId,
         Name = row.Name,
         IsEnabled = row.IsEnabled != 0,
-        CreatedAtUtc = ParseUtc(row.CreatedAtUtc)
+        CreatedAtUtc = ParseUtc(row.CreatedAtUtc),
+        RowVersion = row.RowVersion,
+        SequenceRevision = row.SequenceRevision
     };
 
-    /// <summary>
-    /// 为旧数据生成唯一兼容编码，满足旧表非空约束且不与新编码冲突。
-    /// </summary>
-    private static string CompatibilityCode(string kind) => $"__legacy_{kind}_{Guid.NewGuid():N}";
 }

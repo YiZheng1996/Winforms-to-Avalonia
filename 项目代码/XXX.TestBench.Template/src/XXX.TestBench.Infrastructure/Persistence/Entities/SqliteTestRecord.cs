@@ -20,6 +20,15 @@ internal sealed class SqliteTestRecord
     [Column(Name = "record_number")]
     public string RecordNumber { get; set; } = string.Empty;
 
+    [Column(Name = "run_id")]
+    public string RunId { get; set; } = string.Empty;
+
+    [Column(Name = "operation_id", IsNullable = true)]
+    public string? OperationId { get; set; }
+
+    [Column(Name = "start_request_id", IsNullable = true)]
+    public string? StartRequestId { get; set; }
+
     /// <summary>
     /// 产品型号编号。
     /// </summary>
@@ -31,6 +40,9 @@ internal sealed class SqliteTestRecord
     /// </summary>
     [Column(Name = "product_number", IsNullable = true)]
     public string? ProductNumber { get; set; }
+
+    [Column(Name = "vehicle_number", IsNullable = true)]
+    public string? VehicleNumber { get; set; }
 
     /// <summary>
     /// 生产批次号，可为空。
@@ -80,6 +92,21 @@ internal sealed class SqliteTestRecord
     [Column(Name = "signal_bindings_snapshot", IsNullable = true)]
     public string? SignalBindingsSnapshot { get; set; }
 
+    [Column(Name = "bench_id", IsNullable = true)]
+    public string? BenchId { get; set; }
+
+    [Column(Name = "node_id", IsNullable = true)]
+    public string? NodeId { get; set; }
+
+    [Column(Name = "result_contract_version")]
+    public int ResultContractVersion { get; set; }
+
+    [Column(Name = "run_scope", IsNullable = true)]
+    public int? RunScope { get; set; }
+
+    [Column(Name = "previous_run_id", IsNullable = true)]
+    public string? PreviousRunId { get; set; }
+
     /// <summary>
     /// 操作用户编号。
     /// </summary>
@@ -97,6 +124,45 @@ internal sealed class SqliteTestRecord
     /// </summary>
     [Column(Name = "conclusion", IsNullable = true)]
     public string? Conclusion { get; set; }
+
+    [Column(Name = "evaluation_state", IsNullable = true)]
+    public int? EvaluationState { get; set; }
+
+    [Column(Name = "evaluation_text", IsNullable = true)]
+    public string? EvaluationText { get; set; }
+
+    [Column(Name = "conclusion_source", IsNullable = true)]
+    public string? ConclusionSource { get; set; }
+
+    [Column(Name = "execution_error", IsNullable = true)]
+    public string? ExecutionError { get; set; }
+
+    [Column(Name = "model_name_snapshot", IsNullable = true)]
+    public string? ModelNameSnapshot { get; set; }
+
+    [Column(Name = "operator_name_snapshot", IsNullable = true)]
+    public string? OperatorNameSnapshot { get; set; }
+
+    [Column(Name = "resource_snapshot_json", IsNullable = true)]
+    public string? ResourceSnapshotJson { get; set; }
+
+    [Column(Name = "precheck_snapshot_json", IsNullable = true)]
+    public string? PrecheckSnapshotJson { get; set; }
+
+    [Column(Name = "report_input_json", IsNullable = true)]
+    public string? ReportInputJson { get; set; }
+
+    [Column(Name = "input_hash", IsNullable = true)]
+    public string? InputHash { get; set; }
+
+    [Column(Name = "execution_evidence_key", IsNullable = true)]
+    public string? ExecutionEvidenceKey { get; set; }
+
+    [Column(Name = "current_report_revision_id", IsNullable = true)]
+    public string? CurrentReportRevisionId { get; set; }
+
+    [Column(Name = "row_version")]
+    public long RowVersion { get; set; }
 
     /// <summary>
     /// 试验开始时间，使用 UTC 文本保存。

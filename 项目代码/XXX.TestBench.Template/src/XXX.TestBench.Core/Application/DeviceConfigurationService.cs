@@ -18,36 +18,36 @@ public sealed class DeviceConfigurationService
     private readonly IEnumerable<IDeviceDriverDescriptor> _drivers;
     private readonly IEnumerable<RequiredSignal> _requiredSignals;
     private readonly Func<bool> _hasActiveRun;
-    private readonly Func<DeviceConfigurationSnapshot, CancellationToken, Task<IDeviceRuntime>>? _runtimeFactory;
-    private readonly Func<IDeviceRuntime?>? _currentRuntime;
-    private readonly Func<IDeviceRuntime, Task>? _publishRuntime;
+    private readonly Func<DeviceConfigurationSnapshot, CancellationToken, Task<IDeviceRuntime>> _runtimeFactory;
+    private readonly Func<IDeviceRuntime?> _currentRuntime;
+    private readonly Func<IDeviceRuntime, Task> _publishRuntime;
     private readonly IDeviceEventSink? _events;
-    private readonly Action<string>? _markRuntimeFaulted;
+    private readonly Action<string> _markRuntimeFaulted;
 
     public DeviceConfigurationService(
         IDeviceConfigurationStore store,
         DeviceOperationCoordinator operations,
         IAuditLog audit,
-        IEnumerable<IDeviceDriverDescriptor>? drivers = null,
-        Func<bool>? hasActiveRun = null,
-        Func<DeviceConfigurationSnapshot, CancellationToken, Task<IDeviceRuntime>>? runtimeFactory = null,
-        Func<IDeviceRuntime?>? currentRuntime = null,
-        Func<IDeviceRuntime, Task>? publishRuntime = null,
-        IEnumerable<RequiredSignal>? requiredSignals = null,
-        IDeviceEventSink? events = null,
-        Action<string>? markRuntimeFaulted = null)
+        IEnumerable<IDeviceDriverDescriptor> drivers,
+        Func<bool> hasActiveRun,
+        Func<DeviceConfigurationSnapshot, CancellationToken, Task<IDeviceRuntime>> runtimeFactory,
+        Func<IDeviceRuntime?> currentRuntime,
+        Func<IDeviceRuntime, Task> publishRuntime,
+        IEnumerable<RequiredSignal> requiredSignals,
+        Action<string> markRuntimeFaulted,
+        IDeviceEventSink? events = null)
     {
         _store = store;
         _operations = operations;
         _audit = audit;
-        _drivers = drivers ?? Array.Empty<IDeviceDriverDescriptor>();
-        _requiredSignals = requiredSignals ?? Array.Empty<RequiredSignal>();
-        _hasActiveRun = hasActiveRun ?? (() => false);
-        _runtimeFactory = runtimeFactory;
-        _currentRuntime = currentRuntime;
-        _publishRuntime = publishRuntime;
+        _drivers = drivers ?? throw new ArgumentNullException(nameof(drivers));
+        _requiredSignals = requiredSignals ?? throw new ArgumentNullException(nameof(requiredSignals));
+        _hasActiveRun = hasActiveRun ?? throw new ArgumentNullException(nameof(hasActiveRun));
+        _runtimeFactory = runtimeFactory ?? throw new ArgumentNullException(nameof(runtimeFactory));
+        _currentRuntime = currentRuntime ?? throw new ArgumentNullException(nameof(currentRuntime));
+        _publishRuntime = publishRuntime ?? throw new ArgumentNullException(nameof(publishRuntime));
         _events = events;
-        _markRuntimeFaulted = markRuntimeFaulted;
+        _markRuntimeFaulted = markRuntimeFaulted ?? throw new ArgumentNullException(nameof(markRuntimeFaulted));
     }
 
     public IReadOnlyList<ConfigurationIssue> Validate(DeviceConfigurationSnapshot snapshot)
@@ -66,12 +66,12 @@ public sealed class DeviceConfigurationService
     public async Task<DeviceConfigurationApplyResult> ApplyDeviceConfigurationAsync(
         UserContext actor,
         DeviceConfig device,
-        CancellationToken ct = default,
-        bool s7OptimizedBlockAccessConfirmed = false)
+        DeviceConfigurationApplyOptions options,
+        CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(device);
         var current = await _store.LoadActiveAsync(ct);
-        var points = EnsureDeviceGroups(current.Points, device);
+        var points = EnsureDeviceGroups(current.Points, current.Device, device);
         var candidate = new DeviceConfigurationSnapshot
         {
             Revision = "device-" + Guid.NewGuid().ToString("N"),
@@ -80,7 +80,7 @@ public sealed class DeviceConfigurationService
             Simulation = current.Simulation,
             SignalBindings = current.SignalBindings
         };
-        return await ApplyCoreAsync(actor, candidate, current, s7OptimizedBlockAccessConfirmed, ct);
+        return await ApplyCoreAsync(actor, candidate, current, options, ct);
     }
 
     /// <summary>
@@ -89,14 +89,13 @@ public sealed class DeviceConfigurationService
     public async Task<DeviceConfigurationApplyResult> ApplyPointsAsync(
         UserContext actor,
         IReadOnlyList<PointsConfig.PointEntry> points,
-        CancellationToken ct = default,
-        bool s7OptimizedBlockAccessConfirmed = false)
+        DeviceConfigurationApplyOptions options,
+        CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(points);
         var current = await _store.LoadActiveAsync(ct);
         return await ApplyPointConfigurationAsync(actor, current, points,
-            current.Points.Groups ?? new List<PointsConfig.PointGroupEntry>(), ct,
-            s7OptimizedBlockAccessConfirmed);
+            current.Points.Groups ?? new List<PointsConfig.PointGroupEntry>(), options, ct);
     }
 
     /// <summary>
@@ -106,14 +105,13 @@ public sealed class DeviceConfigurationService
         UserContext actor,
         IReadOnlyList<PointsConfig.PointEntry> points,
         IReadOnlyList<PointsConfig.PointGroupEntry> groups,
-        CancellationToken ct = default,
-        bool s7OptimizedBlockAccessConfirmed = false)
+        DeviceConfigurationApplyOptions options,
+        CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(points);
         ArgumentNullException.ThrowIfNull(groups);
         var current = await _store.LoadActiveAsync(ct);
-        return await ApplyPointConfigurationAsync(actor, current, points, groups, ct,
-            s7OptimizedBlockAccessConfirmed);
+        return await ApplyPointConfigurationAsync(actor, current, points, groups, options, ct);
     }
 
     /// <summary>
@@ -122,15 +120,14 @@ public sealed class DeviceConfigurationService
     public async Task<DeviceConfigurationApplyResult> AddPointGroupAsync(
         UserContext actor,
         PointsConfig.PointGroupEntry group,
-        CancellationToken ct = default,
-        bool s7OptimizedBlockAccessConfirmed = false)
+        DeviceConfigurationApplyOptions options,
+        CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(group);
         var current = await _store.LoadActiveAsync(ct);
         var groups = CloneGroups(current.Points.Groups);
         groups.Add(CloneGroup(group));
-        return await ApplyPointConfigurationAsync(actor, current, current.Points.Points, groups, ct,
-            s7OptimizedBlockAccessConfirmed);
+        return await ApplyPointConfigurationAsync(actor, current, current.Points.Points, groups, options, ct);
     }
 
     /// <summary>
@@ -139,8 +136,8 @@ public sealed class DeviceConfigurationService
     public async Task<DeviceConfigurationApplyResult> UpdatePointGroupAsync(
         UserContext actor,
         PointsConfig.PointGroupEntry group,
-        CancellationToken ct = default,
-        bool s7OptimizedBlockAccessConfirmed = false)
+        DeviceConfigurationApplyOptions options,
+        CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(group);
         var current = await _store.LoadActiveAsync(ct);
@@ -149,8 +146,7 @@ public sealed class DeviceConfigurationService
         if (index < 0)
             return Failed("找不到要修改的点位分组", group.Id);
         groups[index] = CloneGroup(group);
-        return await ApplyPointConfigurationAsync(actor, current, current.Points.Points, groups, ct,
-            s7OptimizedBlockAccessConfirmed);
+        return await ApplyPointConfigurationAsync(actor, current, current.Points.Points, groups, options, ct);
     }
 
     /// <summary>
@@ -160,8 +156,8 @@ public sealed class DeviceConfigurationService
     public async Task<DeviceConfigurationApplyResult> DeletePointGroupAsync(
         UserContext actor,
         string groupId,
-        CancellationToken ct = default,
-        bool s7OptimizedBlockAccessConfirmed = false)
+        DeviceConfigurationApplyOptions options,
+        CancellationToken ct = default)
     {
         var current = await _store.LoadActiveAsync(ct);
         var currentGroups = current.Points.Groups ?? new List<PointsConfig.PointGroupEntry>();
@@ -181,7 +177,7 @@ public sealed class DeviceConfigurationService
         var groups = CloneGroups(current.Points.Groups);
         groups.RemoveAll(item => string.Equals(item.Id, groupId, StringComparison.OrdinalIgnoreCase));
         var points = current.Points.Points
-            .Select(point => NormalizePoint(point, current.Device))
+            .Select(NormalizePoint)
             .ToList();
         foreach (var point in points.Where(point =>
                      string.Equals(point.GroupId, group.Id, StringComparison.OrdinalIgnoreCase)))
@@ -189,8 +185,7 @@ public sealed class DeviceConfigurationService
             point.GroupId = defaultGroup.Id;
             point.GroupCode = defaultGroup.Code;
         }
-        return await ApplyPointConfigurationAsync(actor, current, points, groups, ct,
-            s7OptimizedBlockAccessConfirmed);
+        return await ApplyPointConfigurationAsync(actor, current, points, groups, options, ct);
     }
 
     private async Task<DeviceConfigurationApplyResult> ApplyPointConfigurationAsync(
@@ -198,8 +193,8 @@ public sealed class DeviceConfigurationService
         DeviceConfigurationSnapshot current,
         IReadOnlyList<PointsConfig.PointEntry> points,
         IReadOnlyList<PointsConfig.PointGroupEntry> groups,
-        CancellationToken ct,
-        bool s7OptimizedBlockAccessConfirmed = false)
+        DeviceConfigurationApplyOptions options,
+        CancellationToken ct)
     {
         var candidate = new DeviceConfigurationSnapshot
         {
@@ -209,12 +204,12 @@ public sealed class DeviceConfigurationService
             {
                 SchemaVersion = PointsConfig.CurrentSchemaVersion,
                 Groups = groups.Select(CloneGroup).ToList(),
-                Points = points.Select(point => NormalizePoint(point, current.Device)).ToList()
+                Points = points.Select(NormalizePoint).ToList()
             },
             Simulation = current.Simulation,
             SignalBindings = current.SignalBindings
         };
-        return await ApplyCoreAsync(actor, candidate, current, s7OptimizedBlockAccessConfirmed, ct);
+        return await ApplyCoreAsync(actor, candidate, current, options, ct);
     }
 
     /// <summary>
@@ -223,8 +218,8 @@ public sealed class DeviceConfigurationService
     public async Task<DeviceConfigurationApplyResult> ApplySignalBindingsAsync(
         UserContext actor,
         SignalBindingsConfig bindings,
-        CancellationToken ct = default,
-        bool s7OptimizedBlockAccessConfirmed = false)
+        DeviceConfigurationApplyOptions options,
+        CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(bindings);
         var current = await _store.LoadActiveAsync(ct);
@@ -242,7 +237,7 @@ public sealed class DeviceConfigurationService
                     StringComparer.OrdinalIgnoreCase)
             }
         };
-        return await ApplyCoreAsync(actor, candidate, current, s7OptimizedBlockAccessConfirmed, ct);
+        return await ApplyCoreAsync(actor, candidate, current, options, ct);
     }
 
     /// <summary>
@@ -253,8 +248,8 @@ public sealed class DeviceConfigurationService
         UserContext actor,
         IReadOnlyDictionary<string, string?> patch,
         string expectedRevision,
-        CancellationToken ct = default,
-        bool s7OptimizedBlockAccessConfirmed = false)
+        DeviceConfigurationApplyOptions options,
+        CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(patch);
         Ensure(actor, PermissionCode.ManageDevices);
@@ -299,71 +294,48 @@ public sealed class DeviceConfigurationService
             actor,
             candidate,
             current,
-            s7OptimizedBlockAccessConfirmed,
+            options,
             ct);
     }
 
     /// <summary>
-    /// 将候选快照作为一个版本写入并切换生效指针；没有运行时切换委托时只执行存储应用。
+    /// 将候选快照作为一个版本写入、验收并切换生效运行时。
     /// </summary>
     public async Task<DeviceConfigurationApplyResult> ApplyAsync(
-        UserContext actor,
-        DeviceConfigurationSnapshot snapshot,
-        CancellationToken ct = default,
-        bool s7OptimizedBlockAccessConfirmed = false)
-    {
-        ArgumentNullException.ThrowIfNull(snapshot);
-        return await ApplyCoreAsync(
-            actor,
-            snapshot,
-            previousSnapshot: null,
-            s7OptimizedBlockAccessConfirmed: s7OptimizedBlockAccessConfirmed,
-            ct: ct);
-    }
-
-    /// <summary>
-    /// 使用完整应用选项应用候选快照。旧的 bool 参数入口仍保留，避免已有调用方改变行为。
-    /// </summary>
-    public Task<DeviceConfigurationApplyResult> ApplyAsync(
         UserContext actor,
         DeviceConfigurationSnapshot snapshot,
         DeviceConfigurationApplyOptions options,
         CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(options);
-        return ApplyCoreAsync(actor, snapshot, previousSnapshot: null,
-            options.ConfirmS7OptimizedBlockAccess, ct, options);
+        return await ApplyCoreAsync(actor, snapshot, previousSnapshot: null, options, ct);
     }
 
     private async Task<DeviceConfigurationApplyResult> ApplyCoreAsync(
         UserContext actor,
         DeviceConfigurationSnapshot snapshot,
         DeviceConfigurationSnapshot? previousSnapshot,
-        bool s7OptimizedBlockAccessConfirmed,
-        CancellationToken ct = default,
-        DeviceConfigurationApplyOptions? applyOptions = null)
+        DeviceConfigurationApplyOptions options,
+        CancellationToken ct = default)
     {
         await using var lease = await _operations.EnterConfigurationAsync(ct);
         return await ApplyCoreWithLeaseAsync(
             actor,
             snapshot,
             previousSnapshot,
-            s7OptimizedBlockAccessConfirmed,
-            ct,
-            applyOptions);
+            options,
+            ct);
     }
 
     private async Task<DeviceConfigurationApplyResult> ApplyCoreWithLeaseAsync(
         UserContext actor,
         DeviceConfigurationSnapshot snapshot,
         DeviceConfigurationSnapshot? previousSnapshot,
-        bool s7OptimizedBlockAccessConfirmed,
-        CancellationToken ct = default,
-        DeviceConfigurationApplyOptions? applyOptions = null)
+        DeviceConfigurationApplyOptions options,
+        CancellationToken ct = default)
     {
+        ArgumentNullException.ThrowIfNull(options);
         Ensure(actor, PermissionCode.ManageDevices);
-        var options = applyOptions ?? new DeviceConfigurationApplyOptions(
-            ConfirmS7OptimizedBlockAccess: s7OptimizedBlockAccessConfirmed);
         if (_hasActiveRun())
             return new DeviceConfigurationApplyResult(false, snapshot.Revision, "存在活动试验，禁止应用设备配置");
         if (!(snapshot.Device?.Devices ?? new List<DeviceConfig.DeviceEntry>()).Any(device => device is not null))
@@ -375,9 +347,8 @@ public sealed class DeviceConfigurationService
                 snapshot.Revision,
                 string.Join("；", issues.Select(issue => issue.Message)));
 
-        // 完整快照入口没有调用方传入旧版本时，仅在配置切换已接入运行时的组合根中
-        // 读取当前 active，供风险提示和失败回滚使用。没有运行时的首个配置仍可直接落盘。
-        if (previousSnapshot is null && _currentRuntime is not null)
+        // 完整快照入口没有调用方传入旧版本时，读取当前 active，供风险提示和失败回滚使用。
+        if (previousSnapshot is null)
             previousSnapshot = await TryLoadPreviousSnapshotAsync(ct);
 
         var optimizedBlockAccessNotice = SiemensS7OptimizedBlockAccessAdvisor.Inspect(
@@ -396,10 +367,7 @@ public sealed class DeviceConfigurationService
                 S7OptimizedBlockAccessNotice: optimizedBlockAccessNotice);
         }
 
-        if (_runtimeFactory is not null && _publishRuntime is null)
-            return new DeviceConfigurationApplyResult(false, snapshot.Revision, "设备运行时切换未配置发布回调，不能应用");
-
-        IDeviceRuntime? oldRuntime = _currentRuntime?.Invoke();
+        IDeviceRuntime? oldRuntime = _currentRuntime();
         IDeviceRuntime? candidateRuntime = null;
         var oldRevision = string.IsNullOrWhiteSpace(previousSnapshot?.Revision)
             ? oldRuntime?.ActiveRevision
@@ -413,20 +381,18 @@ public sealed class DeviceConfigurationService
             // Revision 先完整落盘；运行时切换失败时 active 仍指向旧版本。
             await _store.StageAsync(snapshot, ct);
 
-            if (_runtimeFactory is not null && oldRuntime is not null)
+            if (oldRuntime is not null)
             {
                 oldRuntimeWasTouched = true;
                 await oldRuntime.StopAsync(ct);
             }
 
-            if (_runtimeFactory is not null)
+            candidateRuntime = await _runtimeFactory(snapshot, ct);
+            await candidateRuntime.StartAsync(ct);
+            activationReport = candidateRuntime.ActivationReport;
+            if (activationReport.TotalDevices > 0 && !activationReport.AllOnline
+                && !options.AllowOfflineHardwareDevices)
             {
-                candidateRuntime = await _runtimeFactory(snapshot, ct);
-                await candidateRuntime.StartAsync(ct);
-                activationReport = candidateRuntime.ActivationReport;
-                if (activationReport.TotalDevices > 0 && !activationReport.AllOnline
-                    && !options.AllowOfflineHardwareDevices)
-                {
                     var activationError = FormatActivationIssues(activationReport);
                     try { await candidateRuntime.StopAsync(CancellationToken.None); } catch { }
                     await candidateRuntime.DisposeAsync();
@@ -445,7 +411,6 @@ public sealed class DeviceConfigurationService
                         RequiresOfflineApplyConfirmation: true,
                         ActivationReport: activationReport,
                         RollbackError: rollbackError);
-                }
             }
 
             await _store.CommitActiveAsync(snapshot.Revision, ct);
@@ -453,14 +418,12 @@ public sealed class DeviceConfigurationService
             if (candidateRuntime is not null)
             {
                 // 构造前已检查发布回调；这里保留防御性判断，避免未来组合根改动后出现半切换。
-                if (_publishRuntime is null)
-                    throw new InvalidOperationException("已创建新的设备运行时，但没有配置发布回调");
-                await _publishRuntime(candidateRuntime);
+                await _publishRuntime(candidateRuntime!);
                 runtimePublished = true;
                 candidateRuntime = null;
             }
 
-            if (_runtimeFactory is not null && oldRuntime is not null)
+            if (oldRuntime is not null)
             {
                 // 新运行时已经发布后，旧运行时释放失败不应把已经生效的配置回滚成未知状态。
                 try { await oldRuntime.DisposeAsync(); } catch { }
@@ -541,7 +504,7 @@ public sealed class DeviceConfigurationService
     private void PublishRollbackFailureIfNeeded(string? error, string revision)
     {
         if (string.IsNullOrWhiteSpace(error)) return;
-        try { _markRuntimeFaulted?.Invoke(error); } catch { /* 不覆盖原始回滚错误 */ }
+        try { _markRuntimeFaulted(error); } catch { /* 不覆盖原始回滚错误 */ }
         PublishEvent(DeviceEventSeverity.Error, "CONFIG_ROLLBACK_FAILED",
             $"配置 {revision} 切换失败，旧运行时或旧版本恢复失败：{error}");
     }
@@ -577,48 +540,40 @@ public sealed class DeviceConfigurationService
         }
     }
 
-    private static PointsConfig.PointEntry NormalizePoint(
-        PointsConfig.PointEntry source,
-        DeviceConfig deviceConfig)
+    private static PointsConfig.PointEntry NormalizePoint(PointsConfig.PointEntry source)
     {
-        var devices = (deviceConfig.Devices ?? new List<DeviceConfig.DeviceEntry>())
-            .Where(device => !string.IsNullOrWhiteSpace(device.Id))
-            .ToList();
-        var device = !string.IsNullOrWhiteSpace(source.DeviceId)
-            ? devices.FirstOrDefault(item => string.Equals(item.Id, source.DeviceId, StringComparison.OrdinalIgnoreCase))
-            : devices.FirstOrDefault(item => string.Equals(item.Code, source.DeviceCode, StringComparison.OrdinalIgnoreCase));
-        if (device is null && devices.Count == 1 && string.IsNullOrWhiteSpace(source.DeviceId))
-            device = devices[0];
-
-        var protocol = source.Protocol;
-        if (string.IsNullOrWhiteSpace(protocol) && device is not null
-            && DevicePointTypeCatalog.TryParseDriverKey(device.DriverKey, out var parsedProtocol))
-            protocol = DevicePointTypeCatalog.ToStorage(parsedProtocol);
-        var rawDataType = string.IsNullOrWhiteSpace(source.RawDataType) ? source.DataType : source.RawDataType;
         return new PointsConfig.PointEntry
         {
-            Id = string.IsNullOrWhiteSpace(source.Id)
-                ? DeviceConfigurationMigrator.StableId($"point|{source.DeviceCode}|{source.DeviceId}|{source.Code}|{source.Address}")
-                : source.Id.Trim(),
+            Id = source.Id?.Trim() ?? string.Empty,
             Code = source.Code.Trim(),
             Name = string.IsNullOrWhiteSpace(source.Name) ? source.Code.Trim() : source.Name.Trim(),
-            Protocol = protocol?.Trim() ?? string.Empty,
-            DeviceId = device?.Id.Trim() ?? source.DeviceId.Trim(),
-            DeviceCode = device?.Code.Trim() ?? source.DeviceCode.Trim(),
+            Protocol = source.Protocol?.Trim() ?? string.Empty,
+            DeviceId = source.DeviceId?.Trim() ?? string.Empty,
+            DeviceCode = source.DeviceCode?.Trim() ?? string.Empty,
             GroupId = source.GroupId?.Trim() ?? string.Empty,
             GroupCode = source.GroupCode?.Trim() ?? string.Empty,
-            Address = source.Address.Trim(),
-            AddressDefinition = source.AddressDefinition,
-            DataType = string.IsNullOrWhiteSpace(source.DataType) ? rawDataType.Trim() : source.DataType.Trim(),
-            RawDataType = rawDataType.Trim(),
-            DecodeOptions = source.DecodeOptions ?? new DecodeOptions(),
+            Address = source.Address?.Trim() ?? string.Empty,
+            AddressDefinition = source.AddressDefinition is null ? null : new PointAddressDefinition
+            {
+                Area = source.AddressDefinition.Area,
+                Offset = source.AddressDefinition.Offset,
+                BitIndex = source.AddressDefinition.BitIndex,
+                DbNumber = source.AddressDefinition.DbNumber,
+                ByteOffset = source.AddressDefinition.ByteOffset,
+                BitOffset = source.AddressDefinition.BitOffset,
+                LogicalAddress = source.AddressDefinition.LogicalAddress
+            },
+            DataType = DevicePointTypeCatalog.TryParseDataType(source.DataType, out var dataType)
+                ? DevicePointTypeCatalog.ToStorage(dataType)
+                : source.DataType?.Trim() ?? string.Empty,
+            S7DecodeOptions = source.S7DecodeOptions,
             WritePolicy = source.WritePolicy,
             IsWritable = source.IsWritable,
             RiskLevel = source.RiskLevel,
-            RawMin = source.EffectiveRawMin,
-            RawMax = source.EffectiveRawMax,
-            EngMin = source.EffectiveEngMin,
-            EngMax = source.EffectiveEngMax,
+            RawMin = source.RawMin,
+            RawMax = source.RawMax,
+            EngMin = source.EngMin,
+            EngMax = source.EngMax,
             Description = source.Description?.Trim() ?? string.Empty
         };
     }
@@ -627,7 +582,10 @@ public sealed class DeviceConfigurationService
         IEnumerable<PointsConfig.PointGroupEntry>? groups)
         => (groups ?? Array.Empty<PointsConfig.PointGroupEntry>()).Select(CloneGroup).ToList();
 
-    private static PointsConfig EnsureDeviceGroups(PointsConfig current, DeviceConfig device)
+    private static PointsConfig EnsureDeviceGroups(
+        PointsConfig current,
+        DeviceConfig previousDevice,
+        DeviceConfig device)
     {
         if (current.SchemaVersion != PointsConfig.CurrentSchemaVersion)
             return current;
@@ -635,18 +593,20 @@ public sealed class DeviceConfigurationService
         var devices = (device.Devices ?? new List<DeviceConfig.DeviceEntry>())
             .Where(item => item is not null && !string.IsNullOrWhiteSpace(item.Id))
             .ToList();
-        var deviceIds = devices.Select(item => item.Id.Trim())
+        var previousDeviceIds = (previousDevice.Devices ?? new List<DeviceConfig.DeviceEntry>())
+            .Where(item => item is not null && !string.IsNullOrWhiteSpace(item.Id))
+            .Select(item => item.Id.Trim())
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
-        var groups = CloneGroups(current.Groups)
-            .Where(group => deviceIds.Contains(group.DeviceId.Trim()))
-            .ToList();
+        var groups = CloneGroups(current.Groups);
         foreach (var item in devices)
         {
             if (groups.Any(group => string.Equals(group.DeviceId, item.Id, StringComparison.OrdinalIgnoreCase)))
                 continue;
+            if (previousDeviceIds.Contains(item.Id.Trim()))
+                continue;
             groups.Add(new PointsConfig.PointGroupEntry
             {
-                Id = DeviceConfigurationMigrator.StableId($"group|{item.Id}|DEFAULT"),
+                Id = StableIdentity.FromSeed($"group|{item.Id}|DEFAULT"),
                 DeviceId = item.Id.Trim(),
                 Code = "DEFAULT",
                 Name = "未分组",
@@ -677,13 +637,11 @@ public sealed class DeviceConfigurationService
     private static PointsConfig.PointGroupEntry CloneGroup(PointsConfig.PointGroupEntry source)
         => new()
         {
-            Id = string.IsNullOrWhiteSpace(source.Id)
-                ? DeviceConfigurationMigrator.StableId($"group|{source.DeviceId}|{source.Code}")
-                : source.Id.Trim(),
-            DeviceId = source.DeviceId?.Trim() ?? string.Empty,
-            Code = source.Code?.Trim() ?? string.Empty,
-            Name = string.IsNullOrWhiteSpace(source.Name) ? source.Code?.Trim() ?? string.Empty : source.Name.Trim(),
-            Description = source.Description?.Trim() ?? string.Empty,
+            Id = source.Id,
+            DeviceId = source.DeviceId,
+            Code = source.Code,
+            Name = source.Name,
+            Description = source.Description,
             SortOrder = source.SortOrder
         };
 
@@ -699,11 +657,7 @@ public sealed class DeviceConfigurationService
 
 public sealed record DeviceConfigurationApplyOptions(
     bool ConfirmS7OptimizedBlockAccess = false,
-    bool AllowOfflineHardwareDevices = false)
-{
-    // 兼容早期实现的读取属性；新调用方应使用与方案一致的 AllowOfflineHardwareDevices。
-    public bool ConfirmOfflineDevices => AllowOfflineHardwareDevices;
-}
+    bool AllowOfflineHardwareDevices = false);
 
 public sealed record DeviceConfigurationApplyResult(
     bool Ok,

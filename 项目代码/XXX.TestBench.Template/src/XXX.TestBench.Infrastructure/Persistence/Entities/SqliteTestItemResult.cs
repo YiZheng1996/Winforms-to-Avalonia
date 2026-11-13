@@ -55,4 +55,13 @@ internal sealed class SqliteTestItemResult
     /// </summary>
     [Column(Name = "finished_at_utc", IsNullable = true)]
     public string? FinishedAtUtc { get; set; }
+
+    [Column(Name = "measurements_json", IsNullable = true)]
+    public string? MeasurementsJson { get; set; }
+
+    [Column(Name = "execution_slot_key", IsNullable = true)]
+    public string? ExecutionSlotKey { get; set; }
+
+    [Column(Name = "row_version")]
+    public long RowVersion { get; set; }
 }

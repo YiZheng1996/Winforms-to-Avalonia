@@ -20,6 +20,7 @@
     <ProjectReference Include="../../src/XXX.TestBench.Core/XXX.TestBench.Core.csproj" />
     <ProjectReference Include="../../src/XXX.TestBench.Infrastructure/XXX.TestBench.Infrastructure.csproj" />
     <ProjectReference Include="../../src/XXX.TestBench.Devices/XXX.TestBench.Devices.csproj" />
+    <ProjectReference Include="../../tools/XXX.TestBench.Upgrade/XXX.TestBench.Upgrade.csproj" />
     <PackageReference Include="ClosedXML" Version="0.105.0" />
   </ItemGroup>
 </Project>

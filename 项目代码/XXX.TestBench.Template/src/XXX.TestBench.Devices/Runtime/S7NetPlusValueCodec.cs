@@ -7,7 +7,7 @@ namespace XXX.TestBench.Devices.Runtime;
 
 /// <summary>
 /// S7 原始字节与项目领域值之间的转换。
-/// 默认按 S7 的 BigEndian/HighWordFirst 解释；显式 DecodeOptions 才执行逆序。
+/// 默认按 S7 的 BigEndian/HighWordFirst 解释；显式 S7DecodeOptions 才执行逆序。
 /// Decimal 是旧仿真的通用类型，真实 S7 没有对应 PLC 类型，硬件运行时拒绝猜测。
 /// </summary>
 public static class S7NetPlusValueCodec
@@ -15,7 +15,7 @@ public static class S7NetPlusValueCodec
     public static int GetByteCount(DevicePointDataType dataType)
         => dataType switch
         {
-            DevicePointDataType.Boolean or DevicePointDataType.Bool => 1,
+            DevicePointDataType.Bool => 1,
             DevicePointDataType.Byte or DevicePointDataType.Char => 1,
             DevicePointDataType.Int16 or DevicePointDataType.UInt16 => 2,
             DevicePointDataType.Int32 or DevicePointDataType.UInt32 or DevicePointDataType.Float32 => 4,
@@ -36,7 +36,7 @@ public static class S7NetPlusValueCodec
         var count = GetByteCount(type);
         var canonical = type switch
         {
-            DevicePointDataType.Boolean or DevicePointDataType.Bool => new[] { ToBoolean(value) ? (byte)1 : (byte)0 },
+            DevicePointDataType.Bool => new[] { ToBoolean(value) ? (byte)1 : (byte)0 },
             DevicePointDataType.Byte => new[] { ToByte(value) },
             DevicePointDataType.Char => new[] { ToChar(value) },
             DevicePointDataType.Int16 => WriteInt16(ToInt16(value)),
@@ -49,7 +49,7 @@ public static class S7NetPlusValueCodec
         };
         if (canonical.Length != count)
             throw new DomainException($"点位“{DisplayPoint(point)}”的编码字节数异常");
-        return ApplyEncodeOptions(canonical, point.DecodeOptions);
+        return ApplyEncodeOptions(canonical, point.S7DecodeOptions);
     }
 
     public static object Decode(DevicePoint point, ReadOnlySpan<byte> source)
@@ -59,10 +59,10 @@ public static class S7NetPlusValueCodec
         var count = GetByteCount(type);
         if (source.Length < count)
             throw new DomainException($"点位“{DisplayPoint(point)}”返回字节数不足：需要 {count}，实际 {source.Length}");
-        var bytes = ApplyDecodeOptions(source[..count], point.DecodeOptions);
+        var bytes = ApplyDecodeOptions(source[..count], point.S7DecodeOptions);
         return type switch
         {
-            DevicePointDataType.Boolean or DevicePointDataType.Bool => bytes[0] != 0,
+            DevicePointDataType.Bool => bytes[0] != 0,
             DevicePointDataType.Byte => bytes[0],
             DevicePointDataType.Char => (char)bytes[0],
             DevicePointDataType.Int16 => BinaryPrimitives.ReadInt16BigEndian(bytes),

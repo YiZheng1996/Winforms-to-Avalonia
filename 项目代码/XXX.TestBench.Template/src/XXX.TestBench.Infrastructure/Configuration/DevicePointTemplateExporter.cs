@@ -1,5 +1,6 @@
 using ClosedXML.Excel;
 using XXX.TestBench.Core.Configuration;
+using XXX.TestBench.Core.Common;
 using XXX.TestBench.Core.Domain.Devices;
 using XXX.TestBench.Core.Ports;
 
@@ -43,7 +44,7 @@ public sealed class DevicePointTemplateExporter : IDevicePointTemplateExporter
         using var workbook = new XLWorkbook();
         var dataSheet = workbook.AddWorksheet(DevicePointTemplateDefinition.DataSheetName);
 
-        WriteHeader(dataSheet, columns);
+        WriteHeader(dataSheet, columns, request);
         ConfigureDataSheet(dataSheet, columns);
         AddChoiceValidations(dataSheet, request);
         WriteScopeComments(dataSheet, request);
@@ -60,7 +61,10 @@ public sealed class DevicePointTemplateExporter : IDevicePointTemplateExporter
     /// <summary>
     /// 写入固定中文表头，并给每个表头增加鼠标悬停说明。
     /// </summary>
-    private static void WriteHeader(IXLWorksheet worksheet, IReadOnlyList<DevicePointTemplateDefinition.ColumnDefinition> columns)
+    private static void WriteHeader(
+        IXLWorksheet worksheet,
+        IReadOnlyList<DevicePointTemplateDefinition.ColumnDefinition> columns,
+        DevicePointTemplateExportRequest? request)
     {
         for (var index = 0; index < columns.Count; index++)
         {
@@ -74,8 +78,9 @@ public sealed class DevicePointTemplateExporter : IDevicePointTemplateExporter
             cell.Style.Alignment.Vertical = XLAlignmentVerticalValues.Center;
             cell.Style.Alignment.WrapText = true;
 
+            var help = GetColumnHelp(column, request);
             var comment = cell.CreateComment();
-            comment.AddText($"{column.Description}\n示例：{column.Example}");
+            comment.AddText($"{help.Description}\n示例：{help.Example}");
             comment.SetAuthor("设备点位模板");
         }
     }
@@ -98,7 +103,6 @@ public sealed class DevicePointTemplateExporter : IDevicePointTemplateExporter
                 "PointTag" => 34,
                 "Address" => 24,
                 "DataType" => 18,
-                "ByteOrder" or "WordOrder" => 20,
                 "Access" => 18,
                 "RawMin" or "RawMax" or "EngMin" or "EngMax" => 14,
                 "Description" => 36,
@@ -149,22 +153,12 @@ public sealed class DevicePointTemplateExporter : IDevicePointTemplateExporter
             worksheet.Range(firstRow, ColumnIndex(DevicePointTemplateDefinition.Columns, "DataType"), lastRow,
                 ColumnIndex(DevicePointTemplateDefinition.Columns, "DataType")),
             rawDataChoices.Select(choice => choice.DisplayValue),
-            "请从下拉框选择原始数据类型");
+            GetDataTypeChoiceMessage(request));
         AddListValidation(
             worksheet.Range(firstRow, ColumnIndex(DevicePointTemplateDefinition.Columns, "Access"), lastRow,
                 ColumnIndex(DevicePointTemplateDefinition.Columns, "Access")),
             DevicePointTemplateDefinition.AccessChoices.Select(choice => choice.DisplayValue),
             "请从下拉框选择 只读或读写");
-        AddListValidation(
-            worksheet.Range(firstRow, ColumnIndex(DevicePointTemplateDefinition.Columns, "ByteOrder"), lastRow,
-                ColumnIndex(DevicePointTemplateDefinition.Columns, "ByteOrder")),
-            DevicePointTemplateDefinition.ByteOrderChoices.Select(choice => choice.DisplayValue),
-            "Modbus 寄存器点位可选择大端或小端；留空采用项目初始大端，其他协议可留空");
-        AddListValidation(
-            worksheet.Range(firstRow, ColumnIndex(DevicePointTemplateDefinition.Columns, "WordOrder"), lastRow,
-                ColumnIndex(DevicePointTemplateDefinition.Columns, "WordOrder")),
-            DevicePointTemplateDefinition.WordOrderChoices.Select(choice => choice.DisplayValue),
-            "Modbus 点位按类型选择 None、HighWordFirst 或 LowWordFirst；其他协议可留空");
     }
 
     /// <summary>
@@ -174,19 +168,19 @@ public sealed class DevicePointTemplateExporter : IDevicePointTemplateExporter
         DevicePointTemplateExportRequest? request)
     {
         if (request?.Targets is not { Count: > 0 })
-            return DevicePointTemplateDefinition.RawDataTypeChoices;
+            return DevicePointTemplateDefinition.DataTypeChoices;
 
         var supported = request.Targets
             .SelectMany(target => target.SupportedDataTypes)
             .ToHashSet();
         if (supported.Count == 0)
-            return DevicePointTemplateDefinition.RawDataTypeChoices;
+            return DevicePointTemplateDefinition.DataTypeChoices;
 
-        var choices = DevicePointTemplateDefinition.RawDataTypeChoices
+        var choices = DevicePointTemplateDefinition.DataTypeChoices
             .Where(choice => DevicePointTemplateDefinition.TryMapDataType(choice.DisplayValue, out var type)
                 && supported.Contains(type))
             .ToList();
-        return choices.Count == 0 ? DevicePointTemplateDefinition.RawDataTypeChoices : choices;
+        return choices.Count == 0 ? DevicePointTemplateDefinition.DataTypeChoices : choices;
     }
 
     /// <summary>
@@ -201,13 +195,85 @@ public sealed class DevicePointTemplateExporter : IDevicePointTemplateExporter
 
         var targetText = string.Join("、", request.Targets.Select(target =>
             $"{target.DisplayName}（{target.ProtocolDisplayName}）"));
+        var pointTagColumn = DevicePointTemplateDefinition.Columns
+            .First(column => string.Equals(column.Field, "PointTag", StringComparison.Ordinal));
+        var tagHelp = GetColumnHelp(pointTagColumn, request);
         var tagCell = worksheet.Cell(1, ColumnIndex(DevicePointTemplateDefinition.Columns, "PointTag"));
         var tagRule = request.Targets.Count > 1
             ? "本模板包含多个设备，点位标签请使用“设备编码/分组.点位”。"
             : "本模板只对应一个设备，点位标签填写“分组.点位”即可。";
-        tagCell.CreateComment().AddText(
-            $"模板范围：{request.ScopeDisplayName}\n{request.ScopeDescription}\n{tagRule}\n目标设备：{targetText}");
+        tagCell.GetComment().Delete();
+        var tagComment = tagCell.CreateComment();
+        tagComment.AddText(
+            $"{tagHelp.Description}\n示例：{tagHelp.Example}\n模板范围：{request.ScopeDisplayName}\n{request.ScopeDescription}\n{tagRule}\n目标设备：{targetText}");
+        tagComment.SetAuthor("设备点位模板");
     }
+
+    private static (string Description, string Example) GetColumnHelp(
+        DevicePointTemplateDefinition.ColumnDefinition column,
+        DevicePointTemplateExportRequest? request)
+    {
+        if (!HasXinjeTargets(request))
+            return (column.Description, column.Example);
+
+        return column.Field switch
+        {
+            "Address" => (GetAddressRuleText(request), "D100、HD1000、M400、HM40"),
+            "DataType" => (GetDataTypeRuleText(request), "字、长整型、双字、浮点型、布尔量"),
+            _ => (column.Description, column.Example)
+        };
+    }
+
+    private static string GetAddressRuleText(DevicePointTemplateExportRequest? request)
+    {
+        if (!HasXinjeTargets(request))
+        {
+            return "地址按所属设备驱动和型号填写。Modbus 首选 C:0、DI:0、HR:0、IR:0；S7-1200/1500 示例：DB144.DBD88、DB142.DBX22.3；S7-200 SMART 示例：VW5022、V0.1。格式不匹配会在导入预览前拒绝。";
+        }
+
+        var text = "信捷 PLC（Modbus TCP，型号 XINJE_FIELD_V1）请填写 D、HD、M、HM 原生地址，例如 D100、HD1000、M400、HM40。D/HD 可选字、长整型、双字、浮点型；M/HM 只能选布尔量。不填写 HR:0、C:1 这类通用 Modbus 地址，也不填写 D10.0 等寄存器位地址。";
+        return AllTargetsAreXinje(request)
+            ? text
+            : $"{text}本模板还包含其他设备，请按各自驱动和型号填写地址，不要将信捷地址规则套用于其他设备。";
+    }
+
+    private static string GetDataTypeRuleText(DevicePointTemplateExportRequest? request)
+    {
+        var text = "信捷 D/HD 仅支持字、长整型、双字、浮点型；M/HM 仅支持布尔量。";
+        if (request?.Targets.Count > 1)
+            text += "当前下拉项是模板范围内各设备有效类型的并集；请按点位标签中的设备编码和所属设备地址区选择，导入时仍会逐行校验。";
+        else if (!AllTargetsAreXinje(request))
+            text += "本模板还包含其他设备，请按所属设备型号和地址区选择，导入时仍会逐行校验。";
+        return text;
+    }
+
+    private static string GetDataTypeChoiceMessage(DevicePointTemplateExportRequest? request)
+        => HasXinjeTargets(request)
+            ? GetDataTypeRuleText(request)
+            : "请从下拉框选择原始数据类型";
+
+    private static string GetByteWordOrderRuleText(DevicePointTemplateExportRequest? request)
+    {
+        if (!HasXinjeTargets(request))
+            return "Modbus 字节序模式和多寄存器字序属于设备配置，点位模板不再填写；请在设备编辑中设置大端模式/小端模式及高字在前/低字在前，并以设备手册为准。";
+
+        return AllTargetsAreXinje(request)
+            ? "信捷 PLC 设备属性固定使用大端模式、低字在前；模板不提供字节序或字序选择，点位模板也不承载这些字段。"
+            : "信捷 PLC 设备属性固定使用大端模式、低字在前；其他设备仍按各自驱动和型号规则配置，通用 Modbus 设备的字节序和字序仍按设备属性及设备手册设置。点位模板不承载站号、字节序或字序字段。";
+    }
+
+    private static bool HasXinjeTargets(DevicePointTemplateExportRequest? request)
+        => request?.Targets.Any(IsXinjeTarget) == true;
+
+    private static bool AllTargetsAreXinje(DevicePointTemplateExportRequest? request)
+        => request?.Targets is { Count: > 0 } && request.Targets.All(IsXinjeTarget);
+
+    private static bool IsXinjeTarget(DevicePointTemplateTarget target)
+        => target.Protocol == DevicePointProtocol.ModbusTcp
+            && string.Equals(
+                target.Model?.Trim(),
+                DeviceModelKeyCatalog.XinjeFieldV1,
+                StringComparison.OrdinalIgnoreCase);
 
     /// <summary>
     /// 添加显式列表校验；空值仍允许保留给非必填列的默认规则。
@@ -283,10 +349,10 @@ public sealed class DevicePointTemplateExporter : IDevicePointTemplateExporter
             "7. 访问权限只填写“只读”或“读写”；启动、停止、复位、输出等动作的安全等级由运行时策略继续校验。",
             "8. 分组是可选的分类方式；导入不会自动创建设备或分组，未分组点位进入系统“未分组”。",
             "9. 当前模板按设备范围和点位标签合并新增/更新，文件中未出现的其他设备点位保持不变；其他版本模板不会被接受。",
-            "10. 地址按所属设备驱动和型号填写。Modbus 首选 C:0、DI:0、HR:0、IR:0；S7-1200/1500 示例：DB144.DBD88、DB142.DBX22.3；S7-200 SMART 示例：VW5022、V0.1。格式不匹配会在导入预览前拒绝。",
+            $"10. {GetAddressRuleText(request)}",
             "11. 采集周期属于设备配置，不在点位表中重复填写；KEPServer 的 Scan Rate 不会被误当成每个点位的运行时周期。",
             "12. 本模板参考了 KEPServer 的 Tag Name、Address、Data Type、Client Access、Scaling 和 Description 字段，英文表头不能直接导入；项目使用固定中文表头。",
-            "13. Modbus 寄存器点位的字节序可填写大端/小端，留空采用项目初始大端并在导入预览标记来源；Int16/UInt16 的字序填 None，Int32/UInt32/Float32/Double 必须明确选择 HighWordFirst 或 LowWordFirst。字节序和字序不能凭经验猜测，请以设备手册为准。",
+            $"13. {GetByteWordOrderRuleText(request)}",
             "14. 使用西门子 S7 的 DB 绝对地址（例如 DB1.DBD0）时，请先在 TIA Portal 中打开对应数据块，取消“优化的块访问”，重新下载 PLC，再连接或导入。"
         };
         for (var index = 0; index < rules.Length; index++)
@@ -295,6 +361,8 @@ public sealed class DevicePointTemplateExporter : IDevicePointTemplateExporter
             worksheet.Range(row, 1, row, 3).Merge();
             worksheet.Cell(row, 1).Value = rules[index];
             worksheet.Cell(row, 1).Style.Alignment.WrapText = true;
+            if (HasXinjeTargets(request) && index is 9 or 12)
+                worksheet.Row(row).Height = 42;
         }
 
         var startRow = 8 + rules.Length + 2;
@@ -308,10 +376,13 @@ public sealed class DevicePointTemplateExporter : IDevicePointTemplateExporter
             ct.ThrowIfCancellationRequested();
             var row = startRow + index + 1;
             var column = columns[index];
+            var help = GetColumnHelp(column, request);
             worksheet.Cell(row, 1).Value = column.Header;
             worksheet.Cell(row, 2).Value = column.IsRequired ? "是" : "否";
-            worksheet.Cell(row, 3).Value = $"{column.Description}；示例：{column.Example}";
+            worksheet.Cell(row, 3).Value = $"{help.Description}；示例：{help.Example}";
             worksheet.Cell(row, 3).Style.Alignment.WrapText = true;
+            if (HasXinjeTargets(request) && column.Field is "Address" or "DataType")
+                worksheet.Row(row).Height = column.Field == "Address" ? 54 : 42;
         }
 
         var choiceStart = startRow + columns.Count + 3;
@@ -379,7 +450,6 @@ public sealed class DevicePointTemplateExporter : IDevicePointTemplateExporter
                 "PointTag" => 34,
                 "Address" => 24,
                 "DataType" => 18,
-                "ByteOrder" or "WordOrder" => 20,
                 "Access" => 18,
                 "RawMin" or "RawMax" or "EngMin" or "EngMax" => 14,
                 "Description" => 36,
@@ -444,8 +514,6 @@ public sealed class DevicePointTemplateExporter : IDevicePointTemplateExporter
                 firstTag,
                 GetAddressExample(target, isCommand: false),
                 GetRawDataExample(target, isCommand: false),
-                GetByteOrderExample(target),
-                GetWordOrderExample(target, isCommand: false),
                 "0",
                 "10000",
                 "0",
@@ -455,8 +523,6 @@ public sealed class DevicePointTemplateExporter : IDevicePointTemplateExporter
                 commandTag,
                 GetAddressExample(target, isCommand: true),
                 GetRawDataExample(target, isCommand: true),
-                GetByteOrderExample(target),
-                GetWordOrderExample(target, isCommand: true),
                 string.Empty,
                 string.Empty,
                 string.Empty,
@@ -478,11 +544,14 @@ public sealed class DevicePointTemplateExporter : IDevicePointTemplateExporter
         var targetDescription = request is null || request.Targets.Count == 0
             ? "通用示例仅用于理解填写方式。"
             : $"本页示例按“{request.ScopeDisplayName}”生成，通信方式为：{string.Join("、", request.Targets.Select(target => target.ProtocolDisplayName).Distinct())}。";
-        worksheet.Cell(noteRow, 1).Value = $"说明：{targetDescription}请将真实点位填写到“点位模板”工作表后再导入；示例中的地址仅用于说明格式。";
+        var xinjeGuidance = HasXinjeTargets(request)
+            ? $"\n{GetAddressRuleText(request)}\n{GetDataTypeRuleText(request)}"
+            : string.Empty;
+        worksheet.Cell(noteRow, 1).Value = $"说明：{targetDescription}请将真实点位填写到“点位模板”工作表后再导入；示例中的地址仅用于说明格式。{xinjeGuidance}";
         worksheet.Cell(noteRow, 1).Style.Font.FontColor = XLColor.FromHtml("#7A5B00");
         worksheet.Cell(noteRow, 1).Style.Fill.BackgroundColor = XLColor.FromHtml("#FFF9EB");
         worksheet.Cell(noteRow, 1).Style.Alignment.WrapText = true;
-        worksheet.Row(noteRow).Height = 34;
+        worksheet.Row(noteRow).Height = HasXinjeTargets(request) ? 62 : 34;
         worksheet.SheetView.FreezeRows(1);
         worksheet.Range(1, 1, 1, columns.Count).SetAutoFilter();
     }
@@ -491,8 +560,6 @@ public sealed class DevicePointTemplateExporter : IDevicePointTemplateExporter
         string pointTag,
         string address,
         string rawDataType,
-        string byteOrder,
-        string wordOrder,
         string rawMin,
         string rawMax,
         string engMin,
@@ -504,8 +571,6 @@ public sealed class DevicePointTemplateExporter : IDevicePointTemplateExporter
             pointTag,
             address,
             rawDataType,
-            byteOrder,
-            wordOrder,
             access,
             rawMin,
             rawMax,
@@ -518,6 +583,9 @@ public sealed class DevicePointTemplateExporter : IDevicePointTemplateExporter
         DevicePointTemplateTarget target,
         bool isCommand)
     {
+        if (IsXinjeTarget(target))
+            return isCommand ? "M400" : "HD1000";
+
         if (target.Protocol == DevicePointProtocol.SiemensS7
             && target.ProfileText.Contains("200", StringComparison.OrdinalIgnoreCase)
             && !target.ProfileText.Contains("1200", StringComparison.OrdinalIgnoreCase))
@@ -536,6 +604,19 @@ public sealed class DevicePointTemplateExporter : IDevicePointTemplateExporter
         DevicePointTemplateTarget target,
         bool isCommand)
     {
+        if (IsXinjeTarget(target))
+        {
+            var requiredType = isCommand ? DevicePointDataType.Bool : DevicePointDataType.Float32;
+            if (!target.SupportedDataTypes.Contains(requiredType))
+            {
+                var requiredName = DevicePointTypeCatalog.ToDisplayName(requiredType);
+                throw new InvalidDataException(
+                    $"信捷设备“{target.DisplayName}”的模板能力不完整：缺少示例所需数据类型“{requiredName}”。");
+            }
+
+            return DevicePointTypeCatalog.ToDisplayName(requiredType);
+        }
+
         if (target.Protocol is DevicePointProtocol.ModbusRtu or DevicePointProtocol.ModbusTcp)
         {
             var modbusPreferred = isCommand
@@ -555,26 +636,6 @@ public sealed class DevicePointTemplateExporter : IDevicePointTemplateExporter
         if (selected == default && target.SupportedDataTypes.Count > 0)
             selected = target.SupportedDataTypes.First();
         return DevicePointTypeCatalog.ToDisplayName(selected == default ? DevicePointDataType.Decimal : selected);
-    }
-
-    private static string GetByteOrderExample(DevicePointTemplateTarget target)
-        => target.Protocol is DevicePointProtocol.ModbusRtu or DevicePointProtocol.ModbusTcp
-            ? "大端"
-            : string.Empty;
-
-    private static string GetWordOrderExample(DevicePointTemplateTarget target, bool isCommand)
-    {
-        if (target.Protocol is not (DevicePointProtocol.ModbusRtu or DevicePointProtocol.ModbusTcp))
-            return string.Empty;
-
-        var typeText = GetRawDataExample(target, isCommand);
-        return DevicePointTemplateDefinition.TryMapDataType(typeText, out var type)
-            && type is (DevicePointDataType.Int32
-                or DevicePointDataType.UInt32
-                or DevicePointDataType.Float32
-                or DevicePointDataType.Double)
-            ? "高字在前"
-            : "无";
     }
 
     private static int ColumnIndex(

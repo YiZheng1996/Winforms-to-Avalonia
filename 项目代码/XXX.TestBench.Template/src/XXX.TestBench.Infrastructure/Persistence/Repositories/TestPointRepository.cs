@@ -53,14 +53,14 @@ public sealed class TestPointRepository : SqliteRepositoryBase, ITestPointReposi
         var id = await InsertIdentityAsync(new SqliteTestItemPoint
         {
             ProductTypeId = point.ProductTypeId,
-            Code = $"__legacy_point_{Guid.NewGuid():N}",
             Name = point.Name,
             ExecutorCode = point.ExecutorCode,
             ResultKind = point.ResultKind,
             IsEnabled = point.IsEnabled ? 1 : 0,
             SortOrder = point.SortOrder,
             CreatedAtUtc = point.CreatedAtUtc.ToString("O"),
-            UpdatedAtUtc = point.UpdatedAtUtc.ToString("O")
+            UpdatedAtUtc = point.UpdatedAtUtc.ToString("O"),
+            RowVersion = point.RowVersion
         }, ct);
         point.Id = checked((int)id);
     }
@@ -71,15 +71,21 @@ public sealed class TestPointRepository : SqliteRepositoryBase, ITestPointReposi
     public Task UpdateAsync(TestItemPoint point, CancellationToken ct = default)
         => RunDbAsync(() =>
         {
-            Update<SqliteTestItemPoint>()
+            var expectedVersion = point.RowVersion;
+            var affected = Update<SqliteTestItemPoint>()
                 .Where(x => x.Id == point.Id)
+                .Where(x => x.RowVersion == expectedVersion)
                 .Set(x => x.Name, point.Name)
                 .Set(x => x.ExecutorCode, point.ExecutorCode)
                 .Set(x => x.ResultKind, point.ResultKind)
                 .Set(x => x.IsEnabled, point.IsEnabled ? 1 : 0)
                 .Set(x => x.SortOrder, point.SortOrder)
                 .Set(x => x.UpdatedAtUtc, point.UpdatedAtUtc.ToString("O"))
+                .Set(x => x.RowVersion, checked(expectedVersion + 1))
                 .ExecuteAffrows();
+            if (affected != 1)
+                throw new XXX.TestBench.Core.Common.DomainException("试验项点已被其他用户修改，请刷新后重试。");
+            point.RowVersion = checked(expectedVersion + 1);
         }, ct);
 
     /// <summary>
@@ -119,6 +125,7 @@ public sealed class TestPointRepository : SqliteRepositoryBase, ITestPointReposi
         IsEnabled = row.IsEnabled != 0,
         SortOrder = row.SortOrder,
         CreatedAtUtc = ParseUtc(row.CreatedAtUtc),
-        UpdatedAtUtc = ParseUtc(row.UpdatedAtUtc)
+        UpdatedAtUtc = ParseUtc(row.UpdatedAtUtc),
+        RowVersion = row.RowVersion
     };
 }

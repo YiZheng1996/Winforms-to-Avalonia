@@ -7,6 +7,55 @@ namespace XXX.TestBench.App.Tests;
 
 public sealed class DevicePointImportPreviewViewModelTests
 {
+    [Fact]
+    public void XinjePreview_ShowsOriginalInputAndResolvedProtocolAddress()
+    {
+        var incoming = new PointsConfig.PointEntry
+        {
+            Code = "HD_SPEED",
+            Name = "高速压力",
+            DeviceId = "device-xinje",
+            DeviceCode = "DEV_XINJE",
+            GroupId = "group-xinje",
+            GroupCode = "DEFAULT",
+            Protocol = "ModbusTcp",
+            Address = "HD1000",
+            OriginalAddress = "hd01000",
+            CanonicalAddress = "HR:42088",
+            AddressDefinition = new PointAddressDefinition { Area = "HR", Offset = 42088 },
+            DataType = "Float32",
+        };
+        var group = new PointsConfig.PointGroupEntry
+        {
+            Id = "group-xinje",
+            DeviceId = "device-xinje",
+            Code = "DEFAULT",
+            Name = "未分组"
+        };
+        var plan = new XXX.TestBench.Core.Application.DevicePointImportPlanner().Build(
+            new[] { new DevicePointImportRow(2, incoming) },
+            Array.Empty<PointsConfig.PointEntry>(),
+            new[] { group });
+        var preview = new DevicePointImportPreviewViewModel(
+            plan,
+            groups: new[] { group },
+            devices: new[]
+            {
+                new DeviceConfig.DeviceEntry
+                {
+                    Id = "device-xinje",
+                    Code = "DEV_XINJE",
+                    DriverKey = "modbus-tcp",
+                    Model = DeviceModelKeyCatalog.XinjeFieldV1,
+                    ModbusUnitId = 1
+                }
+            });
+
+        var row = Assert.Single(preview.Rows);
+        Assert.Equal("hd01000", row.OriginalAddress);
+        Assert.Equal("HR:42088", row.CanonicalAddress);
+    }
+
 
     [Fact]
     public void Preview_FromUnifiedPlan_UsesPlanCountsAndHighRiskHint()
@@ -24,7 +73,6 @@ public sealed class DevicePointImportPreviewViewModelTests
             GroupCode = "AI",
             Address = "sim.start",
             DataType = "Boolean",
-            RawDataType = "Boolean",
             IsWritable = true,
             RiskLevel = WriteRiskLevel.HighRisk
         };
@@ -39,7 +87,6 @@ public sealed class DevicePointImportPreviewViewModelTests
             GroupCode = "AI",
             Address = existing.Address,
             DataType = existing.DataType,
-            RawDataType = existing.RawDataType,
             IsWritable = true,
             RiskLevel = WriteRiskLevel.Normal,
             Description = "维护说明"
@@ -91,7 +138,11 @@ public sealed class DevicePointImportPreviewViewModelTests
             }
         };
 
-        var row = new DevicePointImportPreviewRow(incoming, new[] { current }, groups);
+        var plan = new XXX.TestBench.Core.Application.DevicePointImportPlanner().Build(
+            new[] { new DevicePointImportRow(2, incoming) },
+            new[] { current },
+            groups);
+        var row = Assert.Single(new DevicePointImportPreviewViewModel(plan, 1, groups).Rows);
 
         Assert.Equal("AI.L32", row.PointTag);
         Assert.Equal("无变化", row.Operation);
@@ -115,7 +166,6 @@ public sealed class DevicePointImportPreviewViewModelTests
                 Address = $"sim.ai.{index}",
                 Protocol = "Simulation",
                 DataType = "Decimal",
-                RawDataType = "Decimal"
             })
             .ToList();
         var conflict = points[^1];
@@ -129,13 +179,14 @@ public sealed class DevicePointImportPreviewViewModelTests
             Address = conflict.Address,
             Protocol = "Simulation",
             DataType = "Decimal",
-            RawDataType = "Decimal"
         };
 
-        var preview = new DevicePointImportPreviewViewModel(
-            points,
-            currentPointCount: 1,
-            new[] { current });
+        var rows = points.Select((point, index) => new DevicePointImportRow(index + 2, point)).ToArray();
+        var plan = new XXX.TestBench.Core.Application.DevicePointImportPlanner().Build(
+            rows,
+            new[] { current },
+            Array.Empty<PointsConfig.PointGroupEntry>());
+        var preview = new DevicePointImportPreviewViewModel(plan, currentPointCount: 1);
 
         Assert.Equal(100, preview.Rows.Count);
         Assert.Equal(1, preview.HiddenRowCount);
@@ -161,7 +212,6 @@ public sealed class DevicePointImportPreviewViewModelTests
             Address = "sim.pressure",
             Protocol = "Simulation",
             DataType = "Decimal",
-            RawDataType = "Decimal"
         };
         var changed = new PointsConfig.PointEntry
         {
@@ -175,13 +225,13 @@ public sealed class DevicePointImportPreviewViewModelTests
             Address = current.Address,
             Protocol = current.Protocol,
             DataType = current.DataType,
-            RawDataType = current.RawDataType
         };
 
-        var preview = new DevicePointImportPreviewViewModel(
-            new[] { changed },
-            currentPointCount: 1,
-            new[] { current });
+        var plan = new XXX.TestBench.Core.Application.DevicePointImportPlanner().Build(
+            new[] { new DevicePointImportRow(2, changed) },
+            new[] { current },
+            Array.Empty<PointsConfig.PointGroupEntry>());
+        var preview = new DevicePointImportPreviewViewModel(plan, currentPointCount: 1);
 
         Assert.Equal("更新", Assert.Single(preview.Rows).Operation);
         Assert.Equal(1, preview.UpdatedCount);
@@ -200,7 +250,6 @@ public sealed class DevicePointImportPreviewViewModelTests
             Address = "sim.pressure",
             Protocol = "Simulation",
             DataType = "Decimal",
-            RawDataType = "Decimal"
         };
         var current = new PointsConfig.PointEntry
         {
@@ -212,15 +261,13 @@ public sealed class DevicePointImportPreviewViewModelTests
             Address = incoming.Address,
             Protocol = incoming.Protocol,
             DataType = incoming.DataType,
-            RawDataType = incoming.RawDataType
         };
 
-        var preview = new DevicePointImportPreviewViewModel(
-            new[] { incoming },
-            currentPointCount: 1,
+        var plan = new XXX.TestBench.Core.Application.DevicePointImportPlanner().Build(
+            new[] { new DevicePointImportRow(17, incoming) },
             new[] { current },
-            currentGroups: Array.Empty<PointsConfig.PointGroupEntry>(),
-            parsedRows: new[] { new DevicePointImportRow(17, incoming) });
+            Array.Empty<PointsConfig.PointGroupEntry>());
+        var preview = new DevicePointImportPreviewViewModel(plan, currentPointCount: 1);
 
         var row = Assert.Single(preview.Rows);
         Assert.Equal(17, row.RowNumber);

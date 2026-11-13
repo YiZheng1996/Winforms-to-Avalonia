@@ -1,6 +1,7 @@
 using XXX.TestBench.Core.Common;
 using XXX.TestBench.Core.Configuration;
 using XXX.TestBench.Core.Domain.Devices;
+using XXX.TestBench.Core.Execution;
 using XXX.TestBench.Core.Ports;
 using XXX.TestBench.Devices.Drivers;
 using XXX.TestBench.Devices.Siemens;
@@ -30,24 +31,28 @@ public sealed class MultiDeviceRuntime : IDeviceRuntime
         DriverRegistry? drivers = null,
         IS7PlcClientFactory? s7ClientFactory = null,
         IDeviceEventSink? events = null,
-        IModbusClientFactory? modbusClientFactory = null)
+        IModbusClientFactory? modbusClientFactory = null,
+        IEnumerable<RequiredSignal>? requiredSignals = null)
     {
         _snapshot = snapshot;
         _mode = ResolveAggregateMode(snapshot.Device.Devices);
         var registry = drivers ?? DriverRegistry.CreateDefault();
-        MultiDeviceConfigurationValidator.EnsureValid(snapshot, registry.Descriptors);
+        MultiDeviceConfigurationValidator.EnsureValid(
+            snapshot,
+            registry.Descriptors,
+            requiredSignals ?? Array.Empty<RequiredSignal>());
         _s7ClientFactory = s7ClientFactory;
         _events = events;
         _modbusClientFactory = modbusClientFactory;
 
         _channels = new ChannelManager(snapshot.Device.Channels, _modbusClientFactory);
         var channelMap = snapshot.Device.Channels.ToDictionary(channel => channel.Id, StringComparer.OrdinalIgnoreCase);
-        var driverByDevice = snapshot.Device.Devices
-            .ToDictionary(device => device.Id, device => device.DriverKey, StringComparer.OrdinalIgnoreCase);
+        var deviceById = snapshot.Device.Devices
+            .ToDictionary(device => device.Id, StringComparer.OrdinalIgnoreCase);
         var pointMap = snapshot.Points.Points
             .GroupBy(point => point.DeviceId, StringComparer.OrdinalIgnoreCase)
             .ToDictionary(group => group.Key, group => group.Select(point =>
-                point.ToDomain(driverByDevice[group.Key], snapshot.Revision)).ToList(), StringComparer.OrdinalIgnoreCase);
+                point.ToDomain(deviceById[group.Key], snapshot.Revision)).ToList(), StringComparer.OrdinalIgnoreCase);
 
         _sessions = snapshot.Device.Devices
             .ToDictionary(

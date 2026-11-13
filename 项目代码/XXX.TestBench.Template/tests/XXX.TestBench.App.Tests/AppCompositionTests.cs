@@ -7,11 +7,12 @@ namespace XXX.TestBench.App.Tests;
 public class AppCompositionTests
 {
     [Fact]
-    public void Create_WithValidConfig_BuildsShellAndServices()
+    public async Task Create_WithValidConfig_BuildsShellAndServices()
     {
         var root = Path.Combine(Path.GetTempPath(), "testbench-app-" + Guid.NewGuid().ToString("N")[..8]);
         var configRoot = Path.Combine(root, "config");
         var dataRoot = Path.Combine(root, "data");
+        AppComposition? composition = null;
         Directory.CreateDirectory(configRoot);
         Directory.CreateDirectory(dataRoot);
         try
@@ -28,33 +29,34 @@ public class AppCompositionTests
             """);
             File.WriteAllText(Path.Combine(configRoot, "device.json"), """
             {
-              "schemaVersion": 3,
-              "pollIntervalMs": 500,
-              "timeoutMs": 1000,
+              "schemaVersion": 5,
               "channels": [
-                { "id": "10000000-0000-5000-8000-000000000001", "code": "CH_PLC", "name": "PLC 网络通道", "transportKind": "Tcp", "enabled": true, "timeoutMs": 1000, "retryCount": 0, "tcp": { "host": "127.0.0.1", "port": 102 } }
+                { "id": "10000000-0000-5000-8000-000000000001", "code": "CH_PLC", "name": "PLC 网络通道", "transportKind": "Tcp", "enabled": true, "timeoutMs": 1000, "retryCount": 0, "tcp": {} }
               ],
               "devices": [
-                { "id": "20000000-0000-5000-8000-000000000001", "code": "DEV_SAMPLE", "name": "SampleDevice", "deviceMode": "Simulation", "protocol": "SiemensS7", "address": "127.0.0.1", "channelId": "10000000-0000-5000-8000-000000000001", "driverKey": "siemens-s7", "model": "S7-1500", "pollIntervalMs": 500, "staleAfterMs": 1500 }
+                { "id": "20000000-0000-5000-8000-000000000001", "code": "DEV_SAMPLE", "name": "SampleDevice", "deviceMode": "Simulation", "channelId": "10000000-0000-5000-8000-000000000001", "driverKey": "siemens-s7", "model": "S7-1500", "pollIntervalMs": 500, "staleAfterMs": 2000, "siemensS7": { "host": "127.0.0.1", "port": 102, "rack": 0, "slot": 0 } }
               ]
             }
             """);
             File.WriteAllText(Path.Combine(configRoot, "points.json"), """
             {
-              "schemaVersion": 3,
+              "schemaVersion": 4,
               "groups": [
                 { "id": "30000000-0000-5000-8000-000000000001", "deviceId": "20000000-0000-5000-8000-000000000001", "code": "DEFAULT", "name": "未分组", "sortOrder": 0 }
               ],
               "points": [
-                { "id": "30000000-0000-5000-8000-000000000002", "code": "AI_Pressure", "name": "压力", "protocol": "SiemensS7", "deviceId": "20000000-0000-5000-8000-000000000001", "groupId": "30000000-0000-5000-8000-000000000001", "address": "DB1.DBD0", "dataType": "Float32", "rawDataType": "Float32", "isWritable": false, "riskLevel": "Normal" }
+                { "id": "40000000-0000-5000-8000-000000000001", "code": "AI_Pressure", "name": "压力", "protocol": "SiemensS7", "deviceId": "20000000-0000-5000-8000-000000000001", "groupId": "30000000-0000-5000-8000-000000000001", "address": "DB1.DBD0", "dataType": "Float32", "isWritable": false, "riskLevel": "Normal" }
               ]
             }
             """);
             File.WriteAllText(Path.Combine(configRoot, "simulation.json"), """
-            { "schemaVersion": 2, "initialValues": {}, "initialValuesByPointId": { "30000000-0000-5000-8000-000000000002": 0.0 }, "changeRules": [], "faultInjectionScenarios": [] }
+            { "schemaVersion": 3, "initialValuesByPointId": { "40000000-0000-5000-8000-000000000001": 0.0 }, "changeRules": [], "faultInjectionScenarios": [] }
+            """);
+            File.WriteAllText(Path.Combine(configRoot, "signal-bindings.json"), """
+            { "schemaVersion": 1, "bindings": { "AI_Pressure": "40000000-0000-5000-8000-000000000001" } }
             """);
 
-            var composition = AppComposition.Create(configRoot, dataRoot);
+            composition = AppComposition.Create(configRoot, dataRoot);
 
             Assert.Null(composition.StartupError);
             Assert.NotNull(composition.Shell);
@@ -62,19 +64,29 @@ public class AppCompositionTests
             Assert.Equal("仿真模式", composition.Shell.DeviceModeText);
             Assert.NotNull(composition.Authentication);
             Assert.NotNull(composition.DeviceModes);
-            Assert.Equal(DeviceHealth.Healthy, composition.DeviceModes!.Health);
+            var runtime = composition.DeviceModes!.Runtime;
+            var diagnostics = $"Mode={runtime?.Mode}; LastError={composition.DeviceModes.LastError}; RuntimeError={runtime?.Status.LastError}; ActivationIssues={string.Join(" | ", runtime?.ActivationReport.Issues.Select(issue => issue.Message) ?? Array.Empty<string>())}";
+            Assert.True(DeviceHealth.Healthy == composition.DeviceModes.Health, diagnostics);
             Assert.True(File.Exists(Path.Combine(dataRoot, "testbench.db")));
         }
         finally
         {
+            if (composition is not null)
+            {
+                if (composition.DeviceModes is { } deviceModes)
+                    await deviceModes.ShutdownAsync();
+                if (composition.DeviceOperations is { } operations)
+                    await operations.DisposeAsync();
+                composition.ConnectionFactory?.Dispose();
+            }
             try { Directory.Delete(root, recursive: true); } catch { }
         }
     }
 
     [Fact]
-    public void Create_WithV2PointsConfig_PreservesSignalBindingsInRuntime()
+    public void Create_WithLegacyConfig_RequiresOfflineUpgradeAndPreservesSourceFiles()
     {
-        var root = Path.Combine("D:\\Codex相关\\多设备点位改造", "app-v2-" + Guid.NewGuid().ToString("N")[..8]);
+        var root = Path.Combine(Path.GetTempPath(), "testbench-app-legacy-" + Guid.NewGuid().ToString("N")[..8]);
         var configRoot = Path.Combine(root, "config");
         var dataRoot = Path.Combine(root, "data");
         const string channelId = "10000000-0000-5000-8000-000000000001";
@@ -163,12 +175,24 @@ public class AppCompositionTests
             }
             """);
 
+            var sourceFiles = new[] { "app.json", "device.json", "points.json", "simulation.json", "signal-bindings.json" };
+            var originalHashes = sourceFiles.ToDictionary(
+                file => file,
+                file => Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(File.ReadAllBytes(Path.Combine(configRoot, file)))),
+                StringComparer.Ordinal);
+
             var composition = AppComposition.Create(configRoot, dataRoot);
 
-            Assert.Null(composition.StartupError);
-            Assert.NotNull(composition.DeviceModes?.Runtime);
-            Assert.Equal(pointId, composition.DeviceModes!.Runtime!.SignalBindings.Bindings["AI_Pressure"]);
-            Assert.StartsWith("migration-", composition.DeviceModes.Runtime.ActiveRevision, StringComparison.Ordinal);
+            Assert.NotNull(composition.StartupError);
+            Assert.Contains("离线升级工具", composition.StartupError, StringComparison.Ordinal);
+            Assert.Null(composition.DeviceModes?.Runtime);
+            Assert.False(File.Exists(Path.Combine(configRoot, "device-config", "active.json")));
+            Assert.False(File.Exists(Path.Combine(dataRoot, "testbench.db")));
+            foreach (var file in sourceFiles)
+            {
+                var currentHash = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(File.ReadAllBytes(Path.Combine(configRoot, file))));
+                Assert.Equal(originalHashes[file], currentHash);
+            }
         }
         finally
         {

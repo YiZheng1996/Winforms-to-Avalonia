@@ -58,7 +58,9 @@ public sealed class TestParameterService
             ProductModelId = model.Id,
             TestTimeSeconds = project.TestTimeSeconds,
             TestVoltageV = productParam.TestVoltageV,
-            ProtectCurrentMa = productParam.ProtectCurrentMa
+            ProtectCurrentMa = productParam.ProtectCurrentMa,
+            ProjectRowVersion = project.RowVersion,
+            ProductRowVersion = productParam.RowVersion
         };
         var result = TestParameterValidator.Validate(value);
         if (!result.IsValid) throw new DomainException(result.Error);
@@ -68,16 +70,25 @@ public sealed class TestParameterService
     /// <summary>
     /// 保存项目级参数（试验时间）。
     /// </summary>
-    public async Task SaveProjectAsync(UserContext actor, int testTimeSeconds, CancellationToken ct = default)
+    public async Task SaveProjectAsync(
+        UserContext actor,
+        int testTimeSeconds,
+        CancellationToken ct = default,
+        long? expectedRowVersion = null)
     {
         Ensure(actor, PermissionCode.ManageTestDefinitions);
         var error = TestParameterValidator.ValidateTestTime(testTimeSeconds);
         if (error is not null) throw new DomainException(error);
+        var current = await _parameters.GetProjectAsync(ct);
+        if (expectedRowVersion is not null
+            && (current is null ? expectedRowVersion != 0 : current.RowVersion != expectedRowVersion))
+            throw new DomainException("项目参数已被其他用户修改，请刷新后重试。");
         await _parameters.SaveProjectAsync(new ProjectTestParameter
         {
             TestTimeSeconds = testTimeSeconds,
             UpdatedBy = actor.LoginName,
-            UpdatedAtUtc = _clock.UtcNow
+            UpdatedAtUtc = _clock.UtcNow,
+            RowVersion = expectedRowVersion ?? current?.RowVersion ?? 0
         }, ct);
         await _audit.WriteAsync(actor.LoginName, "ProjectTestParameterSaved", "project", testTimeSeconds.ToString(), ct);
     }
@@ -91,7 +102,8 @@ public sealed class TestParameterService
         int productModelId,
         double testVoltageV,
         double protectCurrentMa,
-        CancellationToken ct = default)
+        CancellationToken ct = default,
+        long? expectedRowVersion = null)
     {
         Ensure(actor, PermissionCode.ManageTestDefinitions);
         var type = await _products.GetTypeAsync(productTypeId, ct) ?? throw new DomainException("产品类型不存在");
@@ -102,6 +114,10 @@ public sealed class TestParameterService
         var error = TestParameterValidator.ValidateTestVoltage(testVoltageV)
             ?? TestParameterValidator.ValidateProtectCurrent(protectCurrentMa);
         if (error is not null) throw new DomainException(error);
+        var current = await _parameters.GetProductAsync(type.Id, model.Id, ct);
+        if (expectedRowVersion is not null
+            && (current is null ? expectedRowVersion != 0 : current.RowVersion != expectedRowVersion))
+            throw new DomainException("产品参数已被其他用户修改，请刷新后重试。");
         await _parameters.SaveProductAsync(new ProductTestParameter
         {
             ProductTypeId = type.Id,
@@ -109,7 +125,8 @@ public sealed class TestParameterService
             TestVoltageV = testVoltageV,
             ProtectCurrentMa = protectCurrentMa,
             UpdatedBy = actor.LoginName,
-            UpdatedAtUtc = _clock.UtcNow
+            UpdatedAtUtc = _clock.UtcNow,
+            RowVersion = expectedRowVersion ?? current?.RowVersion ?? 0
         }, ct);
         await _audit.WriteAsync(
             actor.LoginName,

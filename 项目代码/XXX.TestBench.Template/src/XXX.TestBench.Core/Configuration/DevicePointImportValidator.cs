@@ -1,3 +1,4 @@
+using XXX.TestBench.Core.Domain.Devices;
 using XXX.TestBench.Core.Ports;
 
 namespace XXX.TestBench.Core.Configuration;
@@ -27,6 +28,8 @@ public static class DevicePointImportValidator
             .GroupBy(descriptor => descriptor.DriverKey.Trim(), StringComparer.OrdinalIgnoreCase)
             .ToDictionary(group => group.Key, group => group.First(), StringComparer.OrdinalIgnoreCase);
         var addresses = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var addressRanges = new Dictionary<string, List<(PointsConfig.PointEntry Point, DevicePointAddressRange Range)>>(
+            StringComparer.OrdinalIgnoreCase);
 
         foreach (var point in points.Where(point => point is not null))
         {
@@ -51,7 +54,7 @@ public static class DevicePointImportValidator
             string normalized;
             try
             {
-                normalized = descriptor.NormalizeAddress(point);
+                normalized = descriptor.NormalizeAddress(point, device);
             }
             catch (Exception ex)
             {
@@ -63,9 +66,34 @@ public static class DevicePointImportValidator
             if (!addresses.TryAdd(addressKey, pointLabel))
                 issues.Add(new(path + ".地址", $"同一设备的地址重复：{point.Address}"));
 
-            foreach (var issue in descriptor.ValidatePoint(point, device))
+            var pointIssues = descriptor.ValidatePoint(point, device);
+            foreach (var issue in pointIssues)
                 issues.Add(new(path + "." + issue.Path, issue.Message));
+
+            if (pointIssues.Count == 0)
+            {
+                try
+                {
+                    if (descriptor.GetAddressRange(point, device) is { } range)
+                    {
+                        if (!addressRanges.TryGetValue(device.Id.Trim(), out var deviceRanges))
+                        {
+                            deviceRanges = new List<(PointsConfig.PointEntry, DevicePointAddressRange)>();
+                            addressRanges.Add(device.Id.Trim(), deviceRanges);
+                        }
+                        deviceRanges.Add((point, range));
+                    }
+                }
+                catch (Exception ex)
+                {
+                    issues.Add(new(path + ".地址", ex.Message));
+                }
+            }
         }
+
+        foreach (var ranges in addressRanges.Values)
+        foreach (var rangeIssue in DevicePointAddressRangeValidator.Validate(ranges))
+            issues.Add(new($"导入点位[{rangeIssue.Point.Code}].地址", rangeIssue.Message));
 
         return issues;
     }

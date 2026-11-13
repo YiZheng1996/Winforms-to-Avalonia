@@ -18,7 +18,6 @@ public enum DevicePointProtocol
 public enum DevicePointDataType
 {
     Unknown = 0,
-    Boolean = 1,
     Decimal = 2,
     Int32 = 3,
     String = 4,
@@ -41,6 +40,14 @@ public static class DriverKeyCatalog
     public const string ModbusRtu = "modbus-rtu";
     public const string ModbusTcp = "modbus-tcp";
     public const string SiemensS7 = "siemens-s7";
+}
+
+/// <summary>
+/// 驱动提供的受限设备系列键。系列只限定设备语义，不替代底层线路协议。
+/// </summary>
+public static class DeviceModelKeyCatalog
+{
+    public const string XinjeFieldV1 = "XINJE_FIELD_V1";
 }
 
 /// <summary>
@@ -119,8 +126,6 @@ public static class DevicePointTypeCatalog
             case "开关量":
             case "boolean":
             case "开关量(boolean)":
-                dataType = DevicePointDataType.Boolean;
-                return true;
             case "布尔":
             case "bool":
             case "布尔(bool)":
@@ -239,7 +244,6 @@ public static class DevicePointTypeCatalog
     public static string ToStorage(DevicePointDataType dataType)
         => dataType switch
         {
-            DevicePointDataType.Boolean => nameof(DevicePointDataType.Boolean),
             DevicePointDataType.Decimal => nameof(DevicePointDataType.Decimal),
             DevicePointDataType.Int32 => nameof(DevicePointDataType.Int32),
             DevicePointDataType.String => nameof(DevicePointDataType.String),
@@ -273,7 +277,6 @@ public static class DevicePointTypeCatalog
     public static string ToDisplayName(DevicePointDataType dataType, string? fallback = null)
         => dataType switch
         {
-            DevicePointDataType.Boolean => "开关量",
             DevicePointDataType.Bool => "布尔量",
             DevicePointDataType.Decimal => "小数",
             DevicePointDataType.Int32 => "长整型",
