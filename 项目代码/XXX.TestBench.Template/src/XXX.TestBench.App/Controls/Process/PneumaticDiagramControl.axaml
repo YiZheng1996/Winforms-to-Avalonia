@@ -1,0 +1,450 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:process="using:XXX.TestBench.App.Controls.Process"
+             xmlns:vm="using:XXX.TestBench.App.ViewModels.Process"
+             x:Class="XXX.TestBench.App.Controls.Process.PneumaticDiagramControl"
+             x:DataType="vm:ProcessDiagramViewModel"
+             MinHeight="430">
+  <UserControl.Styles>
+    <Style Selector="Border.diagram-panel">
+      <Setter Property="Background" Value="White" />
+      <Setter Property="BorderBrush" Value="#D6E1EE" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="7" />
+      <Setter Property="Padding" Value="14,10,14,12" />
+    </Style>
+    <Style Selector="Border.diagram-surface">
+      <Setter Property="Background" Value="#FFFFFF" />
+      <Setter Property="BorderBrush" Value="#E1E9F3" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="5" />
+    </Style>
+    <Style Selector="Border.readout-card">
+      <Setter Property="Background" Value="#FBFDFF" />
+      <Setter Property="BorderBrush" Value="#C6D6E8" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="6" />
+      <Setter Property="Padding" Value="10,6" />
+    </Style>
+    <Style Selector="TextBlock.readout-type">
+      <Setter Property="Foreground" Value="#142B4E" />
+      <Setter Property="FontSize" Value="14" />
+      <Setter Property="FontWeight" Value="Bold" />
+    </Style>
+    <Style Selector="TextBlock.readout-name">
+      <Setter Property="Foreground" Value="#142B4E" />
+      <Setter Property="FontSize" Value="14" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+    <Style Selector="TextBlock.readout-value">
+      <Setter Property="Foreground" Value="#0868F7" />
+      <Setter Property="FontSize" Value="24" />
+      <Setter Property="FontWeight" Value="Bold" />
+    </Style>
+    <Style Selector="Border.diagram-do-card">
+      <Setter Property="Background" Value="#FBFDFF" />
+      <Setter Property="BorderBrush" Value="#C6D6E8" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="6" />
+      <Setter Property="Padding" Value="10,6" />
+    </Style>
+    <Style Selector="Border.diagram-do-card.good">
+      <Setter Property="Background" Value="#F0FFF5" />
+      <Setter Property="BorderBrush" Value="#A8E0BC" />
+    </Style>
+    <Style Selector="Ellipse.diagram-light">
+      <Setter Property="Fill" Value="#6D7C92" />
+    </Style>
+    <Style Selector="Ellipse.diagram-light.good">
+      <Setter Property="Fill" Value="#18A654" />
+    </Style>
+    <Style Selector="TextBlock.diagram-state">
+      <Setter Property="Foreground" Value="#53627A" />
+      <Setter Property="FontSize" Value="14" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+    <Style Selector="TextBlock.diagram-state.good">
+      <Setter Property="Foreground" Value="#168B49" />
+    </Style>
+    <Style Selector="Border.diagram-endpoint">
+      <Setter Property="Background" Value="#F4F8FE" />
+      <Setter Property="BorderBrush" Value="#BBD2EF" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="6" />
+      <Setter Property="Padding" Value="8,0" />
+    </Style>
+    <Style Selector="Border.diagram-endpoint.exhaust">
+      <Setter Property="Background" Value="#F6F8FB" />
+      <Setter Property="BorderBrush" Value="#C8D2E0" />
+    </Style>
+    <Style Selector="TextBlock.diagram-endpoint-direction">
+      <Setter Property="Foreground" Value="#0868F7" />
+      <Setter Property="FontSize" Value="17" />
+      <Setter Property="FontWeight" Value="Bold" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+    <Style Selector="TextBlock.diagram-endpoint-direction.exhaust">
+      <Setter Property="Foreground" Value="#6D7C92" />
+    </Style>
+    <Style Selector="Button.diagram-adjust-button">
+      <Setter Property="Width" Value="24" />
+      <Setter Property="Height" Value="25" />
+      <Setter Property="MinWidth" Value="0" />
+      <Setter Property="MinHeight" Value="0" />
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="FontSize" Value="14" />
+      <Setter Property="Background" Value="White" />
+      <Setter Property="Foreground" Value="#142B4E" />
+      <Setter Property="BorderBrush" Value="#D2DCE9" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="4" />
+    </Style>
+    <Style Selector="Button.diagram-apply-button">
+      <Setter Property="Height" Value="29" />
+      <Setter Property="MinWidth" Value="50" />
+      <Setter Property="Padding" Value="7,0" />
+      <Setter Property="FontSize" Value="13" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="Background" Value="#0868F7" />
+      <Setter Property="Foreground" Value="White" />
+      <Setter Property="BorderBrush" Value="#0868F7" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="4" />
+    </Style>
+    <Style Selector="Button.diagram-apply-button:disabled">
+      <Setter Property="Background" Value="#0868F7" />
+      <Setter Property="Foreground" Value="White" />
+      <Setter Property="BorderBrush" Value="#0868F7" />
+      <Setter Property="Opacity" Value="1" />
+    </Style>
+  </UserControl.Styles>
+
+  <Border Classes="diagram-panel">
+    <Grid RowDefinitions="Auto,*" RowSpacing="8">
+      <Grid ColumnDefinitions="*,Auto">
+        <StackPanel Orientation="Horizontal" Spacing="18">
+          <TextBlock Text="气路工艺图" FontSize="22" FontWeight="Bold" Foreground="#142B4E" />
+          <TextBlock Text="示例气路" FontSize="16" Foreground="#63718A" VerticalAlignment="Center" />
+        </StackPanel>
+        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="26" VerticalAlignment="Center">
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <Border Width="40" Height="5" CornerRadius="3" Background="#0868F7" VerticalAlignment="Center" />
+            <TextBlock Text="带压管路" Foreground="#53627A" FontSize="14" />
+          </StackPanel>
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <Border Width="40" Height="5" CornerRadius="3" Background="#98A2B3" VerticalAlignment="Center" />
+            <TextBlock Text="未带压" Foreground="#53627A" FontSize="14" />
+          </StackPanel>
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <Ellipse Width="18" Height="18" Fill="#18A654" />
+            <TextBlock Text="阀门开启" Foreground="#53627A" FontSize="14" />
+          </StackPanel>
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <Ellipse Width="18" Height="18" Fill="#6D7C92" />
+            <TextBlock Text="阀门关闭" Foreground="#53627A" FontSize="14" />
+          </StackPanel>
+        </StackPanel>
+      </Grid>
+
+      <Border Grid.Row="1" Classes="diagram-surface" ClipToBounds="True">
+          <Viewbox x:Name="DiagramScaleViewbox" Stretch="Uniform" StretchDirection="Both"
+                   Margin="72,18"
+                   HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
+            <Canvas Width="1360" Height="440" Background="White">
+              <!-- 主气路：压力状态只来自对应的有效缓存样本。 -->
+              <process:PneumaticPipeControl Width="1360" Height="440"
+                StartPoint="34,177" EndPoint="296,177" PressureState="{Binding DisplaySupplyPipeState}" />
+              <process:PneumaticPipeControl Width="1360" Height="440"
+                StartPoint="296,177" EndPoint="509,177" PressureState="{Binding DisplaySupplyPipeState}" />
+              <process:PneumaticPipeControl Width="1360" Height="440"
+                x:Name="DiagramMainPipe" StartPoint="509,177" EndPoint="891,177"
+                ArrowPosition="0.56" PressureState="{Binding DisplayMainPipeState}" />
+              <process:PneumaticPipeControl Width="1360" Height="440"
+                StartPoint="891,177" EndPoint="1017,177" PressureState="{Binding DisplayDutPipeState}" />
+              <process:PneumaticPipeControl Width="1360" Height="440"
+                StartPoint="1017,177" EndPoint="1213,177" PressureState="{Binding DisplayDutPipeState}" />
+              <process:PneumaticPipeControl Width="1360" Height="440"
+                StartPoint="1017,177" EndPoint="1017,306" PressureState="{Binding DisplayDutPipeState}" />
+              <process:PneumaticPipeControl Width="1360" Height="440"
+                x:Name="DiagramExhaustValveLowerPipe"
+                StartPoint="1017,306" EndPoint="1017,404" PressureState="{Binding DisplayExhaustPipeState}" />
+              <process:PneumaticPipeControl Width="1360" Height="440"
+                StartPoint="1017,404" EndPoint="1106,404" PressureState="{Binding DisplayExhaustPipeState}" />
+              <process:PneumaticPipeControl Width="1360" Height="440"
+                StartPoint="1190,404" EndPoint="1248,404" PressureState="{Binding DisplayExhaustPipeState}" />
+
+              <!-- 示意控制信号虚线，不代表未经确认的真实气管。 -->
+              <process:PneumaticPipeControl Width="1360" Height="440"
+                StartPoint="182,306" EndPoint="330,306" IsDashed="True" IsControlSignal="True" />
+              <process:PneumaticPipeControl Width="1360" Height="440"
+                StartPoint="182,386" EndPoint="330,386" IsDashed="True" IsControlSignal="True" />
+              <process:PneumaticPipeControl Width="1360" Height="440"
+                StartPoint="330,306" EndPoint="330,386" IsDashed="True" IsControlSignal="True" />
+              <process:PneumaticPipeControl Width="1360" Height="440"
+                StartPoint="330,374" EndPoint="1243,374" IsDashed="True" IsControlSignal="True" />
+              <process:PneumaticPipeControl Width="1360" Height="440"
+                StartPoint="1243,374" EndPoint="1243,208" IsDashed="True" IsControlSignal="True" />
+              <process:PneumaticPipeControl Width="1360" Height="440"
+                x:Name="DiagramInletValveControlSignal"
+                StartPoint="910,84" EndPoint="910,143" IsDashed="True" IsControlSignal="True" />
+
+              <!-- AO 设定卡片到比例调压阀的执行器示意，与参考图保持垂直对齐。 -->
+              <Line x:Name="DiagramPressureSetpointSignal" StartPoint="509,82" EndPoint="509,114"
+                    Stroke="#142B4E" StrokeThickness="2" StrokeDashArray="4,4" />
+              <Polyline x:Name="DiagramPressureSetpointSpring"
+                        Points="509,114 502,121 516,128 502,135 516,142 502,147 509,147"
+                        Stroke="#142B4E" StrokeThickness="2" />
+
+              <!-- 气源入口与元件符号。箭头朝向工艺图，明确表示外部气源流入。 -->
+              <Polygon x:Name="DiagramSupplyDirection" Points="8,164 34,177 8,190" Fill="#0868F7" />
+              <Polygon Points="260,177 296,141 332,177 296,213" Fill="White"
+                       Stroke="#142B4E" StrokeThickness="2" />
+              <Line StartPoint="296,147" EndPoint="296,207" Stroke="#0868F7" StrokeThickness="2"
+                    StrokeDashArray="4,4" />
+
+              <Border Canvas.Left="479" Canvas.Top="147" Width="60" Height="60"
+                      Background="White" BorderBrush="#142B4E" BorderThickness="2">
+                <Grid>
+                  <Line StartPoint="10,48" EndPoint="48,12" Stroke="#142B4E" StrokeThickness="2" />
+                  <Polygon Points="48,12 39,15 45,22" Fill="#142B4E" />
+                  <Line StartPoint="35,48" EndPoint="51,48" Stroke="#142B4E" StrokeThickness="2"
+                        StrokeDashArray="4,4" />
+                </Grid>
+              </Border>
+
+              <process:PneumaticValveSymbol x:Name="DiagramInletValveSymbol"
+                Canvas.Left="857" Canvas.Top="143" Width="106" Height="68"
+                Feedback="{Binding InletValve.IsDisplayedOpen}" State="{Binding InletFeedback.DisplayedState}"
+                Label="进气阀" />
+              <process:PneumaticValveSymbol x:Name="DiagramExhaustValveSymbol"
+                Canvas.Left="989" Canvas.Top="264" Width="92" Height="84" IsVertical="True"
+                Feedback="{Binding ExhaustValve.IsDisplayedOpen}" State="{Binding ExhaustFeedback.DisplayedState}"
+                Label="排气阀" />
+
+              <Border x:Name="DiagramDutHousing" Canvas.Left="1136" Canvas.Top="151" Width="176" Height="52"
+                      Background="#F9FBFE" BorderBrush="#142B4E" BorderThickness="2" CornerRadius="26">
+                <TextBlock x:Name="DiagramDutLabel" Text="被试件" FontSize="16" FontWeight="SemiBold"
+                           Foreground="#142B4E" HorizontalAlignment="Center" VerticalAlignment="Center" />
+              </Border>
+
+              <Border Canvas.Left="1106" Canvas.Top="387" Width="84" Height="34"
+                      Background="#F9FBFE" BorderBrush="#142B4E" BorderThickness="2" CornerRadius="7">
+                <Grid ColumnDefinitions="*,*,*,*">
+                  <Border Margin="8,5" BorderBrush="#142B4E" BorderThickness="2,0,0,0" />
+                  <Border Grid.Column="1" Margin="8,5" BorderBrush="#142B4E" BorderThickness="2,0,0,0" />
+                  <Border Grid.Column="2" Margin="8,5" BorderBrush="#142B4E" BorderThickness="2,0,0,0" />
+                  <Border Grid.Column="3" Margin="8,5" BorderBrush="#142B4E" BorderThickness="2,0,0,0" />
+                </Grid>
+              </Border>
+
+              <!-- 压力测点与浮动读数卡。 -->
+              <Line StartPoint="167,177" EndPoint="167,82" Stroke="#142B4E" StrokeThickness="2" />
+              <Line StartPoint="740,177" EndPoint="740,82" Stroke="#142B4E" StrokeThickness="2" />
+              <Line x:Name="DiagramDutPressureLine" StartPoint="1213,151" EndPoint="1213,82"
+                    Stroke="#142B4E" StrokeThickness="2" />
+              <Ellipse x:Name="DiagramSupplyPressureNode" Canvas.Left="160" Canvas.Top="170"
+                       Width="14" Height="14" Fill="#0868F7" />
+              <Ellipse x:Name="DiagramMainPressureNode" Canvas.Left="733" Canvas.Top="170"
+                       Width="14" Height="14" Fill="#0868F7" />
+              <Ellipse x:Name="DiagramExhaustBranchNode" Canvas.Left="1010" Canvas.Top="170"
+                       Width="14" Height="14" Fill="#0868F7" />
+              <Border x:Name="DiagramSupplyPressureGauge"
+                      Canvas.Left="150" Canvas.Top="105" Width="34" Height="34" CornerRadius="17"
+                       Background="White" BorderBrush="#142B4E" BorderThickness="2">
+                <TextBlock Text="P" FontSize="20" Foreground="#142B4E" HorizontalAlignment="Center"
+                           VerticalAlignment="Center" />
+              </Border>
+              <Border x:Name="DiagramMainPressureGauge"
+                      Canvas.Left="723" Canvas.Top="105" Width="34" Height="34" CornerRadius="17"
+                       Background="White" BorderBrush="#142B4E" BorderThickness="2">
+                <TextBlock Text="P" FontSize="20" Foreground="#142B4E" HorizontalAlignment="Center"
+                           VerticalAlignment="Center" />
+              </Border>
+              <Border x:Name="DiagramDutPressureGauge"
+                      Canvas.Left="1196" Canvas.Top="105" Width="34" Height="34" CornerRadius="17"
+                       Background="White" BorderBrush="#142B4E" BorderThickness="2">
+                <TextBlock Text="P" FontSize="20" Foreground="#142B4E" HorizontalAlignment="Center"
+                           VerticalAlignment="Center" />
+              </Border>
+
+              <Border Canvas.Left="96" Canvas.Top="18" Width="149" Height="64" Classes="readout-card">
+                <Grid RowDefinitions="Auto,*">
+                  <StackPanel Orientation="Horizontal" Spacing="10">
+                    <TextBlock Text="AI" Classes="readout-type" />
+                    <TextBlock Text="气源压力" Classes="readout-name" />
+                  </StackPanel>
+                  <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="8">
+                    <TextBlock Text="{Binding SupplyPressure.DisplayValueText}" Classes="readout-value" />
+                    <TextBlock Text="MPa" FontSize="13" Foreground="#142B4E" VerticalAlignment="Center" />
+                  </StackPanel>
+                </Grid>
+              </Border>
+              <Border x:Name="DiagramPressureSetpointCard" Canvas.Left="395" Canvas.Top="18"
+                      Width="228" Height="64" ClipToBounds="True" Classes="readout-card">
+                <Grid RowDefinitions="Auto,*" RowSpacing="4">
+                  <StackPanel Orientation="Horizontal" Spacing="10">
+                    <TextBlock Text="AO" Classes="readout-type" />
+                    <TextBlock Text="调压设定" Classes="readout-name" />
+                  </StackPanel>
+                  <Grid Grid.Row="1" ColumnDefinitions="24,70,24,Auto,46" ColumnSpacing="2"
+                        VerticalAlignment="Center">
+                    <Button x:Name="DiagramPressureDecreaseButton" Grid.Column="0" Width="24" Height="25" MinWidth="0" MinHeight="0"
+                            Classes="diagram-adjust-button" Content="−"
+                            Command="{Binding PressureSetpoint.DecreaseTargetCommand}" />
+                    <Border x:Name="DiagramPressureSetpointInput" Grid.Column="1" Width="70" Height="29"
+                            Background="White" BorderBrush="#D2DCE9"
+                            BorderThickness="1" CornerRadius="4">
+                      <TextBlock Text="{Binding PressureSetpoint.TargetText}" FontSize="16" FontWeight="SemiBold"
+                                 Foreground="#142B4E" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <Button x:Name="DiagramPressureIncreaseButton" Grid.Column="2" Width="24" Height="25" MinWidth="0" MinHeight="0"
+                            Classes="diagram-adjust-button" Content="＋"
+                            Command="{Binding PressureSetpoint.IncreaseTargetCommand}" />
+                    <TextBlock Grid.Column="3" Text="MPa" FontSize="13" Foreground="#142B4E"
+                               VerticalAlignment="Center" />
+                    <Button Grid.Column="4" Width="46" Height="25" MinWidth="0"
+                            Classes="diagram-apply-button" Content="设定"
+                            Command="{Binding PressureSetpoint.DisplayApplyCommand}" />
+                  </Grid>
+                </Grid>
+              </Border>
+              <Border Canvas.Left="665" Canvas.Top="18" Width="147" Height="64" Classes="readout-card">
+                <Grid RowDefinitions="Auto,*">
+                  <StackPanel Orientation="Horizontal" Spacing="10">
+                    <TextBlock Text="AI" Classes="readout-type" />
+                    <TextBlock Text="主管压力" Classes="readout-name" />
+                  </StackPanel>
+                  <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="8">
+                    <TextBlock Text="{Binding MainPressure.DisplayValueText}" Classes="readout-value" />
+                    <TextBlock Text="MPa" FontSize="13" Foreground="#142B4E" VerticalAlignment="Center" />
+                  </StackPanel>
+                </Grid>
+              </Border>
+              <Border Canvas.Left="857" Canvas.Top="18" Width="132" Height="66" Classes="diagram-do-card"
+                      Classes.good="{Binding InletValve.IsDisplayedOpen}">
+                <Grid RowDefinitions="Auto,*">
+                  <StackPanel Orientation="Horizontal" Spacing="10">
+                    <TextBlock Text="DO" Classes="readout-type" />
+                    <TextBlock Text="进气阀" Classes="readout-name" />
+                  </StackPanel>
+                  <Grid x:Name="DiagramInletValveStateRow" Grid.Row="1" ColumnDefinitions="20,Auto"
+                        ColumnSpacing="9" VerticalAlignment="Center">
+                    <Ellipse x:Name="DiagramInletValveLight" Grid.Column="0" Width="18" Height="18"
+                             Classes="diagram-light" Classes.good="{Binding InletValve.IsDisplayedOpen}"
+                             HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    <TextBlock x:Name="DiagramInletValveState" Grid.Column="1"
+                               Text="{Binding InletValve.DisplayFeedbackText}" Classes="diagram-state"
+                               Classes.good="{Binding InletValve.IsDisplayedOpen}"
+                               VerticalAlignment="Center" />
+                  </Grid>
+                </Grid>
+              </Border>
+              <Border Canvas.Left="1136" Canvas.Top="18" Width="152" Height="64" Classes="readout-card">
+                <Grid RowDefinitions="Auto,*">
+                  <StackPanel Orientation="Horizontal" Spacing="10">
+                    <TextBlock Text="AI" Classes="readout-type" />
+                    <TextBlock Text="被试件压力" Classes="readout-name" />
+                  </StackPanel>
+                  <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="8">
+                    <TextBlock Text="{Binding DutPressure.DisplayValueText}" Classes="readout-value" />
+                    <TextBlock Text="MPa" FontSize="13" Foreground="#142B4E" VerticalAlignment="Center" />
+                  </StackPanel>
+                </Grid>
+              </Border>
+
+              <!-- 安全门、夹紧到位和排气控制反馈。 -->
+              <Border Canvas.Left="36" Canvas.Top="274" Width="146" Height="64" Classes="diagram-do-card"
+                      Classes.good="{Binding SafetyDoor.IsDisplayedActiveGood}">
+                <Grid RowDefinitions="Auto,*">
+                  <StackPanel Orientation="Horizontal" Spacing="10">
+                    <TextBlock Text="DI" Classes="readout-type" />
+                    <TextBlock x:Name="DiagramSafetyDoorName" Text="安全门" Classes="readout-name" />
+                  </StackPanel>
+                  <Grid x:Name="DiagramSafetyDoorStateRow" Grid.Row="1" ColumnDefinitions="20,Auto"
+                        ColumnSpacing="9" VerticalAlignment="Center">
+                    <Ellipse x:Name="DiagramSafetyDoorLight" Grid.Column="0" Width="18" Height="18"
+                             Classes="diagram-light" Classes.good="{Binding SafetyDoor.IsDisplayedActiveGood}"
+                             HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    <TextBlock x:Name="DiagramSafetyDoorState" Grid.Column="1"
+                               Text="{Binding SafetyDoor.DisplayActiveText}" Classes="diagram-state"
+                               Classes.good="{Binding SafetyDoor.IsDisplayedActiveGood}"
+                               VerticalAlignment="Center" />
+                  </Grid>
+                </Grid>
+              </Border>
+              <Border Canvas.Left="36" Canvas.Top="354" Width="146" Height="64" Classes="diagram-do-card"
+                      Classes.good="{Binding ClampReady.IsDisplayedActiveGood}">
+                <Grid RowDefinitions="Auto,*">
+                  <StackPanel Orientation="Horizontal" Spacing="10">
+                    <TextBlock Text="DI" Classes="readout-type" />
+                    <TextBlock x:Name="DiagramClampReadyName" Text="夹紧到位" Classes="readout-name" />
+                  </StackPanel>
+                  <Grid x:Name="DiagramClampReadyStateRow" Grid.Row="1" ColumnDefinitions="20,Auto"
+                        ColumnSpacing="9" VerticalAlignment="Center">
+                    <Ellipse x:Name="DiagramClampReadyLight" Grid.Column="0" Width="18" Height="18"
+                             Classes="diagram-light" Classes.good="{Binding ClampReady.IsDisplayedActiveGood}"
+                             HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    <TextBlock x:Name="DiagramClampReadyState" Grid.Column="1"
+                               Text="{Binding ClampReady.DisplayActiveText}" Classes="diagram-state"
+                               Classes.good="{Binding ClampReady.IsDisplayedActiveGood}"
+                               VerticalAlignment="Center" />
+                  </Grid>
+                </Grid>
+              </Border>
+              <Border x:Name="DiagramExhaustValveCard"
+                      Canvas.Left="1084" Canvas.Top="263" Width="112" Height="58" Classes="diagram-do-card"
+                      Classes.good="{Binding ExhaustValve.IsDisplayedOpen}">
+                <Grid RowDefinitions="Auto,*">
+                  <StackPanel Orientation="Horizontal" Spacing="10">
+                    <TextBlock Text="DO" Classes="readout-type" />
+                    <TextBlock Text="排气阀" Classes="readout-name" />
+                  </StackPanel>
+                  <Grid x:Name="DiagramExhaustValveStateRow" Grid.Row="1" ColumnDefinitions="20,Auto"
+                        ColumnSpacing="9" VerticalAlignment="Center">
+                    <Ellipse x:Name="DiagramExhaustValveLight" Grid.Column="0" Width="18" Height="18"
+                             Classes="diagram-light" Classes.good="{Binding ExhaustValve.IsDisplayedOpen}"
+                             HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    <TextBlock x:Name="DiagramExhaustValveState" Grid.Column="1"
+                               Text="{Binding ExhaustValve.DisplayFeedbackText}" Classes="diagram-state"
+                               Classes.good="{Binding ExhaustValve.IsDisplayedOpen}"
+                               VerticalAlignment="Center" />
+                  </Grid>
+                </Grid>
+              </Border>
+
+              <Border x:Name="DiagramSupplyEndpoint" Canvas.Left="0" Canvas.Top="214" Width="132" Height="34"
+                      Classes="diagram-endpoint">
+                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="4">
+                  <TextBlock x:Name="DiagramSupplyLabel" Text="气源入口" FontSize="15"
+                             FontWeight="SemiBold" Foreground="#142B4E" VerticalAlignment="Center" />
+                  <TextBlock Grid.Column="1" Text="→" Classes="diagram-endpoint-direction"
+                             HorizontalAlignment="Right" />
+                </Grid>
+              </Border>
+              <TextBlock x:Name="DiagramFilterLabel" Canvas.Left="268" Canvas.Top="222" Text="过滤器" FontSize="16"
+                          FontWeight="SemiBold" Foreground="#142B4E" />
+              <TextBlock x:Name="DiagramRegulatorLabel" Canvas.Left="462" Canvas.Top="222" Text="比例调压阀" FontSize="16"
+                          FontWeight="SemiBold" Foreground="#142B4E" />
+              <TextBlock x:Name="DiagramInletLabel" Canvas.Left="857" Canvas.Top="222" Width="106"
+                          Text="进气阀" TextAlignment="Center" FontSize="16"
+                          FontWeight="SemiBold" Foreground="#142B4E" />
+              <TextBlock Canvas.Left="1112" Canvas.Top="424" Text="消声器" FontSize="15"
+                          Foreground="#142B4E" />
+              <Polygon x:Name="DiagramAtmosphereDirection" Points="1238,397 1252,404 1238,411"
+                       Fill="#98A2B3" />
+              <Border x:Name="DiagramAtmosphereEndpoint" Canvas.Left="1254" Canvas.Top="386"
+                      Width="106" Height="36" Classes="diagram-endpoint exhaust">
+                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="4">
+                  <TextBlock Text="→" Classes="diagram-endpoint-direction exhaust" />
+                  <TextBlock x:Name="DiagramAtmosphereLabel" Grid.Column="1" Text="大气排放"
+                             FontSize="14" Foreground="#142B4E" VerticalAlignment="Center" />
+                </Grid>
+              </Border>
+              <TextBlock Canvas.Left="712" Canvas.Top="350" Text="信号至被试件" FontSize="13"
+                         Foreground="#53627A" />
+            </Canvas>
+          </Viewbox>
+      </Border>
+    </Grid>
+  </Border>
+</UserControl>

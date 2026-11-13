@@ -1,0 +1,7 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="XXX.TestBench.App.Controls.Process.PointStatusBadge">
+  <Border x:Name="BadgeBorder" Padding="8,3" CornerRadius="10" BorderThickness="1">
+    <TextBlock x:Name="BadgeTextBlock" FontSize="12" FontWeight="SemiBold" />
+  </Border>
+</UserControl>

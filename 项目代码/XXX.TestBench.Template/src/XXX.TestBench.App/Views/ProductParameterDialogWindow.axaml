@@ -1,0 +1,80 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:XXX.TestBench.App.ViewModels"
+        x:Class="XXX.TestBench.App.Views.ProductParameterDialogWindow"
+        x:DataType="vm:ProductParameterDialogViewModel"
+        Title="{Binding DialogTitle}"
+        Width="560"
+        Height="430"
+        MinWidth="520"
+        MinHeight="390"
+        CanResize="False"
+        WindowStartupLocation="CenterScreen"
+        SystemDecorations="None"
+        TransparencyLevelHint="Transparent"
+        Background="Transparent"
+        UseLayoutRounding="True">
+  <Window.Styles>
+    <Style Selector="Button.dialog-secondary">
+      <Setter Property="Background" Value="White" />
+      <Setter Property="Foreground" Value="#344054" />
+      <Setter Property="BorderBrush" Value="#C9D3E0" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="MinWidth" Value="96" />
+    </Style>
+    <Style Selector="Button.dialog-primary">
+      <Setter Property="Background" Value="#0868F7" />
+      <Setter Property="Foreground" Value="White" />
+      <Setter Property="BorderBrush" Value="#0868F7" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="MinWidth" Value="96" />
+    </Style>
+  </Window.Styles>
+
+  <Border Background="White" BorderBrush="#C9D3E0" BorderThickness="1" CornerRadius="8">
+    <Grid RowDefinitions="Auto,*,Auto">
+      <Border Grid.Row="0" Background="#F8FAFD" BorderBrush="#E4EAF2" BorderThickness="0,0,0,1"
+              CornerRadius="8,8,0,0" Padding="24,12" PointerPressed="OnTitleBarPointerPressed">
+        <StackPanel Spacing="2">
+          <TextBlock Text="{Binding DialogTitle}" FontSize="20" FontWeight="Bold" Foreground="#151A24" />
+          <TextBlock Text="{Binding DialogSubtitle}" Foreground="#667085" FontSize="12" TextWrapping="Wrap" />
+        </StackPanel>
+      </Border>
+
+      <StackPanel Grid.Row="1" Spacing="16" Margin="24,22,24,18">
+        <Border Background="#F0F7FF" BorderBrush="#CFE0FF" BorderThickness="1" CornerRadius="6" Padding="12,9">
+          <TextBlock Text="本组参数按产品类型 + 产品型号保存，保存后用于该型号的自动试验。"
+                     Foreground="#164B95" FontSize="12" TextWrapping="Wrap" />
+        </Border>
+
+        <StackPanel Spacing="7">
+          <TextBlock Text="试验电压" FontWeight="SemiBold" Foreground="#344054" />
+          <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+            <TextBox Text="{Binding TestVoltageInput, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                     Watermark="请输入 0～5000" />
+            <TextBlock Grid.Column="1" Text="V" Foreground="#667085"
+                       VerticalAlignment="Center" FontSize="14" />
+          </Grid>
+        </StackPanel>
+
+        <StackPanel Spacing="7">
+          <TextBlock Text="保护电流" FontWeight="SemiBold" Foreground="#344054" />
+          <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+            <TextBox Text="{Binding ProtectCurrentInput, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                     Watermark="请输入 0～1000" />
+            <TextBlock Grid.Column="1" Text="mA" Foreground="#667085"
+                       VerticalAlignment="Center" FontSize="14" />
+          </Grid>
+        </StackPanel>
+
+        <TextBlock Text="{Binding ValidationMessage}" Foreground="#D92D20" FontSize="13"
+                   TextWrapping="Wrap" />
+      </StackPanel>
+
+      <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10" Margin="24,0,24,20">
+        <Button Classes="dialog-secondary" Content="取消" Click="OnCancelClick" />
+        <Button Classes="dialog-primary" Content="保存" IsEnabled="{Binding CanSave}" Click="OnConfirmClick" />
+      </StackPanel>
+    </Grid>
+  </Border>
+</Window>

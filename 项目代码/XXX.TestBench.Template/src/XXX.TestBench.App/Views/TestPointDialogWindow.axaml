@@ -1,0 +1,79 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:XXX.TestBench.App.ViewModels"
+        x:Class="XXX.TestBench.App.Views.TestPointDialogWindow"
+        x:DataType="vm:TestPointDialogViewModel"
+        Title="{Binding DialogTitle}"
+        Width="520"
+        Height="420"
+        MinWidth="480"
+        MinHeight="380"
+        CanResize="False"
+        WindowStartupLocation="CenterScreen"
+        SystemDecorations="None"
+        TransparencyLevelHint="Transparent"
+        Background="Transparent"
+        UseLayoutRounding="True">
+  <Window.Styles>
+    <Style Selector="Button.dialog-secondary">
+      <Setter Property="Background" Value="White" />
+      <Setter Property="Foreground" Value="#344054" />
+      <Setter Property="BorderBrush" Value="#C9D3E0" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="MinWidth" Value="96" />
+    </Style>
+    <Style Selector="Button.dialog-primary">
+      <Setter Property="Background" Value="#0868F7" />
+      <Setter Property="Foreground" Value="White" />
+      <Setter Property="BorderBrush" Value="#0868F7" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="MinWidth" Value="96" />
+    </Style>
+  </Window.Styles>
+
+  <Border Margin="0" Padding="0" Background="White" BorderBrush="#C9D3E0" BorderThickness="1" CornerRadius="8">
+    <Grid RowDefinitions="Auto,*,Auto">
+      <Border Grid.Row="0"
+              Background="#F8FAFD"
+              BorderBrush="#E4EAF2"
+              BorderThickness="0,0,0,1"
+              CornerRadius="8,8,0,0"
+              Padding="24,12"
+              PointerPressed="OnTitleBarPointerPressed">
+        <Grid ColumnDefinitions="*">
+          <StackPanel Spacing="2">
+            <TextBlock Text="{Binding DialogTitle}" FontSize="20" FontWeight="Bold" Foreground="#151A24" />
+            <TextBlock Text="{Binding DialogSubtitle}" Foreground="#667085" FontSize="12" />
+          </StackPanel>
+        </Grid>
+      </Border>
+
+      <StackPanel Grid.Row="1" Spacing="12" Margin="24,22,24,18">
+        <StackPanel Spacing="6">
+          <TextBlock Text="项点名称" FontWeight="SemiBold" Foreground="#344054" />
+          <TextBox Text="{Binding Name, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Watermark="例如：耐压试验" />
+        </StackPanel>
+
+        <StackPanel Spacing="6">
+          <TextBlock Text="关联逻辑类（编译期注册的执行器）" FontWeight="SemiBold" Foreground="#344054" />
+          <ComboBox ItemsSource="{Binding ExecutorOptions}" SelectedItem="{Binding SelectedExecutorCode, Mode=TwoWay}"
+                    PlaceholderText="请选择关联逻辑类" />
+        </StackPanel>
+
+        <StackPanel Spacing="6">
+          <TextBlock Text="排序号" FontWeight="SemiBold" Foreground="#344054" />
+          <TextBox Text="{Binding SortOrderText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Watermark="整数，不小于 0" />
+        </StackPanel>
+
+        <CheckBox Content="启用" IsChecked="{Binding IsEnabled, Mode=TwoWay}" />
+
+        <TextBlock Text="{Binding ValidationMessage}" Foreground="#D92D20" FontSize="13" TextWrapping="Wrap" />
+      </StackPanel>
+
+      <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10" Margin="24,0,24,20">
+        <Button Classes="dialog-secondary" Content="取消" Click="OnCancelClick" />
+        <Button Classes="dialog-primary" Content="保存" IsEnabled="{Binding CanSave}" Click="OnConfirmClick" />
+      </StackPanel>
+    </Grid>
+  </Border>
+</Window>

@@ -1,0 +1,26 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:process="using:XXX.TestBench.App.Controls.Process"
+             xmlns:vm="using:XXX.TestBench.App.ViewModels.Process"
+             x:Class="XXX.TestBench.App.Controls.Process.AnalogInputControl"
+             x:DataType="vm:AnalogInputPointViewModel"
+             MinHeight="158">
+  <Border Background="#FBFDFF" BorderBrush="#DDE7F2" BorderThickness="1" CornerRadius="6" Padding="12,9">
+    <Grid RowDefinitions="Auto,*,Auto" RowSpacing="3">
+      <Grid ColumnDefinitions="*,Auto">
+        <TextBlock Text="{Binding DisplayName}" FontSize="15" FontWeight="SemiBold" Foreground="#182B4A" />
+        <process:PointStatusBadge Grid.Column="1" Text="{Binding DisplayStatusText}"
+                                  State="{Binding DisplayedState}" />
+      </Grid>
+      <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+        <TextBlock Text="{Binding DisplayValueText}" FontSize="34" FontWeight="Bold" Foreground="#0868F7" />
+        <TextBlock Text="{Binding Unit}" FontSize="16" Foreground="#182B4A" VerticalAlignment="Center" />
+      </StackPanel>
+      <Grid Grid.Row="2" ColumnDefinitions="*,Auto" ColumnSpacing="8">
+        <process:MiniTrendControl Samples="{Binding DisplayTrendSamples}" Height="38" />
+        <TextBlock Grid.Column="1" Text="{Binding DisplayLimitText}" FontSize="12" Foreground="#168B49"
+                   VerticalAlignment="Center" />
+      </Grid>
+    </Grid>
+  </Border>
+</UserControl>
