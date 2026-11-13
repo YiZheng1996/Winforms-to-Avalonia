@@ -8,7 +8,7 @@
     "deviceCalibration": true
   },
   "defaultPaths": {
-    "database": "data/testbench.db",
+    "database": "testbench.db",
     "reportOutput": "reports",
     "reportTemplates": "assets/report-templates"
   }

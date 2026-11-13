@@ -113,7 +113,29 @@ public sealed class AppComposition
             // 创建数据库并执行初始化。
             var clock = new SystemClock();
             var hasher = new Pbkdf2PasswordHasher();
-            var dbPath = Path.GetFullPath(Path.Combine(dataRoot, appConfig.DefaultPaths.Database));
+            var configuredDatabasePath = appConfig.DefaultPaths.Database;
+            var normalizedDatabasePath = configuredDatabasePath
+                .Replace('\\', Path.DirectorySeparatorChar)
+                .Replace('/', Path.DirectorySeparatorChar);
+            var isDefaultDatabasePath = string.Equals(
+                    normalizedDatabasePath, "testbench.db", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(
+                    normalizedDatabasePath,
+                    Path.Combine("data", "testbench.db"),
+                    StringComparison.OrdinalIgnoreCase);
+            var dbPath = Path.GetFullPath(Path.Combine(
+                dataRoot,
+                isDefaultDatabasePath ? "testbench.db" : configuredDatabasePath));
+
+            // 兼容旧默认值及旧双层位置：若新默认位置不存在但旧双层位置仍有库，继续使用旧库，
+            // 避免静默新建空库；后续由离线升级工具生成 v9 副本后再切换配置。
+            if (isDefaultDatabasePath && !File.Exists(dbPath))
+            {
+                var legacyDatabasePath = Path.GetFullPath(Path.Combine(dataRoot, "data", "testbench.db"));
+                if (File.Exists(legacyDatabasePath))
+                    dbPath = legacyDatabasePath;
+            }
+
             var factory = new SqliteConnectionFactory(dbPath);
             var database = new SqliteDatabase(factory, hasher);
             database.InitializeAsync().GetAwaiter().GetResult();
