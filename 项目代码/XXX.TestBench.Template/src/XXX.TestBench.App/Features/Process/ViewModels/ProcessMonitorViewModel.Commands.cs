@@ -225,7 +225,7 @@ public sealed partial class ProcessMonitorViewModel
 
     private async Task EnsureActiveRunAsync()
     {
-        if (await _services.RecordRepository.GetActiveRunningRecordAsync() is null)
+        if (await _services.RecordRepository.GetActiveRunningRecordAsync(_services.BenchId) is null)
             throw new DomainException("当前状态不允许手动操作");
     }
 

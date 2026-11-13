@@ -135,9 +135,10 @@ public sealed class AppComposition
             var configRepo = DatabaseServices.ModelPointConfigs;
             var testParameterRepo = DatabaseServices.TestParameters;
             var audit = DatabaseServices.AuditLog;
+            var benchId = _bootstrapResult.Settings.BenchId;
             var sessions = new InMemorySessionManager();
             DeviceOperations = new DeviceOperationCoordinator();
-            var manualOperationGuard = new DeviceManualOperationGuard(DeviceOperations, recordRepo);
+            var manualOperationGuard = new DeviceManualOperationGuard(DeviceOperations, recordRepo, benchId);
             var s7ClientFactory = new S7NetPlusPlcClientFactory();
             var modbusClientFactory = new NModbusClientFactory();
             var deviceEvents = new InMemoryDeviceEventHub();
@@ -156,7 +157,7 @@ public sealed class AppComposition
                 DeviceOperations,
                 audit,
                 driverRegistry.Descriptors,
-                hasActiveRun: () => recordRepo.GetActiveRunningRecordAsync().GetAwaiter().GetResult() is not null,
+                hasActiveRun: () => recordRepo.GetActiveRunningRecordAsync(benchId).GetAwaiter().GetResult() is not null,
                 runtimeFactory: (candidate, ct) => new DeviceRuntimeFactory(
                     candidate, clock, s7ClientFactory, deviceEvents, modbusClientFactory,
                     requiredSignals: requiredSignals)
@@ -215,6 +216,7 @@ public sealed class AppComposition
                 devicePointCatalogExporter,
                 appConfig,
                 deviceConfig,
+                benchId,
                 dbPath,
                 typeof(AppComposition).Assembly.GetName().Version?.ToString(3) ?? "0.1.0",
                 DeviceConfigurations,

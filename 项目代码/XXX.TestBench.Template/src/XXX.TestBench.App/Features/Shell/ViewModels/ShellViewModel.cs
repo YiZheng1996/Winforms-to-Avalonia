@@ -395,7 +395,7 @@ public sealed partial class ShellViewModel : ObservableObject
     {
         if (_services is null)
             return OperationFeedback.Failure("系统处于故障状态，不能更换产品型号");
-        if (await _services.RecordRepository.GetActiveRunningRecordAsync(ct) is not null)
+        if (await _services.RecordRepository.GetActiveRunningRecordAsync(_services.BenchId, ct) is not null)
             return OperationFeedback.Failure("活动试验期间不能更换产品型号");
         return OperationFeedback.Success(string.Empty);
     }

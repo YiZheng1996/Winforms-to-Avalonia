@@ -86,7 +86,7 @@ public sealed partial class OverviewViewModel : PageViewModel
                 _ => "按设备配置"
             };
             HealthText = _services.DeviceModes.Health.ToString();
-            var running = await _services.RecordRepository.GetActiveRunningRecordAsync(ct);
+            var running = await _services.RecordRepository.GetActiveRunningRecordAsync(_services.BenchId, ct);
             ActiveRecordText = running is null ? "无" : $"{running.RecordNumber}（{running.State}）";
         }
         finally { IsBusy = false; }

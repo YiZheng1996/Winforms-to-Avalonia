@@ -129,7 +129,7 @@ public sealed partial class DeviceCalibrationViewModel : PageViewModel
                     ? string.Equals(p.PointId, row.PointId, StringComparison.OrdinalIgnoreCase)
                     : p.Code == row.Code) ?? throw new Core.Common.DomainException("点位不存在");
             object? value = bool.TryParse(WriteValue, out var b) ? b : (decimal.TryParse(WriteValue, out var d) ? d : WriteValue);
-            var activeRun = await _services.RecordRepository.GetActiveRunningRecordAsync() is not null;
+            var activeRun = await _services.RecordRepository.GetActiveRunningRecordAsync(_services.BenchId) is not null;
             await _services.WritePipeline.ExecuteAsync(new WriteCommand(_actor, point, value, runtime.Mode, runtime, activeRun, Confirmed,
                 ExpectedRevision: runtime.ActiveRevision));
             StatusMessage = $"已写入 {row.Code}={value}";

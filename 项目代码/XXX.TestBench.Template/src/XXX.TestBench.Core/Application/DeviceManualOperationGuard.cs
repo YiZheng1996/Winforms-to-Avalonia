@@ -11,10 +11,14 @@ namespace XXX.TestBench.Core.Application;
 /// </summary>
 public sealed class DeviceManualOperationGuard(
     DeviceOperationCoordinator operations,
-    IRecordRepository records)
+    IRecordRepository records,
+    string benchId)
 {
     private readonly DeviceOperationCoordinator _operations = operations ?? throw new ArgumentNullException(nameof(operations));
     private readonly IRecordRepository _records = records ?? throw new ArgumentNullException(nameof(records));
+    private readonly string _benchId = string.IsNullOrWhiteSpace(benchId)
+        ? throw new ArgumentException("BenchId 不能为空。", nameof(benchId))
+        : benchId;
 
     /// <summary>
     /// 在共享诊断门内执行一次手工设备动作。
@@ -53,7 +57,7 @@ public sealed class DeviceManualOperationGuard(
     {
         ct.ThrowIfCancellationRequested();
         // 查询异常必须向调用方传播，不能把数据库故障误判为“没有活动试验”。
-        if (await _records.GetActiveRunningRecordAsync(ct) is not null)
+        if (await _records.GetActiveRunningRecordAsync(_benchId, ct) is not null)
             throw new DomainException("试验运行中，手工设备操作已禁用");
     }
 }

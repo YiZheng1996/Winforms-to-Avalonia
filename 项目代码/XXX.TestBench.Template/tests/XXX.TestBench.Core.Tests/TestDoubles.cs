@@ -371,8 +371,8 @@ public sealed class FakeRecordRepository : IRecordRepository
     public Task<TestRecord?> GetRecordAsync(int recordId, CancellationToken ct = default)
         => Task.FromResult(Records.FirstOrDefault(r => r.Id == recordId));
 
-    public Task<TestRecord?> GetActiveRunningRecordAsync(CancellationToken ct = default)
-        => Task.FromResult(Records.FirstOrDefault(r => r.State == RecordState.Running));
+    public Task<TestRecord?> GetActiveRunningRecordAsync(string benchId, CancellationToken ct = default)
+        => Task.FromResult(Records.FirstOrDefault(r => r.State == RecordState.Running && r.BenchId == benchId));
 
     public Task UpdateRecordAsync(TestRecord record, CancellationToken ct = default) => Task.CompletedTask;
 

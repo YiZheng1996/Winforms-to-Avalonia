@@ -9,13 +9,15 @@ namespace XXX.TestBench.Core.Tests;
 
 public sealed class DeviceManualOperationGuardTests
 {
+    private const string BenchId = "bench-01";
+
     [Fact]
     public async Task ActiveRunningRecordIsRejectedBeforeDeviceAction()
     {
         await using var operations = new DeviceOperationCoordinator();
         var records = new FakeRecordRepository();
         records.Records.Add(CreateRunningRecord());
-        var guard = new DeviceManualOperationGuard(operations, records);
+        var guard = new DeviceManualOperationGuard(operations, records, BenchId);
         var actionCount = 0;
 
         var error = await Assert.ThrowsAsync<DomainException>(() => guard.ExecuteAsync(_ =>
@@ -33,7 +35,7 @@ public sealed class DeviceManualOperationGuardTests
     {
         await using var operations = new DeviceOperationCoordinator();
         var records = new FakeRecordRepository();
-        var guard = new DeviceManualOperationGuard(operations, records);
+        var guard = new DeviceManualOperationGuard(operations, records, BenchId);
         var actionCount = 0;
         var executionLease = await operations.EnterExecutionAsync();
 
@@ -64,7 +66,7 @@ public sealed class DeviceManualOperationGuardTests
     public async Task CancellationBeforeCoordinatorDoesNotInvokeAction()
     {
         await using var operations = new DeviceOperationCoordinator();
-        var guard = new DeviceManualOperationGuard(operations, new FakeRecordRepository());
+        var guard = new DeviceManualOperationGuard(operations, new FakeRecordRepository(), BenchId);
         using var cancellation = new CancellationTokenSource();
         cancellation.Cancel();
         var actionCount = 0;
@@ -82,7 +84,7 @@ public sealed class DeviceManualOperationGuardTests
     public async Task RecordQueryFailureIsNotTreatedAsNoActiveRun()
     {
         await using var operations = new DeviceOperationCoordinator();
-        var guard = new DeviceManualOperationGuard(operations, new ThrowingRecordRepository());
+        var guard = new DeviceManualOperationGuard(operations, new ThrowingRecordRepository(), BenchId);
 
         var error = await Assert.ThrowsAsync<InvalidOperationException>(() => guard.ExecuteAsync(_ =>
             Task.FromResult(true)));
@@ -94,6 +96,7 @@ public sealed class DeviceManualOperationGuardTests
         => new()
         {
             RecordNumber = "RUN-001",
+            BenchId = BenchId,
             ProductModelId = 1,
             ProductIdentity = new ProductIdentity("SN-001", null, null, null),
             DeviceMode = DeviceMode.Simulation
@@ -110,7 +113,7 @@ public sealed class DeviceManualOperationGuardTests
         public Task AddRecordAsync(TestRecord record, CancellationToken ct = default) => Fail();
         public Task<TestRecord?> GetRecordAsync(int recordId, CancellationToken ct = default)
             => Fail<TestRecord?>();
-        public Task<TestRecord?> GetActiveRunningRecordAsync(CancellationToken ct = default)
+        public Task<TestRecord?> GetActiveRunningRecordAsync(string benchId, CancellationToken ct = default)
             => Fail<TestRecord?>();
         public Task<IReadOnlyList<TestRecord>> ListRecordsAsync(int? state, CancellationToken ct = default)
             => Fail<IReadOnlyList<TestRecord>>();

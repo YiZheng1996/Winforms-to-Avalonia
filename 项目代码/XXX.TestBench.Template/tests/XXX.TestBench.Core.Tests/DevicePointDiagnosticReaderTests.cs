@@ -154,7 +154,7 @@ public sealed class DevicePointDiagnosticReaderTests
         DeviceOperationCoordinator operations,
         ControlledRuntime runtime)
         => new(
-            new DeviceManualOperationGuard(operations, new FakeRecordRepository()),
+            new DeviceManualOperationGuard(operations, new FakeRecordRepository(), "diagnostic-test-bench"),
             () => runtime,
             maxConcurrentChannels: 4);
 

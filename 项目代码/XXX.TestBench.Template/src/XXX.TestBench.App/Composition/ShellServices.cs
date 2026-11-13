@@ -31,6 +31,7 @@ public sealed record ShellServices(
     IDevicePointCatalogExporter DevicePointCatalogExporter,
     AppConfig AppConfig,
     DeviceConfig DeviceConfig,
+    string BenchId,
     string DatabasePath,
     string Version,
     DeviceConfigurationService? DeviceConfigurations = null,

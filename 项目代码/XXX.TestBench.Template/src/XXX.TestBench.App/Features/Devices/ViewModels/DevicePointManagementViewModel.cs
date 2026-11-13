@@ -1503,7 +1503,7 @@ public sealed partial class DevicePointManagementViewModel : PageViewModel
     {
         StatusMessage = string.Empty;
         var state = CaptureUiState();
-        if (await _services.RecordRepository.GetActiveRunningRecordAsync(ct) is not null)
+        if (await _services.RecordRepository.GetActiveRunningRecordAsync(_services.BenchId, ct) is not null)
             throw new DomainException("存在活动试验，禁止修改设备点位；请先结束试验");
         var candidateEntries = entries.Select(ClonePoint).ToList();
         var candidateGroups = (groups ?? _allGroups).Select(CloneGroup).ToList();

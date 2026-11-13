@@ -97,12 +97,13 @@ public sealed class RecordRepository : SqliteRepositoryBase, IRecordRepository
     }
 
     /// <summary>
-    /// 读取当前正在执行的试验记录。
+    /// 按试验台身份读取当前正在执行的试验记录。
     /// </summary>
-    public async Task<TestRecord?> GetActiveRunningRecordAsync(CancellationToken ct = default)
+    public async Task<TestRecord?> GetActiveRunningRecordAsync(string benchId, CancellationToken ct = default)
     {
+        ArgumentException.ThrowIfNullOrWhiteSpace(benchId);
         var row = await RunDbAsync(() => Select<SqliteTestRecord>()
-            .Where(x => x.State == (int)RecordState.Running)
+            .Where(x => x.BenchId == benchId && x.State == (int)RecordState.Running)
             .OrderByDescending(x => x.StartedAtUtc)
             .OrderByDescending(x => x.Id)
             .Limit(1)
