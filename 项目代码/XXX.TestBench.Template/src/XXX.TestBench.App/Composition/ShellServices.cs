@@ -12,10 +12,8 @@ public sealed record ShellServices(
     AuthenticationService Authentication,
     IdentityAdministrationService IdentityAdministration,
     TestPointService TestPoints,
-    TestExecutionService Execution,
     ProductService Products,
     TestParameterService Parameters,
-    ReportService Reports,
     DeviceModeController DeviceModes,
     DeviceWritePipeline WritePipeline,
     IRecordRepository RecordRepository,
@@ -38,4 +36,6 @@ public sealed record ShellServices(
     DeviceConfigurationService? DeviceConfigurations = null,
     IReadOnlyList<IDeviceDriverDescriptor>? DriverDescriptors = null,
     IDeviceConnectionTester? DeviceConnectionTester = null,
-    IDeviceEventSink? DeviceEvents = null);
+    IDeviceEventSink? DeviceEvents = null,
+    DeviceManualOperationGuard? ManualOperationGuard = null,
+    IDevicePointDiagnosticReader? DiagnosticReader = null);

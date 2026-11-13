@@ -161,13 +161,21 @@ public sealed class TestPointService
     }
 
     /// <summary>
-    /// 整体替换型号的项点配置：按传入顺序编排为 1..n 的执行序列（事务内完成）。
+    /// 按读取时的顺序版本替换型号项点配置；版本冲突时拒绝覆盖，并返回保存后的新版本。
     /// </summary>
-    public async Task SaveConfigurationAsync(UserContext actor, int productModelId, IReadOnlyList<int> orderedPointIds, CancellationToken ct = default)
+    public async Task<long> SaveConfigurationAsync(
+        UserContext actor,
+        int productModelId,
+        IReadOnlyList<int> orderedPointIds,
+        long expectedSequenceRevision,
+        CancellationToken ct = default)
     {
         Ensure(actor, PermissionCode.ManageTestPoints);
+        if (expectedSequenceRevision < 0) throw new DomainException("型号项点顺序版本不能小于零");
         var model = await _products.GetModelAsync(productModelId, ct) ?? throw new DomainException("产品型号不存在");
         if (!model.IsEnabled) throw new DomainException("产品型号已停用，不能修改项点配置");
+        if (model.SequenceRevision != expectedSequenceRevision)
+            throw new DomainException("型号项点顺序已被其他操作修改，请重新加载后再保存");
         var type = await _products.GetTypeAsync(model.ProductTypeId, ct) ?? throw new DomainException("产品类型不存在");
         if (!type.IsEnabled) throw new DomainException("产品类型已停用，不能修改项点配置");
 
@@ -181,8 +189,11 @@ public sealed class TestPointService
             if (!point.IsEnabled) throw new DomainException($"项点“{point.Name}”已停用，不能加入配置");
             configs.Add(new ModelPointConfig(productModelId, pointId, order++));
         }
-        await _configs.ReplaceAsync(productModelId, configs, ct);
+        var nextSequenceRevision = checked(expectedSequenceRevision + 1);
+        await _configs.ReplaceAsync(productModelId, configs, expectedSequenceRevision, ct);
+        model.SequenceRevision = nextSequenceRevision;
         await _audit.WriteAsync(actor.LoginName, "ModelPointConfigSaved", $"model:{productModelId}", string.Join(",", orderedPointIds), ct);
+        return nextSequenceRevision;
     }
 
     /// <summary>

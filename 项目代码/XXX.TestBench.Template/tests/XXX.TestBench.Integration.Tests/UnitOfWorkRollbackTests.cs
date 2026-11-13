@@ -63,25 +63,32 @@ public class UnitOfWorkRollbackTests
         var executors = new Devices.Executors.ExecutorFactory();
         var testPoints = new TestPointService(pointRepo, configRepo, productRepo, executors, clock, audit);
         var point = await testPoints.CreatePointAsync(actor, type.Id, "耐压试验", "PressureExecutor", "PassFail", 1);
-        await testPoints.SaveConfigurationAsync(actor, model.Id, new[] { point.Id });
+        await testPoints.SaveConfigurationAsync(actor, model.Id, new[] { point.Id }, model.SequenceRevision);
 
         var parameters = new TestParameterService(paramRepo, productRepo, clock, audit);
         await parameters.SaveProjectAsync(actor, 60);
         await parameters.SaveProductAsync(actor, type.Id, model.Id, 5000, 100);
 
-        var execution = new TestExecutionService(recordRepo, productRepo, executors, testPoints, parameters, clock, audit, uowFactory);
-        var runtime = await new Devices.DeviceRuntimeFactory(
-                await new Infrastructure.Configuration.JsonConfigStore(env.ConfigRoot).LoadAsync<Core.Configuration.DeviceConfig>("device.json"),
-                await new Infrastructure.Configuration.JsonConfigStore(env.ConfigRoot).LoadAsync<Core.Configuration.PointsConfig>("points.json"),
-                await new Infrastructure.Configuration.JsonConfigStore(env.ConfigRoot).LoadAsync<Core.Configuration.SimulationConfig>("simulation.json"),
-                clock)
-            .CreateAsync(XXX.TestBench.Core.Domain.Devices.DeviceMode.Simulation);
-        await runtime.StartAsync();
-
-        var record = await execution.StartAsync(actor, model.Id, new ProductIdentity("SN001", null, null, null), XXX.TestBench.Core.Domain.Devices.DeviceMode.Simulation, runtime);
-        await execution.ExecuteItemAsync(actor, record.Id, point.Id, runtime);
-        await execution.CompleteAsync(actor, record.Id);
-        await runtime.StopAsync();
+        // 直接验证仓储事务；不再借助已删除的旧分步执行入口。
+        var runId = Guid.NewGuid().ToString("D");
+        var record = new TestRecord
+        {
+            RecordNumber = "R-" + Guid.Parse(runId).ToString("N"), RunId = runId,
+            OperationId = Guid.NewGuid().ToString("D"), StartRequestId = Guid.NewGuid().ToString("D"),
+            BenchId = "bench-test", NodeId = "node-test", ResultContractVersion = 2,
+            Scope = RunScope.Auto, ProductModelId = model.Id,
+            ProductIdentity = new ProductIdentity("SN001", null, null, null),
+            OperatorUserId = admin.Id, StartedAtUtc = clock.UtcNow,
+            ParameterSnapshot = XXX.TestBench.Core.Domain.TestParameters.TestParameterSnapshot.ToJson(await parameters.LoadEffectiveAsync(model.Id))
+        };
+        await using (var uow = uowFactory.Create())
+        {
+            await uow.BeginTransactionAsync();
+            await recordRepo.AddRecordAsync(record);
+            record.Complete(clock.UtcNow, "执行完成，产品未判定");
+            await recordRepo.UpdateRecordAsync(record);
+            await uow.CommitAsync();
+        }
 
         var persistedRecord = await recordRepo.GetRecordAsync(record.Id);
         Assert.NotNull(persistedRecord);

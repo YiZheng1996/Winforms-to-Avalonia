@@ -60,14 +60,6 @@ public sealed class AppComposition
     /// </summary>
     public ISqliteConnectionFactory? ConnectionFactory { get; private set; }
     /// <summary>
-    /// 试验执行服务。
-    /// </summary>
-    public TestExecutionService? TestExecution { get; private set; }
-    /// <summary>
-    /// 报表服务。
-    /// </summary>
-    public ReportService? Reports { get; private set; }
-    /// <summary>
     /// 设备配置应用和试验/写入共用的操作门。
     /// </summary>
     public DeviceOperationCoordinator? DeviceOperations { get; private set; }
@@ -102,8 +94,12 @@ public sealed class AppComposition
             appConfig.Validate();
             var driverRegistry = DriverRegistry.CreateDefault();
             var executorFactory = new ExecutorFactory();
+            var requiredSignals = executorFactory.Codes
+                .SelectMany(code => executorFactory.Get(code).RequiredSignals)
+                .ToList();
             var deviceConfigurationStore = new DeviceConfigurationStore(configRoot);
-            var bootstrapper = new DeviceConfigurationBootstrapper(configRoot, store, deviceConfigurationStore);
+            var bootstrapper = new DeviceConfigurationBootstrapper(
+                configRoot, store, deviceConfigurationStore, driverRegistry.Descriptors, requiredSignals);
             var bootstrap = bootstrapper.LoadAsync().GetAwaiter().GetResult();
             var snapshot = bootstrap.Snapshot;
             var deviceConfig = snapshot.Device;
@@ -112,7 +108,7 @@ public sealed class AppComposition
             MultiDeviceConfigurationValidator.EnsureValid(
                 snapshot,
                 driverRegistry.Descriptors,
-                executorFactory.Codes.SelectMany(code => executorFactory.Get(code).RequiredSignals).ToList());
+                requiredSignals);
 
             // 创建数据库并执行初始化。
             var clock = new SystemClock();
@@ -133,19 +129,20 @@ public sealed class AppComposition
             var sessions = new InMemorySessionManager();
             var unitOfWork = new SqliteUnitOfWork(factory);
             DeviceOperations = new DeviceOperationCoordinator();
+            var manualOperationGuard = new DeviceManualOperationGuard(DeviceOperations, recordRepo);
             var s7ClientFactory = new S7NetPlusPlcClientFactory();
             var modbusClientFactory = new NModbusClientFactory();
             var deviceEvents = new InMemoryDeviceEventHub();
-            var connectionTester = new CompositeDeviceConnectionTester(new[]
-            {
-                (DriverKeyCatalog.SiemensS7, (IDeviceConnectionTester)new S7DeviceConnectionTester(s7ClientFactory, DeviceOperations)),
-                (DriverKeyCatalog.ModbusTcp, (IDeviceConnectionTester)new ModbusTcpConnectionTester(modbusClientFactory, DeviceOperations)),
-                (DriverKeyCatalog.ModbusRtu, (IDeviceConnectionTester)new ModbusRtuConnectionTester(
+            var rawConnectionTester = new CompositeDeviceConnectionTester(
+            [
+                (DriverKeyCatalog.SiemensS7, new S7DeviceConnectionTester(s7ClientFactory)),
+                (DriverKeyCatalog.ModbusTcp, new ModbusTcpConnectionTester(modbusClientFactory)),
+                (DriverKeyCatalog.ModbusRtu, new ModbusRtuConnectionTester(
                     modbusClientFactory,
-                    DeviceOperations,
                     port => DeviceModes?.Runtime is MultiDeviceRuntime runtime
                         && runtime.IsSerialPortLeased(port)))
-            });
+            ]);
+            var connectionTester = new GuardedDeviceConnectionTester(manualOperationGuard, rawConnectionTester);
             DeviceConfigurations = new DeviceConfigurationService(
                 deviceConfigurationStore,
                 DeviceOperations,
@@ -153,19 +150,17 @@ public sealed class AppComposition
                 driverRegistry.Descriptors,
                 hasActiveRun: () => recordRepo.GetActiveRunningRecordAsync().GetAwaiter().GetResult() is not null,
                 runtimeFactory: (candidate, ct) => new DeviceRuntimeFactory(
-                    candidate.Device, candidate.Points, candidate.Simulation, clock, candidate.Revision,
-                    candidate.SignalBindings, s7ClientFactory, deviceEvents, modbusClientFactory)
+                    candidate, clock, s7ClientFactory, deviceEvents, modbusClientFactory,
+                    requiredSignals: requiredSignals)
                     .CreateAsync(ct),
                 currentRuntime: () => DeviceModes?.Runtime,
                 publishRuntime: runtime => DeviceModes is null
                     ? Task.FromException(new InvalidOperationException("设备模式控制器尚未创建"))
                     : DeviceModes.PublishStartedRuntimeAsync(runtime),
-                requiredSignals: executorFactory.Codes
-                    .SelectMany(code => executorFactory.Get(code).RequiredSignals)
-                    .ToList(),
+                requiredSignals: requiredSignals,
                 events: deviceEvents,
                 markRuntimeFaulted: error => DeviceModes?.MarkRuntimeFaulted(error));
-            var devicePoints = new DevicePointCatalogService(store, pointsConfig, audit, deviceConfig);
+            var devicePoints = new DevicePointCatalogService(pointsConfig);
             var devicePointImporter = new DevicePointImporter();
             var devicePointTemplateExporter = new DevicePointTemplateExporter();
             var devicePointCatalogExporter = new DevicePointCatalogExporter();
@@ -178,24 +173,23 @@ public sealed class AppComposition
             var testPoints = new TestPointService(pointRepo, configRepo, productRepo, executorFactory, clock, audit);
             var writePipeline = new DeviceWritePipeline(audit, Logger, DeviceOperations);
             var runtimeFactory = new DeviceRuntimeFactory(
-                deviceConfig, pointsConfig, simulationConfig, clock, snapshot.Revision, snapshot.SignalBindings,
-                s7ClientFactory, deviceEvents, modbusClientFactory);
+                snapshot, clock, s7ClientFactory, deviceEvents, modbusClientFactory,
+                requiredSignals: requiredSignals);
             DeviceModes = new DeviceModeController(runtimeFactory, Logger, audit);
             DeviceModes.InitializeAsync().GetAwaiter().GetResult();
+            var diagnosticReader = new DevicePointDiagnosticReader(
+                manualOperationGuard,
+                () => DeviceModes?.Runtime,
+                Logger);
 
             var reportRepository = new ReportRepository(factory);
-            var reportGenerator = new ClosedXmlReportGenerator();
-            TestExecution = new TestExecutionService(recordRepo, productRepo, executorFactory, testPoints, testParameters, clock, audit, uowFactory, DeviceOperations);
-            Reports = new ReportService(recordRepo, productRepo, userRepo, reportRepository, reportGenerator, clock, audit);
 
             var services = new ShellServices(
                 Authentication,
                 identityAdministration,
                 testPoints,
-                TestExecution,
                 new ProductService(productRepo, clock, audit),
                 testParameters,
-                Reports,
                 DeviceModes,
                 writePipeline,
                 recordRepo,
@@ -218,7 +212,9 @@ public sealed class AppComposition
                 DeviceConfigurations,
                 driverRegistry.Descriptors.ToList(),
                 connectionTester,
-                deviceEvents);
+                deviceEvents,
+                manualOperationGuard,
+                diagnosticReader);
 
             Shell = new ShellViewModel(services);
         }

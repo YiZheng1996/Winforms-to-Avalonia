@@ -12,12 +12,12 @@ using Xunit;
 namespace XXX.TestBench.Integration.Tests;
 
 /// <summary>
-/// 全链路：产品类型→产品型号→试验项点→项点配置→直编参数→启动(Simulation，固化快照)→完成→重启回读。
+/// 产品配置链路与重启回读；新版试验运行闭环待 W06 实现，不能沿用旧流程作为验收证据。
 /// </summary>
 public class FullLoopTests
 {
     [Fact]
-    public async Task CompleteBusinessLoop_PersistsAndSurvivesRestart()
+    public async Task ProductConfiguration_PersistsAndSurvivesRestart()
     {
         using var env = TestEnv.Create();
         var hasher = new Pbkdf2PasswordHasher();
@@ -56,44 +56,19 @@ public class FullLoopTests
         var executors = new Devices.Executors.ExecutorFactory();
         var testPoints = new TestPointService(pointRepo, configRepo, productRepo, executors, clock, audit);
         var point = await testPoints.CreatePointAsync(actor, type.Id, "耐压试验", "PressureExecutor", "PassFail", 1);
-        await testPoints.SaveConfigurationAsync(actor, model.Id, new[] { point.Id });
+        await testPoints.SaveConfigurationAsync(actor, model.Id, new[] { point.Id }, model.SequenceRevision);
         var sequence = await testPoints.GetSequenceAsync(model.Id);
         Assert.Single(sequence);
         Assert.Equal(point.Id, sequence[0].Id);
 
-        // 启动试验（固化参数与序列快照）→ 执行 → 完成
-        var execution = new TestExecutionService(recordRepo, productRepo, executors, testPoints, parameters, clock, audit);
-        var runtime = await new Devices.DeviceRuntimeFactory(
-                await new Infrastructure.Configuration.JsonConfigStore(env.ConfigRoot).LoadAsync<Core.Configuration.DeviceConfig>("device.json"),
-                await new Infrastructure.Configuration.JsonConfigStore(env.ConfigRoot).LoadAsync<Core.Configuration.PointsConfig>("points.json"),
-                await new Infrastructure.Configuration.JsonConfigStore(env.ConfigRoot).LoadAsync<Core.Configuration.SimulationConfig>("simulation.json"),
-                clock)
-            .CreateAsync(DeviceMode.Simulation);
-        await runtime.StartAsync();
-
-        var record = await execution.StartAsync(actor, model.Id, new ProductIdentity("SN001", "B2026", "S1", "测试"), DeviceMode.Simulation, runtime);
-        Assert.NotNull(record.ParameterSnapshot);
-        Assert.NotNull(record.SequenceSnapshot);
-        var itemResult = await execution.ExecuteItemAsync(actor, record.Id, point.Id, runtime);
-        await execution.CompleteAsync(actor, record.Id);
-        Assert.Equal(ItemResultState.Passed, itemResult.State);
-        await runtime.StopAsync();
-
         // 重启回读
         var factory2 = new SqliteConnectionFactory(env.DbPath);
         await new SqliteDatabase(factory2, hasher).InitializeAsync();
-        var recordRepo2 = new RecordRepository(factory2);
-        var reloaded = await recordRepo2.GetRecordAsync(record.Id);
-
-        Assert.NotNull(reloaded);
-        Assert.Equal(RecordState.Completed, reloaded!.State);
-        Assert.Equal("SN001", reloaded.ProductIdentity.ProductNumber);
-        Assert.Equal(record.RecordNumber, reloaded.RecordNumber);
-
-        var recordCount = Convert.ToInt64(await factory2.Db.Ado.ExecuteScalarAsync(
-            "SELECT COUNT(1) FROM test_records WHERE record_number=@recordNumber",
-            new { recordNumber = record.RecordNumber }, default));
-        Assert.Equal(1L, recordCount);
+        var productRepo2 = new ProductRepository(factory2);
+        Assert.Equal(model.Name, (await productRepo2.GetModelAsync(model.Id))?.Name);
+        var parameters2 = new TestParameterService(new TestParameterRepository(factory2), productRepo2, clock, audit);
+        Assert.Equal(effective, await parameters2.LoadEffectiveAsync(model.Id));
+        Assert.Empty(await new RecordRepository(factory2).ListRecordsAsync(null));
 
         // 任务表已不存在
         var taskTableCount = Convert.ToInt64(await factory2.Db.Ado.ExecuteScalarAsync(

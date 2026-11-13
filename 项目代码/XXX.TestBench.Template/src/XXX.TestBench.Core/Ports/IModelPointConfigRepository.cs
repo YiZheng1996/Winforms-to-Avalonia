@@ -12,7 +12,11 @@ public interface IModelPointConfigRepository
     /// </summary>
     Task<IReadOnlyList<ModelPointConfig>> ListByModelAsync(int productModelId, CancellationToken ct = default);
     /// <summary>
-    /// 整表替换某产品型号的项点配置。
+    /// 按预期顺序版本整表替换某产品型号的项点配置；版本不匹配时拒绝覆盖。
     /// </summary>
-    Task ReplaceAsync(int productModelId, IReadOnlyList<ModelPointConfig> configs, CancellationToken ct = default);
+    Task ReplaceAsync(
+        int productModelId,
+        IReadOnlyList<ModelPointConfig> configs,
+        long expectedSequenceRevision,
+        CancellationToken ct = default);
 }

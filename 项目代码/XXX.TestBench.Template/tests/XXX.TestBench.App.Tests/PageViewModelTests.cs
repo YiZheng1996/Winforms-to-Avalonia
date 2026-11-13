@@ -25,7 +25,9 @@ public class PageViewModelTests
     private static async Task<int> SeedPointAndConfigAsync(AppTestHarness harness, UserContext actor, int typeId, int modelId)
     {
         var point = await harness.Services.TestPoints.CreatePointAsync(actor, typeId, "耐压试验", "PressureExecutor", "PassFail", 1);
-        await harness.Services.TestPoints.SaveConfigurationAsync(actor, modelId, new[] { point.Id });
+        var model = await harness.Services.ProductRepository.GetModelAsync(modelId)
+            ?? throw new InvalidOperationException("产品型号不存在");
+        await harness.Services.TestPoints.SaveConfigurationAsync(actor, modelId, new[] { point.Id }, model.SequenceRevision);
         return point.Id;
     }
 
@@ -76,7 +78,7 @@ public class PageViewModelTests
     }
 
     [Fact]
-    public async Task TestExecution_FullRun()
+    public async Task TestExecution_RetiredEntryCannotCreateOrExecuteRecords()
     {
         var (harness, actor) = await AdminAsync();
         var (typeId, modelId) = await SeedProductAsync(harness, actor);
@@ -87,19 +89,19 @@ public class PageViewModelTests
         await vm.LoadAsync();
         Assert.Single(vm.ProductTypes);
         Assert.Single(vm.ProductModels);
-        Assert.True(vm.DeviceReady);
+        Assert.False(vm.StartCommand.CanExecute(null));
+        Assert.False(vm.FinishCommand.CanExecute(null));
+        Assert.False(vm.ExecuteItemCommand.CanExecute(null));
 
         vm.ProductNumberInput = "SN001";
         await vm.StartAsync();
-        Assert.Equal("Running", vm.RecordStateText);
-        Assert.Single(vm.Items);
-
-        await vm.ExecuteItemAsync(vm.Items[0]);
-        Assert.Equal("Passed", vm.Items[0].StateText);
-
+        await vm.ExecuteItemAsync(null);
         await vm.FinishAsync();
-        Assert.Equal("Completed", vm.RecordStateText);
-        Assert.Contains("全部通过", vm.Conclusion);
+        Assert.Equal("暂不可用", vm.RecordStateText);
+        Assert.Empty(vm.Items);
+        Assert.Empty(vm.Conclusion);
+        Assert.Equal(TestExecutionViewModel.UnavailableMessage, vm.StatusMessage);
+        Assert.Empty(await harness.Services.RecordRepository.ListRecordsAsync(null));
     }
 
     [Fact]

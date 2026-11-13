@@ -18,6 +18,23 @@ public sealed class TestRecord
     /// </summary>
     public required string RecordNumber { get; init; }
     /// <summary>
+    /// 稳定运行标识；当前版本新建记录必须提供，历史导入也由离线工具分配稳定标识。
+    /// </summary>
+    public string? RunId { get; init; }
+    /// <summary>
+    /// 开始请求标识，用于查证提交结果未知的重试。
+    /// </summary>
+    public string? StartRequestId { get; init; }
+    /// <summary>
+    /// 本次准备/执行操作标识。
+    /// </summary>
+    public string? OperationId { get; init; }
+    /// <summary>
+    /// 试验台和控制节点身份；旧版记录为空。
+    /// </summary>
+    public string? BenchId { get; init; }
+    public string? NodeId { get; init; }
+    /// <summary>
     /// 试验产品型号编号。
     /// </summary>
     public required int ProductModelId { get; init; }
@@ -25,6 +42,26 @@ public sealed class TestRecord
     /// 产品标识快照。
     /// </summary>
     public required ProductIdentity ProductIdentity { get; init; }
+    /// <summary>
+    /// 记录创建时的型号名称，避免主数据变更破坏历史展示。
+    /// </summary>
+    public string? ModelNameSnapshot { get; init; }
+    /// <summary>
+    /// 记录创建时的操作员名称。
+    /// </summary>
+    public string? OperatorNameSnapshot { get; init; }
+    /// <summary>
+    /// 结果合同版本；旧数据按版本 1 只读。
+    /// </summary>
+    public int ResultContractVersion { get; init; } = 2;
+    /// <summary>
+    /// 本次冻结的执行范围；旧版记录为空。
+    /// </summary>
+    public RunScope? Scope { get; init; }
+    /// <summary>
+    /// 可选的复测来源 RunId。
+    /// </summary>
+    public string? PreviousRunId { get; init; }
     /// <summary>
     /// 试验参数快照。
     /// </summary>
@@ -57,6 +94,38 @@ public sealed class TestRecord
     /// 最终结论或失败原因。
     /// </summary>
     public string? Conclusion { get; set; }
+    /// <summary>
+    /// Excel 判定原文；旧版本按迁移记录保留，不在此字段重算。
+    /// </summary>
+    public string? EvaluationText { get; set; }
+    /// <summary>
+    /// 产品判定状态；空值用于无法证明判定来源的旧记录。
+    /// </summary>
+    public EvaluationState? EvaluationState { get; set; }
+    /// <summary>
+    /// 结论来源的稳定代码，由对应合同定义，不使用自由文本推断。
+    /// </summary>
+    public string? ConclusionSource { get; set; }
+    /// <summary>
+    /// 执行故障/中止/中断原因，与产品结论分开保存。
+    /// </summary>
+    public string? ExecutionError { get; set; }
+    /// <summary>
+    /// 型号资源及其摘要快照。
+    /// </summary>
+    public string? ResourceSnapshotJson { get; init; }
+    /// <summary>
+    /// 准备、自检及设备前置状态快照。
+    /// </summary>
+    public string? PrecheckSnapshotJson { get; init; }
+    /// <summary>
+    /// 完成时冻结的报表输入原文及其摘要。
+    /// </summary>
+    public string? ReportInputJson { get; set; }
+    public string? InputHash { get; set; }
+    public string? ExecutionEvidenceKey { get; set; }
+    public string? CurrentReportRevisionId { get; set; }
+    public long RowVersion { get; set; }
     /// <summary>
     /// 开始时间。
     /// </summary>

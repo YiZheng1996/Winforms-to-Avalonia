@@ -138,7 +138,7 @@ public class TestPointServiceTests
         var p1 = await ctx.Service.CreatePointAsync(actor, ctx.Type.Id, "项点A", "PressureExecutor", "PassFail", 1);
         var p2 = await ctx.Service.CreatePointAsync(actor, ctx.Type.Id, "项点B", "PressureExecutor", "PassFail", 2);
 
-        await ctx.Service.SaveConfigurationAsync(actor, ctx.Model.Id, new[] { p2.Id, p1.Id });
+        await ctx.Service.SaveConfigurationAsync(actor, ctx.Model.Id, new[] { p2.Id, p1.Id }, ctx.Model.SequenceRevision);
 
         var sequence = await ctx.Service.GetSequenceAsync(ctx.Model.Id);
         Assert.Equal(2, sequence.Count);
@@ -155,7 +155,7 @@ public class TestPointServiceTests
         await ctx.Service.UpdatePointAsync(actor, point.Id, "耐压试验", "PressureExecutor", "PassFail", isEnabled: false, sortOrder: 1);
 
         await Assert.ThrowsAsync<DomainException>(() =>
-            ctx.Service.SaveConfigurationAsync(actor, ctx.Model.Id, new[] { point.Id }));
+            ctx.Service.SaveConfigurationAsync(actor, ctx.Model.Id, new[] { point.Id }, ctx.Model.SequenceRevision));
     }
 
     [Fact]
@@ -165,7 +165,7 @@ public class TestPointServiceTests
         var actor = TestContexts.With(PermissionCode.ManageTestPoints);
         var p1 = await ctx.Service.CreatePointAsync(actor, ctx.Type.Id, "项点A", "PressureExecutor", "PassFail", 1);
         var p2 = await ctx.Service.CreatePointAsync(actor, ctx.Type.Id, "项点B", "PressureExecutor", "PassFail", 2);
-        await ctx.Service.SaveConfigurationAsync(actor, ctx.Model.Id, new[] { p1.Id, p2.Id });
+        await ctx.Service.SaveConfigurationAsync(actor, ctx.Model.Id, new[] { p1.Id, p2.Id }, ctx.Model.SequenceRevision);
         await ctx.Service.UpdatePointAsync(actor, p2.Id, "项点B", "PressureExecutor", "PassFail", isEnabled: false, sortOrder: 2);
 
         var sequence = await ctx.Service.GetSequenceAsync(ctx.Model.Id);

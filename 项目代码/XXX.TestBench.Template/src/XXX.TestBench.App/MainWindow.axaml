@@ -71,6 +71,69 @@
       <Setter Property="Background" Value="#EDF4FF" />
       <Setter Property="Foreground" Value="#0868F7" />
     </Style>
+    <Style Selector="Button.process-choice-field">
+      <Setter Property="Height" Value="40" />
+      <Setter Property="Padding" Value="12,0" />
+      <Setter Property="Background" Value="#FFFFFF" />
+      <Setter Property="Foreground" Value="#142B4E" />
+      <Setter Property="BorderBrush" Value="#CBD8E8" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="5" />
+      <Setter Property="HorizontalAlignment" Value="Stretch" />
+      <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
+    <Style Selector="Button.process-choice-field:pointerover">
+      <Setter Property="Background" Value="#F5F9FF" />
+      <Setter Property="BorderBrush" Value="#0868F7" />
+    </Style>
+    <Style Selector="TextBox.process-entry-field">
+      <Setter Property="Height" Value="40" />
+      <Setter Property="Padding" Value="11,7" />
+      <Setter Property="Background" Value="#FFFFFF" />
+      <Setter Property="Foreground" Value="#142B4E" />
+      <Setter Property="BorderBrush" Value="#CBD8E8" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="5" />
+      <Setter Property="FontSize" Value="15" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
+    <Style Selector="Button.process-confirm-button">
+      <Setter Property="Width" Value="112" />
+      <Setter Property="Height" Value="40" />
+      <Setter Property="Padding" Value="16,0" />
+      <Setter Property="Background" Value="#0868F7" />
+      <Setter Property="Foreground" Value="White" />
+      <Setter Property="BorderBrush" Value="#0868F7" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="5" />
+      <Setter Property="FontSize" Value="15" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+    <Style Selector="Border.product-confirm-status">
+      <Setter Property="MinWidth" Value="156" />
+      <Setter Property="Height" Value="40" />
+      <Setter Property="Padding" Value="10,0" />
+      <Setter Property="Background" Value="#F7F9FC" />
+      <Setter Property="CornerRadius" Value="5" />
+    </Style>
+    <Style Selector="Border.product-confirm-status.confirmed">
+      <Setter Property="Background" Value="#F0FFF5" />
+    </Style>
+    <Style Selector="Ellipse.product-confirm-dot">
+      <Setter Property="Fill" Value="#98A2B3" />
+    </Style>
+    <Style Selector="Ellipse.product-confirm-dot.confirmed">
+      <Setter Property="Fill" Value="#18A654" />
+    </Style>
+    <Style Selector="TextBlock.product-confirm-text">
+      <Setter Property="Foreground" Value="#63718A" />
+      <Setter Property="FontSize" Value="14" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+    <Style Selector="TextBlock.product-confirm-text.confirmed">
+      <Setter Property="Foreground" Value="#168B49" />
+    </Style>
   </Window.Styles>
 
   <Grid RowDefinitions="66,*">
@@ -142,8 +205,10 @@
       <!-- 产品、业务内容、控制条、底部状态 -->
       <Grid Grid.Column="1" RowDefinitions="Auto,*,Auto,Auto">
         <Border x:Name="ProductInfoBar" Grid.Row="0" IsVisible="{Binding ShowProductInfoBar}"
-                MinHeight="70" Background="White" BorderBrush="#D6DEEA" BorderThickness="0,0,0,1">
-          <Grid>
+                MinHeight="70" Background="#F5F8FC" BorderThickness="0" Padding="12,10,12,0">
+          <Border x:Name="ProductInfoCard" Background="White" BorderBrush="#D6E1EE"
+                  BorderThickness="1" CornerRadius="7">
+            <Grid>
             <!-- 总览页保留原有产品上下文和展示字段；车号/备注不会泄漏到工艺页。 -->
             <Grid x:Name="OverviewProductInfoLayout" IsVisible="{Binding IsOverviewPage}"
                   ColumnDefinitions="2.2*,1.0*,1.1*,1.5*,0.7*,0.5*">
@@ -191,63 +256,85 @@
             </Grid>
 
             <Grid x:Name="ProcessProductInfoWide" IsVisible="{Binding IsProcessMonitorPage}"
-                  ColumnDefinitions="1.25*,1.35*,1.2*,Auto" Margin="16,0">
-              <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                <TextBlock Text="产品类型：" FontSize="16" FontWeight="SemiBold" />
-                <TextBlock Text="{Binding CurrentProductTypeText}" FontSize="16" TextTrimming="CharacterEllipsis"
-                           ToolTip.Tip="{Binding CurrentProductTypeText}" />
-              </StackPanel>
-              <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" Margin="12,0" VerticalAlignment="Center">
-                <TextBlock Text="产品型号：" FontSize="16" FontWeight="SemiBold" />
-                <TextBlock Text="{Binding CurrentProductModelText}" FontSize="16" TextTrimming="CharacterEllipsis"
-                           ToolTip.Tip="{Binding CurrentProductModelText}" />
-              </StackPanel>
-              <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" Margin="12,0" VerticalAlignment="Center">
-                <TextBlock Text="产品编号：" FontSize="16" FontWeight="SemiBold" />
-                <TextBlock Text="{Binding CurrentProductNumberText}" FontSize="16" TextTrimming="CharacterEllipsis"
-                           ToolTip.Tip="{Binding CurrentProductNumberText}" />
-              </StackPanel>
-              <Button Grid.Column="3" Classes="product-selector" Click="OnProductSelectorClick"
-                      AutomationProperties.Name="选择产品型号" HorizontalAlignment="Right">
-                <Border Width="116" Height="42" Background="White" BorderBrush="#0868F7"
-                        BorderThickness="1" CornerRadius="3" Padding="8,0">
-                  <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Center" VerticalAlignment="Center">
-                    <TextBlock Text="选择型号" Foreground="#0868F7" FontSize="16" FontWeight="SemiBold" />
-                    <icons:AppIcon Kind="ChevronRight" Width="14" Height="14" Stroke="#0868F7" />
-                  </StackPanel>
-                </Border>
+                  ColumnDefinitions="Auto,1*,Auto,1*,Auto,1.08*,Auto,1*,Auto,Auto" ColumnSpacing="10" Margin="16,0">
+              <TextBlock Grid.Column="0" Text="产品类型" FontSize="15" FontWeight="SemiBold" VerticalAlignment="Center" />
+              <Button x:Name="ProcessProductTypeField" Grid.Column="1" Classes="process-choice-field"
+                      Click="OnProductSelectorClick" AutomationProperties.Name="选择产品类型">
+                <Grid ColumnDefinitions="*,Auto">
+                  <TextBlock Text="{Binding CurrentProductTypeText}" FontSize="15" TextTrimming="CharacterEllipsis"
+                             ToolTip.Tip="{Binding CurrentProductTypeText}" VerticalAlignment="Center" />
+                  <icons:AppIcon Grid.Column="1" Kind="ChevronDown" Width="12" Height="12" Stroke="#53627A"
+                                VerticalAlignment="Center" />
+                </Grid>
               </Button>
+              <TextBlock Grid.Column="2" Text="产品型号" FontSize="15" FontWeight="SemiBold" VerticalAlignment="Center" />
+              <Button x:Name="ProcessProductModelField" Grid.Column="3" Classes="process-choice-field"
+                      Click="OnProductSelectorClick" AutomationProperties.Name="选择产品型号">
+                <Grid ColumnDefinitions="*,Auto">
+                  <TextBlock Text="{Binding CurrentProductModelText}" FontSize="15" TextTrimming="CharacterEllipsis"
+                             ToolTip.Tip="{Binding CurrentProductModelText}" VerticalAlignment="Center" />
+                  <icons:AppIcon Grid.Column="1" Kind="ChevronDown" Width="12" Height="12" Stroke="#53627A"
+                                VerticalAlignment="Center" />
+                </Grid>
+              </Button>
+              <TextBlock Grid.Column="4" Text="产品编号" FontSize="15" FontWeight="SemiBold" VerticalAlignment="Center" />
+              <TextBox x:Name="ProcessProductNumberInput" Grid.Column="5" Classes="process-entry-field"
+                       Watermark="请输入产品编号" Text="{Binding ProductNumberInput, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+              <TextBlock Grid.Column="6" Text="车号" FontSize="15" FontWeight="SemiBold" VerticalAlignment="Center" />
+              <TextBox x:Name="ProcessVehicleNumberInput" Grid.Column="7" Classes="process-entry-field"
+                       Watermark="请输入车号" Text="{Binding VehicleNumberInput, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+              <Button Grid.Column="8" Classes="process-confirm-button" Content="确认选择"
+                      Click="OnConfirmProductContextClick" AutomationProperties.Name="确认产品信息" />
+              <Border Grid.Column="9" Classes="product-confirm-status"
+                      Classes.confirmed="{Binding IsProductContextConfirmed}">
+                <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Center" VerticalAlignment="Center">
+                  <Ellipse Width="14" Height="14" Classes="product-confirm-dot"
+                           Classes.confirmed="{Binding IsProductContextConfirmed}" />
+                  <TextBlock Text="{Binding ProductContextStatusText}" Classes="product-confirm-text"
+                             Classes.confirmed="{Binding IsProductContextConfirmed}" />
+                </StackPanel>
+              </Border>
             </Grid>
 
             <Grid x:Name="ProcessProductInfoCompact" IsVisible="False"
-                  RowDefinitions="52,52" ColumnDefinitions="1.2*,1.35*,Auto" Margin="16,0">
-              <StackPanel Grid.Row="0" Grid.Column="0" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
-                <TextBlock Text="产品类型：" FontSize="16" FontWeight="SemiBold" />
-                <TextBlock Text="{Binding CurrentProductTypeText}" FontSize="16" TextTrimming="CharacterEllipsis"
-                           ToolTip.Tip="{Binding CurrentProductTypeText}" />
-              </StackPanel>
-              <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal" Spacing="6" Margin="8,0" VerticalAlignment="Center">
-                <TextBlock Text="产品型号：" FontSize="16" FontWeight="SemiBold" />
-                <TextBlock Text="{Binding CurrentProductModelText}" FontSize="16" TextTrimming="CharacterEllipsis"
-                           ToolTip.Tip="{Binding CurrentProductModelText}" />
-              </StackPanel>
-              <StackPanel Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
-                <TextBlock Text="产品编号：" FontSize="16" FontWeight="SemiBold" />
-                <TextBlock Text="{Binding CurrentProductNumberText}" FontSize="16" TextTrimming="CharacterEllipsis"
-                           ToolTip.Tip="{Binding CurrentProductNumberText}" />
-              </StackPanel>
-              <Button Grid.Row="1" Grid.Column="2" Classes="product-selector" Click="OnProductSelectorClick"
-                      AutomationProperties.Name="选择产品型号" HorizontalAlignment="Right">
-                <Border Width="116" Height="42" Background="White" BorderBrush="#0868F7"
-                        BorderThickness="1" CornerRadius="3" Padding="8,0">
-                  <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Center" VerticalAlignment="Center">
-                    <TextBlock Text="选择型号" Foreground="#0868F7" FontSize="16" FontWeight="SemiBold" />
-                    <icons:AppIcon Kind="ChevronRight" Width="14" Height="14" Stroke="#0868F7" />
-                  </StackPanel>
-                </Border>
+                  RowDefinitions="52,52" ColumnDefinitions="Auto,1*,Auto,1*,Auto" ColumnSpacing="8" Margin="16,0">
+              <TextBlock Grid.Row="0" Grid.Column="0" Text="产品类型" FontSize="15" FontWeight="SemiBold" VerticalAlignment="Center" />
+              <Button Grid.Row="0" Grid.Column="1" Classes="process-choice-field" Click="OnProductSelectorClick"
+                      AutomationProperties.Name="选择产品类型">
+                <Grid ColumnDefinitions="*,Auto">
+                  <TextBlock Text="{Binding CurrentProductTypeText}" FontSize="15" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                  <icons:AppIcon Grid.Column="1" Kind="ChevronDown" Width="12" Height="12" Stroke="#53627A" />
+                </Grid>
               </Button>
+              <TextBlock Grid.Row="0" Grid.Column="2" Text="产品型号" FontSize="15" FontWeight="SemiBold" VerticalAlignment="Center" />
+              <Button Grid.Row="0" Grid.Column="3" Classes="process-choice-field" Click="OnProductSelectorClick"
+                      AutomationProperties.Name="选择产品型号">
+                <Grid ColumnDefinitions="*,Auto">
+                  <TextBlock Text="{Binding CurrentProductModelText}" FontSize="15" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                  <icons:AppIcon Grid.Column="1" Kind="ChevronDown" Width="12" Height="12" Stroke="#53627A" />
+                </Grid>
+              </Button>
+              <Button Grid.Row="0" Grid.Column="4" Classes="process-confirm-button" Content="确认选择"
+                      Click="OnConfirmProductContextClick" AutomationProperties.Name="确认产品信息" />
+
+              <TextBlock Grid.Row="1" Grid.Column="0" Text="产品编号" FontSize="15" FontWeight="SemiBold" VerticalAlignment="Center" />
+              <TextBox Grid.Row="1" Grid.Column="1" Classes="process-entry-field" Watermark="请输入产品编号"
+                       Text="{Binding ProductNumberInput, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+              <TextBlock Grid.Row="1" Grid.Column="2" Text="车号" FontSize="15" FontWeight="SemiBold" VerticalAlignment="Center" />
+              <TextBox Grid.Row="1" Grid.Column="3" Classes="process-entry-field" Watermark="请输入车号"
+                       Text="{Binding VehicleNumberInput, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+              <Border Grid.Row="1" Grid.Column="4" Classes="product-confirm-status"
+                      Classes.confirmed="{Binding IsProductContextConfirmed}">
+                <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Center" VerticalAlignment="Center">
+                  <Ellipse Width="14" Height="14" Classes="product-confirm-dot"
+                           Classes.confirmed="{Binding IsProductContextConfirmed}" />
+                  <TextBlock Text="{Binding ProductContextStatusText}" Classes="product-confirm-text"
+                             Classes.confirmed="{Binding IsProductContextConfirmed}" />
+                </StackPanel>
+              </Border>
             </Grid>
-          </Grid>
+            </Grid>
+          </Border>
         </Border>
 
         <Border x:Name="WorkspaceRegion" Grid.Row="1" Background="#F5F8FC" Padding="12,12,12,0">
@@ -292,7 +379,7 @@
 
             <Border Grid.Column="3" BorderBrush="#D7DFEA" BorderThickness="1,0,0,0">
               <Button Classes="test-action" Background="#C9D0DB" Foreground="White" BorderThickness="0"
-                      IsHitTestVisible="False" Focusable="False">
+                      IsEnabled="False" ToolTip.Tip="试验功能暂不可用" Focusable="False">
                 <StackPanel Orientation="Horizontal" Spacing="10">
                   <icons:AppIcon Kind="Play" Width="16" Height="16" Stroke="{Binding $parent[Button].Foreground}" />
                   <TextBlock Text="开始试验" />
@@ -300,7 +387,7 @@
               </Button>
             </Border>
             <Button Grid.Column="4" Classes="test-action" Background="#F5222D" Foreground="White" BorderThickness="0"
-                    Tag="试验执行" Click="OnNavigateToTitleClick">
+                    IsEnabled="False" ToolTip.Tip="试验功能暂不可用">
               <StackPanel Orientation="Horizontal" Spacing="12">
                 <icons:AppIcon Kind="Stop" Width="16" Height="16" Stroke="{Binding $parent[Button].Foreground}" />
                 <TextBlock Text="结束试验" />

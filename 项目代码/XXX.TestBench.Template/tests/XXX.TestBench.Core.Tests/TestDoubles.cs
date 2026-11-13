@@ -1,5 +1,6 @@
 using XXX.TestBench.Core.Application;
 using XXX.TestBench.Core.Common;
+using XXX.TestBench.Core.Configuration;
 using XXX.TestBench.Core.Domain.Devices;
 using XXX.TestBench.Core.Domain.Identity;
 using XXX.TestBench.Core.Domain.Products;
@@ -324,13 +325,22 @@ public sealed class FakeTestPointRepository : ITestPointRepository
 public sealed class FakeModelPointConfigRepository : IModelPointConfigRepository
 {
     public Dictionary<int, List<ModelPointConfig>> ByModel { get; } = new();
+    private readonly Dictionary<int, long> _sequenceRevisions = new();
 
     public Task<IReadOnlyList<ModelPointConfig>> ListByModelAsync(int productModelId, CancellationToken ct = default)
         => Task.FromResult<IReadOnlyList<ModelPointConfig>>(ByModel.TryGetValue(productModelId, out var list) ? list.OrderBy(c => c.SortOrder).ToList() : new List<ModelPointConfig>());
 
-    public Task ReplaceAsync(int productModelId, IReadOnlyList<ModelPointConfig> configs, CancellationToken ct = default)
+    public Task ReplaceAsync(
+        int productModelId,
+        IReadOnlyList<ModelPointConfig> configs,
+        long expectedSequenceRevision,
+        CancellationToken ct = default)
     {
+        var currentRevision = _sequenceRevisions.GetValueOrDefault(productModelId);
+        if (currentRevision != expectedSequenceRevision)
+            throw new InvalidOperationException("型号项点顺序版本冲突");
         ByModel[productModelId] = configs.ToList();
+        _sequenceRevisions[productModelId] = checked(expectedSequenceRevision + 1);
         return Task.CompletedTask;
     }
 }
@@ -380,41 +390,83 @@ public sealed class FakeRuntime : IDeviceRuntime
     private readonly DeviceRuntimeInfo _status;
     private readonly Dictionary<string, object?> _values = new();
     private readonly Func<string, object?>? _readOverride;
+    private DevicePoint? _currentPoint;
     public List<string> Writes { get; } = new();
 
     public FakeRuntime(bool isSimulation, DeviceHealth health = DeviceHealth.Healthy, bool connected = true, Func<string, object?>? readOverride = null)
     {
         IsSimulation = isSimulation;
         _readOverride = readOverride;
-        _status = new DeviceRuntimeInfo(Name, "Fake", "fake://1", isSimulation, health, connected, null);
+        _status = new DeviceRuntimeInfo(Name, "Fake", "fake://1", isSimulation, health, connected, null,
+            "fake-device", "fake-channel", "fake-revision", 1,
+            DeviceConnectionState.Online, isSimulation ? DeviceMode.Simulation : DeviceMode.Hardware);
     }
 
     public string Name => "Fake";
     public DeviceMode Mode => IsSimulation ? DeviceMode.Simulation : DeviceMode.Hardware;
     public bool IsSimulation { get; }
     public DeviceRuntimeInfo Status => _status;
-    public Task StartAsync(CancellationToken ct = default) => Task.CompletedTask;
-    public Task StopAsync(CancellationToken ct = default) => Task.CompletedTask;
+    public string ActiveRevision => _status.Revision;
+    public SignalBindingsConfig SignalBindings => new();
+    public RuntimeActivationReport ActivationReport => RuntimeActivationReport.Empty;
+    public int StartCount { get; private set; }
+    public int StopCount { get; private set; }
+    public Task StartAsync(CancellationToken ct = default)
+    {
+        StartCount++;
+        return Task.CompletedTask;
+    }
+    public Task StopAsync(CancellationToken ct = default)
+    {
+        StopCount++;
+        return Task.CompletedTask;
+    }
     public ValueTask DisposeAsync() => ValueTask.CompletedTask;
     public Task<IReadOnlyList<DevicePoint>> ListPointsAsync(CancellationToken ct = default)
         => Task.FromResult<IReadOnlyList<DevicePoint>>(Array.Empty<DevicePoint>());
+    public bool TryGetCachedValue(string pointId, out PointValue value)
+    {
+        value = default!;
+        return false;
+    }
+    public IReadOnlyList<PointValue> ListCachedValues() => Array.Empty<PointValue>();
+    public DeviceRuntimeInfo GetDeviceStatus(string deviceId)
+    {
+        if (!string.Equals(deviceId, _status.DeviceId, StringComparison.OrdinalIgnoreCase))
+            throw new DomainException($"设备 {deviceId} 不在测试运行时");
+        return _status;
+    }
+    public IReadOnlyList<DeviceRuntimeInfo> ListDeviceStatuses() => new[] { _status };
+    public DevicePoint? GetPoint(string pointId) => GetRegisteredPoint(pointId);
     public Task<PointValue> ReadAsync(DevicePoint point, CancellationToken ct = default)
-        => Task.FromResult(new PointValue(point.Code, point.Address, PointQuality.Good, _readOverride is not null ? _readOverride(point.Address) : (_values.TryGetValue(point.Address, out var v) ? v : null), DateTime.UtcNow));
+        => Task.FromResult(CreatePointValue(point, _readOverride is not null ? _readOverride(point.Address) : (_values.TryGetValue(point.Address, out var v) ? v : null)));
+    public void RegisterPoint(DevicePoint point) => _currentPoint = point;
+    public DevicePoint? GetRegisteredPoint(string pointId)
+        => _currentPoint is not null && string.Equals(_currentPoint.PointId, pointId, StringComparison.OrdinalIgnoreCase)
+            ? _currentPoint
+            : null;
+    public Task<PointValue> ReadFreshAsync(string pointId, CancellationToken ct = default)
+    {
+        var point = GetRegisteredPoint(pointId) ?? throw new DomainException($"点位 {pointId} 不在测试运行时");
+        var value = _readOverride is not null ? _readOverride(point.Address) : (_values.TryGetValue(point.Address, out var cached) ? cached : null);
+        return Task.FromResult(CreatePointValue(point, value));
+    }
     public Task<PointValue> WriteAsync(DevicePoint point, object? value, CancellationToken ct = default)
     {
         Writes.Add($"{point.Code}={value}");
         _values[point.Address] = value;
-        return Task.FromResult(new PointValue(point.Code, point.Address, PointQuality.Good, value, DateTime.UtcNow));
+        return Task.FromResult(CreatePointValue(point, value));
     }
+
+    private PointValue CreatePointValue(DevicePoint point, object? value)
+        => new(point.Code, point.Address, PointQuality.Good, value, DateTime.UtcNow,
+            point.PointId, point.DeviceId, _status.ConnectionGeneration, point.Revision, value);
 }
 
 public sealed class FakeRuntimeFactory : IDeviceRuntimeFactory
 {
-    public Task<IDeviceRuntime> CreateAsync(DeviceMode mode, CancellationToken ct = default)
-    {
-        if (mode == DeviceMode.Simulation) return Task.FromResult<IDeviceRuntime>(new FakeRuntime(true));
-        throw new DomainException("Hardware 无适配器");
-    }
+    public Task<IDeviceRuntime> CreateAsync(CancellationToken ct = default)
+        => Task.FromResult<IDeviceRuntime>(new FakeRuntime(true));
 }
 
 public static class TestContexts
@@ -434,30 +486,82 @@ public sealed class FakeReportRepository : IReportRepository
     public List<ReportRecord> Records { get; } = new();
     private int _nextId = 1;
 
-    public Task AddAsync(ReportRecord record, CancellationToken ct = default)
+    public Task<ReportRecord> CreatePendingAsync(ReportRecord record, CancellationToken ct = default)
     {
+        var existing = Records.FirstOrDefault(r => r.RequestId == record.RequestId);
+        if (existing is not null)
+        {
+            if (existing.TestRecordId != record.TestRecordId || existing.InputHash != record.InputHash
+                || existing.RevisionId != record.RevisionId)
+                throw new InvalidOperationException("报表请求标识已用于不同输入");
+            return Task.FromResult(existing);
+        }
         if (record.Id == 0) record.Id = _nextId++;
+        record.RevisionNo = Records.Where(r => r.TestRecordId == record.TestRecordId)
+            .Select(r => r.RevisionNo ?? 0).DefaultIfEmpty().Max() + 1;
         Records.Add(record);
-        return Task.CompletedTask;
+        return Task.FromResult(record);
     }
 
-    public Task UpdateAsync(ReportRecord record, CancellationToken ct = default) => Task.CompletedTask;
     public Task<ReportRecord?> GetAsync(int id, CancellationToken ct = default)
         => Task.FromResult(Records.FirstOrDefault(r => r.Id == id));
+    public Task<ReportRecord?> GetByRequestIdAsync(string requestId, CancellationToken ct = default)
+        => Task.FromResult(Records.FirstOrDefault(r => r.RequestId == requestId));
     public Task<IReadOnlyList<ReportRecord>> ListByRecordAsync(int testRecordId, CancellationToken ct = default)
         => Task.FromResult<IReadOnlyList<ReportRecord>>(Records.Where(r => r.TestRecordId == testRecordId).ToList());
-}
 
-public sealed class FakeReportGenerator : IReportGenerator
-{
-    public List<ReportData> Calls { get; } = new();
-    public bool Fail { get; set; }
+    public Task<IReadOnlyList<ReportRecord>> ListRecoverableAsync(string ownerNodeId, CancellationToken ct = default)
+        => Task.FromResult<IReadOnlyList<ReportRecord>>(Records.Where(r => r.OwnerNodeId == ownerNodeId
+            && r.Status is ReportStatus.Pending or ReportStatus.Generating).ToList());
 
-    public Task<string> GenerateAsync(ReportData data, string templatePath, string outputDirectory, CancellationToken ct = default)
+    public Task<bool> TryClaimAsync(string revisionId, string ownerNodeId, ReportStatus expectedStatus,
+        string attemptToken, CancellationToken ct = default)
     {
-        Calls.Add(data);
-        if (Fail) throw new InvalidOperationException("生成器失败");
-        return Task.FromResult(Path.Combine(outputDirectory, "out.xlsx"));
+        var record = Records.FirstOrDefault(r => r.RevisionId == revisionId && r.OwnerNodeId == ownerNodeId
+            && r.Status == expectedStatus && expectedStatus == ReportStatus.Pending
+            && r.ActiveAttemptKey is not null && r.AttemptToken is null);
+        if (record is null) return Task.FromResult(false);
+        record.Status = ReportStatus.Generating;
+        record.AttemptToken = attemptToken;
+        record.RowVersion = checked(record.RowVersion + 1);
+        return Task.FromResult(true);
+    }
+
+    public Task<bool> TryCompleteAsync(ReportRecord result, string attemptToken, string inputHash,
+        EvaluationState evaluationState, string? evaluationText, string conclusionSource,
+        CancellationToken ct = default)
+    {
+        var record = Records.FirstOrDefault(r => r.RevisionId == result.RevisionId
+            && r.Status == ReportStatus.Generating && r.AttemptToken == attemptToken
+            && r.InputHash == inputHash && r.RowVersion == result.RowVersion);
+        if (record is null) return Task.FromResult(false);
+        record.Status = ReportStatus.Completed;
+        record.OutputPath = result.OutputPath;
+        record.StorageKey = result.StorageKey;
+        record.ManifestHash = result.ManifestHash;
+        record.EngineName = result.EngineName;
+        record.EngineVersion = result.EngineVersion;
+        record.CalculationResultJson = result.CalculationResultJson;
+        record.CompletedAtUtc = result.CompletedAtUtc;
+        record.ActiveAttemptKey = null;
+        record.RowVersion = checked(record.RowVersion + 1);
+        return Task.FromResult(true);
+    }
+
+    public Task<bool> TryFailAsync(ReportRecord result, string attemptToken, string inputHash,
+        CancellationToken ct = default)
+    {
+        var record = Records.FirstOrDefault(r => r.RevisionId == result.RevisionId
+            && r.Status == ReportStatus.Generating && r.AttemptToken == attemptToken
+            && r.InputHash == inputHash && r.RowVersion == result.RowVersion);
+        if (record is null) return Task.FromResult(false);
+        record.Status = ReportStatus.Failed;
+        record.Error = result.Error;
+        record.ErrorStage = result.ErrorStage;
+        record.CompletedAtUtc = result.CompletedAtUtc;
+        record.ActiveAttemptKey = null;
+        record.RowVersion = checked(record.RowVersion + 1);
+        return Task.FromResult(true);
     }
 }
 
