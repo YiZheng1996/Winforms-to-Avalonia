@@ -28,7 +28,7 @@ public interface IRecordRepository
     /// </summary>
     Task<IReadOnlyList<TestRecord>> ListRecordsAsync(int? state, CancellationToken ct = default);
     /// <summary>
-    /// 更新试验记录。
+    /// 更新试验记录；新版终态须与 Pending 报表创建共享同一工作单元。
     /// </summary>
     Task UpdateRecordAsync(TestRecord record, CancellationToken ct = default);
     /// <summary>
