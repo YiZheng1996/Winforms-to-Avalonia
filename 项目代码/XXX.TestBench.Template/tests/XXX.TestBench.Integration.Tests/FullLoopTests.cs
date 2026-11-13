@@ -22,7 +22,8 @@ public class FullLoopTests
         using var env = TestEnv.Create();
         var hasher = new Pbkdf2PasswordHasher();
         var factory = new SqliteConnectionFactory(env.DbPath);
-        await new SqliteDatabase(factory, hasher).InitializeAsync();
+        await new SqliteDatabase(factory, hasher)
+            .CreateNewAsync(Guid.NewGuid().ToString("D").ToLowerInvariant(), "admin123");
 
         var clock = new SystemClock();
         var audit = new SqliteAuditLog(factory);
@@ -63,7 +64,7 @@ public class FullLoopTests
 
         // 重启回读
         var factory2 = new SqliteConnectionFactory(env.DbPath);
-        await new SqliteDatabase(factory2, hasher).InitializeAsync();
+        await new SqliteDatabase(factory2, hasher).ValidateExistingAsync();
         var productRepo2 = new ProductRepository(factory2);
         Assert.Equal(model.Name, (await productRepo2.GetModelAsync(model.Id))?.Name);
         var parameters2 = new TestParameterService(new TestParameterRepository(factory2), productRepo2, clock, audit);

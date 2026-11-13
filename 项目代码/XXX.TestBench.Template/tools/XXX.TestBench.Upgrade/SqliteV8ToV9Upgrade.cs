@@ -118,6 +118,7 @@ public sealed class SqliteV8ToV9Upgrade
 
         var output = Path.GetFullPath(outputPath);
         var sourceHasDatabaseInstanceId = await HasDatabaseInstanceIdAsync(source, cancellationToken);
+        var sourceHasStorageId = await HasStorageIdAsync(source, cancellationToken);
         if (PathsAlias(source, output))
         {
             report.Blockers.Add("来源与输出解析为同一文件，拒绝原地升级");
@@ -178,7 +179,7 @@ public sealed class SqliteV8ToV9Upgrade
                 report.AfterRowCounts[table] = afterCount;
                 if (!report.BeforeRowCounts.TryGetValue(table, out var beforeCount)) continue;
                 var expectedCount = string.Equals(table, "app_metadata", StringComparison.OrdinalIgnoreCase)
-                    ? beforeCount + (sourceHasDatabaseInstanceId ? 0 : 1)
+                    ? beforeCount + (sourceHasDatabaseInstanceId ? 0 : 1) + (sourceHasStorageId ? 0 : 1)
                     : beforeCount;
                 if (expectedCount != afterCount)
                     throw new InvalidOperationException($"{table} 行数变化：期望 {expectedCount}，实际 {afterCount}");
@@ -187,6 +188,8 @@ public sealed class SqliteV8ToV9Upgrade
             report.SourceSha256 = sourceHashAfter;
             report.OutputSha256 = await HashFileAsync(output, cancellationToken);
             report.OutputVersion = inspection.UserVersion;
+            report.DatabaseInstanceId = inspection.AppMetadataDatabaseInstanceId;
+            report.StorageId = inspection.AppMetadataStorageId;
             report.Changes.Add("已生成独立 v9 候选副本；来源数据库保持未修改");
             report.Changes.Add("历史记录按 Legacy 合同保留；RunId 由来源 SHA-256 与旧记录 ID 稳定派生，历史结论不重算");
             if (hasLegacyRecords)
@@ -254,6 +257,9 @@ public sealed class SqliteV8ToV9Upgrade
             Execute(connection, transaction,
                 "INSERT INTO app_metadata (key, value) VALUES ('database_instance_id', @value) ON CONFLICT(key) DO NOTHING",
                 ("@value", DeterministicGuid("database:" + sourceSha256)));
+            Execute(connection, transaction,
+                "INSERT INTO app_metadata (key, value) VALUES ('storage_id', @value) ON CONFLICT(key) DO NOTHING",
+                ("@value", DeterministicGuid("storage:" + sourceSha256)));
             Execute(connection, transaction, "PRAGMA user_version = 9");
             cancellationToken.ThrowIfCancellationRequested();
             transaction.Commit();
@@ -487,6 +493,14 @@ public sealed class SqliteV8ToV9Upgrade
         return Task.FromResult(exists);
     }
 
+    private static Task<bool> HasStorageIdAsync(string path, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        using var connection = OpenReadOnly(path);
+        var exists = Scalar(connection, "SELECT 1 FROM app_metadata WHERE key = 'storage_id' LIMIT 1") is not null;
+        return Task.FromResult(exists);
+    }
+
     private static async Task<string> HashFileAsync(string path, CancellationToken cancellationToken)
     {
         await using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read);
@@ -521,6 +535,8 @@ public sealed class SqliteV8ToV9Upgrade
         target.FailureCode = source.FailureCode;
         target.SourceVersion = source.SourceVersion;
         target.OutputVersion = source.OutputVersion;
+        target.DatabaseInstanceId = source.DatabaseInstanceId;
+        target.StorageId = source.StorageId;
         target.OutputWritten = source.OutputWritten;
         foreach (var item in source.BeforeRowCounts) target.BeforeRowCounts[item.Key] = item.Value;
         foreach (var item in source.LegacyRunIdMappings) target.LegacyRunIdMappings[item.Key] = item.Value;

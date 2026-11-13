@@ -174,6 +174,10 @@ public static class SqliteSchemaV9
             || !string.Equals(inspection.AppMetadataDatabaseInstanceId,
                 databaseInstanceId.ToString("D").ToLowerInvariant(), StringComparison.Ordinal))
             issues.Add("app_metadata.database_instance_id 必须是固定的小写 GUID D 格式");
+        if (!Guid.TryParseExact(inspection.AppMetadataStorageId, "D", out var storageId)
+            || !string.Equals(inspection.AppMetadataStorageId,
+                storageId.ToString("D").ToLowerInvariant(), StringComparison.Ordinal))
+            issues.Add("app_metadata.storage_id 必须是固定的小写 GUID D 格式");
 
         var expectedPrimaryKeys = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase)
         {

@@ -67,27 +67,40 @@ public sealed class AppComposition
     /// 完整设备配置快照服务。
     /// </summary>
     public DeviceConfigurationService? DeviceConfigurations { get; private set; }
+    /// <summary>
+    /// 启动预检移交的同源数据库服务集合。
+    /// </summary>
+    public DatabaseServices? DatabaseServices { get; private set; }
+
+    private ApplicationBootstrapResult? _bootstrapResult;
 
     /// <summary>
     /// 创建并完成全部依赖装配。
     /// </summary>
-    public static AppComposition Create(string configRoot, string dataRoot)
+    public static AppComposition Create(string configRoot, string dataRoot, string? stateRoot = null)
     {
         var composition = new AppComposition();
-        Task.Run(() => composition.Initialize(configRoot, dataRoot)).GetAwaiter().GetResult();
+        Task.Run(() => composition.Initialize(configRoot, dataRoot, stateRoot)).GetAwaiter().GetResult();
         return composition;
     }
 
     /// <summary>
     /// 装配配置、数据库、仓库与服务并创建主视图模型。
     /// </summary>
-    private void Initialize(string configRoot, string dataRoot)
+    private void Initialize(string configRoot, string dataRoot, string? stateRoot)
     {
         var logDir = Path.Combine(dataRoot, "logs");
         Logger = new FileLogger(logDir);
 
         try
         {
+            // 在读取设备配置和创建 Runtime 前先锁定安装 StateRoot、检查恢复标记并只读验证活动数据库。
+            _bootstrapResult = new ApplicationBootstrapper(stateRoot)
+                .BootstrapExistingAsync().GetAwaiter().GetResult();
+            DatabaseServices = _bootstrapResult.Database;
+            Database = DatabaseServices.Database;
+            ConnectionFactory = DatabaseServices.ConnectionFactory;
+
             // 加载并校验四份配置。
             var store = new JsonConfigStore(configRoot);
             var appConfig = store.LoadAsync<AppConfig>("app.json").GetAwaiter().GetResult();
@@ -110,46 +123,19 @@ public sealed class AppComposition
                 driverRegistry.Descriptors,
                 requiredSignals);
 
-            // 创建数据库并执行初始化。
+            // 数据服务由 Provider 作为同一数据库组装；这里不再从 app.json 路径创建数据库。
             var clock = new SystemClock();
             var hasher = new Pbkdf2PasswordHasher();
-            var configuredDatabasePath = appConfig.DefaultPaths.Database;
-            var normalizedDatabasePath = configuredDatabasePath
-                .Replace('\\', Path.DirectorySeparatorChar)
-                .Replace('/', Path.DirectorySeparatorChar);
-            var isDefaultDatabasePath = string.Equals(
-                    normalizedDatabasePath, "testbench.db", StringComparison.OrdinalIgnoreCase)
-                || string.Equals(
-                    normalizedDatabasePath,
-                    Path.Combine("data", "testbench.db"),
-                    StringComparison.OrdinalIgnoreCase);
-            var dbPath = Path.GetFullPath(Path.Combine(
-                dataRoot,
-                isDefaultDatabasePath ? "testbench.db" : configuredDatabasePath));
-
-            // 兼容旧默认值及旧双层位置：若新默认位置不存在但旧双层位置仍有库，继续使用旧库，
-            // 避免静默新建空库；后续由离线升级工具生成 v9 副本后再切换配置。
-            if (isDefaultDatabasePath && !File.Exists(dbPath))
-            {
-                var legacyDatabasePath = Path.GetFullPath(Path.Combine(dataRoot, "data", "testbench.db"));
-                if (File.Exists(legacyDatabasePath))
-                    dbPath = legacyDatabasePath;
-            }
-
-            var factory = new SqliteConnectionFactory(dbPath);
-            var database = new SqliteDatabase(factory, hasher);
-            database.InitializeAsync().GetAwaiter().GetResult();
-
-            // 创建仓储与基础设施服务。
-            var userRepo = new UserRepository(factory);
-            var productRepo = new ProductRepository(factory);
-            var recordRepo = new RecordRepository(factory);
-            var pointRepo = new TestPointRepository(factory);
-            var configRepo = new ModelPointConfigRepository(factory);
-            var testParameterRepo = new TestParameterRepository(factory);
-            var audit = new SqliteAuditLog(factory);
+            var factory = DatabaseServices.ConnectionFactory;
+            var dbPath = DatabaseServices.DatabasePath;
+            var userRepo = DatabaseServices.Users;
+            var productRepo = DatabaseServices.Products;
+            var recordRepo = DatabaseServices.Records;
+            var pointRepo = DatabaseServices.TestPoints;
+            var configRepo = DatabaseServices.ModelPointConfigs;
+            var testParameterRepo = DatabaseServices.TestParameters;
+            var audit = DatabaseServices.AuditLog;
             var sessions = new InMemorySessionManager();
-            var unitOfWork = new SqliteUnitOfWork(factory);
             DeviceOperations = new DeviceOperationCoordinator();
             var manualOperationGuard = new DeviceManualOperationGuard(DeviceOperations, recordRepo);
             var s7ClientFactory = new S7NetPlusPlcClientFactory();
@@ -189,7 +175,7 @@ public sealed class AppComposition
 
             // 创建业务服务并组装主视图模型。
             Authentication = new AuthenticationService(userRepo, hasher, sessions, clock, audit);
-            var uowFactory = new SqliteUnitOfWorkFactory(factory);
+            var uowFactory = DatabaseServices.UnitOfWorkFactory;
             var identityAdministration = new IdentityAdministrationService(userRepo, hasher, clock, audit, uowFactory);
             var testParameters = new TestParameterService(testParameterRepo, productRepo, clock, audit);
             var testPoints = new TestPointService(pointRepo, configRepo, productRepo, executorFactory, clock, audit);
@@ -204,7 +190,7 @@ public sealed class AppComposition
                 () => DeviceModes?.Runtime,
                 Logger);
 
-            var reportRepository = new ReportRepository(factory);
+            var reportRepository = DatabaseServices.Reports;
 
             var services = new ShellServices(
                 Authentication,
@@ -247,5 +233,17 @@ public sealed class AppComposition
             Logger.Error("启动失败", ex);
             Shell = new ShellViewModel(null, isFaulted: true, faultMessage: StartupError);
         }
+    }
+
+    /// <summary>
+    /// 释放 Provider 服务和安装级进程锁。
+    /// </summary>
+    public void Dispose()
+    {
+        _bootstrapResult?.Dispose();
+        _bootstrapResult = null;
+        DatabaseServices = null;
+        Database = null;
+        ConnectionFactory = null;
     }
 }

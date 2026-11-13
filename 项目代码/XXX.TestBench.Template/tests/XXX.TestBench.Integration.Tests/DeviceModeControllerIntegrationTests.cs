@@ -20,7 +20,8 @@ public class DeviceModeControllerIntegrationTests
         var snapshot = await env.LoadSnapshotAsync();
 
         var dbFactory = new SqliteConnectionFactory(env.DbPath);
-        await new SqliteDatabase(dbFactory, new Pbkdf2PasswordHasher()).InitializeAsync();
+        await new SqliteDatabase(dbFactory, new Pbkdf2PasswordHasher())
+            .CreateNewAsync(Guid.NewGuid().ToString("D").ToLowerInvariant(), "admin123");
         var factory = new DeviceRuntimeFactory(
             snapshot, new SystemClock(), requiredSignals: TestEnv.RegisteredRequiredSignals());
         var audit = new SqliteAuditLog(dbFactory);
@@ -43,7 +44,8 @@ public class DeviceModeControllerIntegrationTests
         var snapshot = await env.LoadSnapshotAsync();
 
         var dbFactory = new SqliteConnectionFactory(env.DbPath);
-        await new SqliteDatabase(dbFactory, new Pbkdf2PasswordHasher()).InitializeAsync();
+        await new SqliteDatabase(dbFactory, new Pbkdf2PasswordHasher())
+            .CreateNewAsync(Guid.NewGuid().ToString("D").ToLowerInvariant(), "admin123");
         var factory = new DeviceRuntimeFactory(
             snapshot, new SystemClock(), requiredSignals: TestEnv.RegisteredRequiredSignals());
         var audit = new SqliteAuditLog(dbFactory);

@@ -42,7 +42,7 @@ public sealed class UnsupportedSqliteSchemaTests
         using (var factory = new SqliteConnectionFactory(env.DbPath))
         {
             error = await Assert.ThrowsAsync<InvalidOperationException>(
-                () => new SqliteDatabase(factory, new Pbkdf2PasswordHasher()).InitializeAsync());
+                () => new SqliteDatabase(factory, new Pbkdf2PasswordHasher()).ValidateExistingAsync());
         }
         var after = SHA256.HashData(await File.ReadAllBytesAsync(env.DbPath));
 

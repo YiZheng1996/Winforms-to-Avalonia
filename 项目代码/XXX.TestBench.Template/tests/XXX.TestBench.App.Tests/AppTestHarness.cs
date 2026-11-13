@@ -98,7 +98,9 @@ public sealed class AppTestHarness : IDisposable
         var hasher = new Pbkdf2PasswordHasher();
         var dbPath = Path.Combine(dataRoot, appConfig.DefaultPaths.Database);
         var factory = new SqliteConnectionFactory(dbPath);
-        new SqliteDatabase(factory, hasher).InitializeAsync().GetAwaiter().GetResult();
+        new SqliteDatabase(factory, hasher)
+            .CreateNewAsync(Guid.NewGuid().ToString("D").ToLowerInvariant(), "admin123")
+            .GetAwaiter().GetResult();
 
         var userRepo = new UserRepository(factory);
         var productRepo = new ProductRepository(factory);

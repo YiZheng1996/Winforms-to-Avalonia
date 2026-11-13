@@ -12,6 +12,7 @@ public class AppCompositionTests
         var root = Path.Combine(Path.GetTempPath(), "testbench-app-" + Guid.NewGuid().ToString("N")[..8]);
         var configRoot = Path.Combine(root, "config");
         var dataRoot = Path.Combine(root, "data");
+        var stateRoot = Path.Combine(root, "state");
         AppComposition? composition = null;
         Directory.CreateDirectory(configRoot);
         Directory.CreateDirectory(dataRoot);
@@ -56,7 +57,8 @@ public class AppCompositionTests
             { "schemaVersion": 1, "bindings": { "AI_Pressure": "40000000-0000-5000-8000-000000000001" } }
             """);
 
-            composition = AppComposition.Create(configRoot, dataRoot);
+            InitializeInstallation(stateRoot, Path.Combine(dataRoot, "testbench.db"), dataRoot);
+            composition = AppComposition.Create(configRoot, dataRoot, stateRoot);
 
             Assert.Null(composition.StartupError);
             Assert.NotNull(composition.Shell);
@@ -77,7 +79,7 @@ public class AppCompositionTests
                     await deviceModes.ShutdownAsync();
                 if (composition.DeviceOperations is { } operations)
                     await operations.DisposeAsync();
-                composition.ConnectionFactory?.Dispose();
+                composition.Dispose();
             }
             try { Directory.Delete(root, recursive: true); } catch { }
         }
@@ -89,6 +91,9 @@ public class AppCompositionTests
         var root = Path.Combine(Path.GetTempPath(), "testbench-app-legacy-" + Guid.NewGuid().ToString("N")[..8]);
         var configRoot = Path.Combine(root, "config");
         var dataRoot = Path.Combine(root, "data");
+        var stateRoot = Path.Combine(root, "state");
+        var databasePath = Path.Combine(dataRoot, "testbench.db");
+        AppComposition? composition = null;
         const string channelId = "10000000-0000-5000-8000-000000000001";
         const string deviceId = "20000000-0000-5000-8000-000000000001";
         const string pointId = "30000000-0000-5000-8000-000000000001";
@@ -175,19 +180,23 @@ public class AppCompositionTests
             }
             """);
 
+            InitializeInstallation(stateRoot, databasePath, dataRoot);
+            var databaseHashBefore = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(File.ReadAllBytes(databasePath)));
+
             var sourceFiles = new[] { "app.json", "device.json", "points.json", "simulation.json", "signal-bindings.json" };
             var originalHashes = sourceFiles.ToDictionary(
                 file => file,
                 file => Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(File.ReadAllBytes(Path.Combine(configRoot, file)))),
                 StringComparer.Ordinal);
 
-            var composition = AppComposition.Create(configRoot, dataRoot);
+            composition = AppComposition.Create(configRoot, dataRoot, stateRoot);
 
             Assert.NotNull(composition.StartupError);
             Assert.Contains("离线升级工具", composition.StartupError, StringComparison.Ordinal);
             Assert.Null(composition.DeviceModes?.Runtime);
             Assert.False(File.Exists(Path.Combine(configRoot, "device-config", "active.json")));
-            Assert.False(File.Exists(Path.Combine(dataRoot, "testbench.db")));
+            Assert.Equal(databaseHashBefore,
+                Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(File.ReadAllBytes(databasePath))));
             foreach (var file in sourceFiles)
             {
                 var currentHash = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(File.ReadAllBytes(Path.Combine(configRoot, file))));
@@ -196,6 +205,7 @@ public class AppCompositionTests
         }
         finally
         {
+            composition?.Dispose();
             try { Directory.Delete(root, recursive: true); } catch { }
         }
     }
@@ -206,6 +216,8 @@ public class AppCompositionTests
         var root = Path.Combine(Path.GetTempPath(), "testbench-app-" + Guid.NewGuid().ToString("N")[..8]);
         var configRoot = Path.Combine(root, "config");
         var dataRoot = Path.Combine(root, "data");
+        var stateRoot = Path.Combine(root, "state");
+        AppComposition? composition = null;
         Directory.CreateDirectory(configRoot);
         try
         {
@@ -228,7 +240,8 @@ public class AppCompositionTests
             { "schemaVersion": 1, "initialValues": {}, "changeRules": [], "faultInjectionScenarios": [] }
             """);
 
-            var composition = AppComposition.Create(configRoot, dataRoot);
+            InitializeInstallation(stateRoot, Path.Combine(dataRoot, "t.db"), dataRoot);
+            composition = AppComposition.Create(configRoot, dataRoot, stateRoot);
 
             Assert.NotNull(composition.StartupError);
             Assert.NotNull(composition.Shell);
@@ -237,7 +250,15 @@ public class AppCompositionTests
         }
         finally
         {
+            composition?.Dispose();
             try { Directory.Delete(root, recursive: true); } catch { }
         }
+    }
+
+    private static void InitializeInstallation(string stateRoot, string databasePath, string storageRoot)
+    {
+        new ApplicationBootstrapper(stateRoot)
+            .InitializeNewInstallationAsync("test-bench", databasePath, storageRoot, "TestAdmin123!")
+            .GetAwaiter().GetResult();
     }
 }

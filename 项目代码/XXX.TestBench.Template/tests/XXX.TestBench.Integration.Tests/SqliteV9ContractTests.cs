@@ -17,7 +17,8 @@ public sealed class SqliteV9ContractTests
     {
         using var env = TestEnv.Create();
         using var factory = new SqliteConnectionFactory(env.DbPath);
-        await new SqliteDatabase(factory, new Pbkdf2PasswordHasher()).InitializeAsync();
+        await new SqliteDatabase(factory, new Pbkdf2PasswordHasher())
+            .CreateNewAsync(Guid.NewGuid().ToString("D").ToLowerInvariant(), "admin123");
         var repository = new RecordRepository(factory);
         foreach (var version in new[] { 1, 2, 99 })
         {
@@ -89,7 +90,8 @@ public sealed class SqliteV9ContractTests
     {
         using var env = TestEnv.Create();
         using var factory = new SqliteConnectionFactory(env.DbPath);
-        await new SqliteDatabase(factory, new Pbkdf2PasswordHasher()).InitializeAsync();
+        await new SqliteDatabase(factory, new Pbkdf2PasswordHasher())
+            .CreateNewAsync(Guid.NewGuid().ToString("D").ToLowerInvariant(), "admin123");
         var inspection = await SqliteDatabaseInspector.InspectReadOnlyAsync(env.DbPath);
         Assert.Empty(SqliteSchemaV9.Validate(inspection));
 
@@ -98,6 +100,7 @@ public sealed class SqliteV9ContractTests
             "CREATE UNIQUE INDEX ux_test_records_bench_running ON test_records(bench_id) WHERE state = 1 AND bench_id IS NOT NULL", new { }, default);
         var invalid = await SqliteDatabaseInspector.InspectReadOnlyAsync(env.DbPath);
         Assert.Contains(SqliteSchemaV9.Validate(invalid), issue => issue.Contains("过滤条件"));
-        await Assert.ThrowsAsync<InvalidOperationException>(() => new SqliteDatabase(factory, new Pbkdf2PasswordHasher()).InitializeAsync());
+        await Assert.ThrowsAsync<InvalidOperationException>(
+            () => new SqliteDatabase(factory, new Pbkdf2PasswordHasher()).ValidateExistingAsync());
     }
 }

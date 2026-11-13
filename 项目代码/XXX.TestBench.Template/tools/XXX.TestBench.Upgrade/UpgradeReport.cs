@@ -18,6 +18,8 @@ public sealed class UpgradeReport
     public Dictionary<string, string> OutputFileSha256 { get; } = new(StringComparer.OrdinalIgnoreCase);
     public int? SourceVersion { get; set; }
     public int? OutputVersion { get; set; }
+    public string? DatabaseInstanceId { get; set; }
+    public string? StorageId { get; set; }
     public Dictionary<string, long> BeforeRowCounts { get; } = new(StringComparer.OrdinalIgnoreCase);
     public Dictionary<string, long> AfterRowCounts { get; } = new(StringComparer.OrdinalIgnoreCase);
     public Dictionary<int, string> LegacyRunIdMappings { get; } = new();

@@ -14,7 +14,8 @@ public class SqliteUnitOfWorkTests
     {
         using var env = TestEnv.Create();
         var factory = new SqliteConnectionFactory(env.DbPath);
-        await new SqliteDatabase(factory, new Pbkdf2PasswordHasher()).InitializeAsync();
+        await new SqliteDatabase(factory, new Pbkdf2PasswordHasher())
+            .CreateNewAsync(Guid.NewGuid().ToString("D").ToLowerInvariant(), "admin123");
 
         var clock = new SystemClock();
         var productRepo = new ProductRepository(factory);

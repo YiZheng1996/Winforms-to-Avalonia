@@ -37,6 +37,9 @@ public sealed record SystemSettings
 
         if (DatabaseState == DatabaseActivationState.Active && ActiveProfile is null)
             errors.Add("Active 状态必须包含 ActiveProfile");
+        if (DatabaseState == DatabaseActivationState.Active
+            && (ActiveProfile?.ExpectedDatabaseInstanceId is null || ActiveProfile.ExpectedStorageId is null))
+            errors.Add("Active 配置必须固定 DatabaseInstanceId 和 StorageId");
         if (DatabaseState is DatabaseActivationState.Pending or DatabaseActivationState.Activating
             && PendingProfile is null)
             errors.Add($"{DatabaseState} 状态必须包含 PendingProfile");
@@ -46,7 +49,7 @@ public sealed record SystemSettings
 
         if (Storage is not null)
         {
-            if (string.IsNullOrWhiteSpace(Storage.StorageId)) errors.Add("StorageId 不能为空");
+            if (!IsLowerGuid(Storage.StorageId)) errors.Add("StorageId 必须为小写 GUID D 格式");
             ValidateAbsolutePath(Storage.ReportRoot, "Storage.ReportRoot", errors);
             ValidateAbsolutePath(Storage.ResourceRoot, "Storage.ResourceRoot", errors);
             ValidateAbsolutePath(Storage.EvidenceRoot, "Storage.EvidenceRoot", errors);
@@ -68,6 +71,8 @@ public sealed record SystemSettings
         if (profile.Port is <= 0 or > 65535) errors.Add($"{name}.Port 超出有效端口范围");
         if (profile.ExpectedDatabaseInstanceId is not null && !IsLowerGuid(profile.ExpectedDatabaseInstanceId))
             errors.Add($"{name}.ExpectedDatabaseInstanceId 必须为小写 GUID D 格式");
+        if (profile.ExpectedStorageId is not null && !IsLowerGuid(profile.ExpectedStorageId))
+            errors.Add($"{name}.ExpectedStorageId 必须为小写 GUID D 格式");
     }
 
     private static void ValidateAbsolutePath(string path, string field, ICollection<string> errors)

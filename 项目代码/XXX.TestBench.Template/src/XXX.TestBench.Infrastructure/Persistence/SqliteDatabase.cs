@@ -23,39 +23,39 @@ public sealed class SqliteDatabase
     }
 
     /// <summary>
-    /// 只读预检现有文件；仅新路径或真正的空数据库可以直接创建。
+    /// 兼容旧调用名，但现有库初始化只执行只读校验，不再创建缺失或空库。
     /// </summary>
-    public async Task InitializeAsync(CancellationToken ct = default)
+    public Task InitializeAsync(CancellationToken ct = default) => ValidateExistingAsync(ct);
+
+    /// <summary>
+    /// 只读检查已存在的 v9 数据库；此方法不会创建目录、文件、表或元数据。
+    /// </summary>
+    public async Task ValidateExistingAsync(CancellationToken ct = default)
     {
         var inspection = await SqliteDatabaseInspector.InspectReadOnlyAsync(_factory.DatabasePath, ct);
-        var isNewDatabase = !inspection.Exists;
-        if (inspection.Exists)
-        {
-            if (!string.Equals(inspection.IntegrityCheck, "ok", StringComparison.OrdinalIgnoreCase))
-                throw new InvalidOperationException($"SQLite 完整性检查失败：{inspection.IntegrityCheck}；原文件未修改。");
-            if (inspection.ForeignKeyErrors.Count > 0)
-                throw new InvalidOperationException("SQLite 外键检查失败，原文件未修改：" + string.Join("；", inspection.ForeignKeyErrors));
-            if (inspection.UserVersion == 0 && inspection.Objects.Count == 0)
-                isNewDatabase = true;
-            else if (inspection.UserVersion is 7 or 8)
-                throw new InvalidOperationException($"数据库文件“{_factory.DatabasePath}”为 v{inspection.UserVersion}，请先使用离线升级工具生成 v9 副本；原文件未修改。");
-            else if (inspection.UserVersion != CurrentSchemaVersion)
-                throw new InvalidOperationException($"不支持的数据库版本或结构（user_version={inspection.UserVersion}）；原文件未修改。");
-            else
-            {
-                var issues = SqliteSchemaV9.Validate(inspection);
-                if (issues.Count > 0)
-                    throw new InvalidOperationException("数据库 v9 结构校验失败，原文件未修改：" + string.Join("；", issues));
-            }
-        }
-
-        if (!isNewDatabase)
-            return;
-
-        await CreateSchemaAndSeedAsync(ct);
+        ValidateExistingInspection(inspection, _factory.DatabasePath);
     }
 
-    private async Task CreateSchemaAndSeedAsync(CancellationToken ct)
+    /// <summary>
+    /// 仅供受控首次初始化使用；目标路径必须不存在，且初始管理员凭据与存储身份由调用方明确提供。
+    /// </summary>
+    public async Task CreateNewAsync(string storageId, string initialAdministratorPassword, CancellationToken ct = default)
+    {
+        if (!Guid.TryParseExact(storageId, "D", out var parsedStorageId)
+            || !string.Equals(storageId, parsedStorageId.ToString("D").ToLowerInvariant(), StringComparison.Ordinal))
+            throw new ArgumentException("StorageId 必须为小写 GUID D 格式", nameof(storageId));
+        if (string.IsNullOrWhiteSpace(initialAdministratorPassword) || initialAdministratorPassword.Length < 8)
+            throw new ArgumentException("初始管理员密码至少需要 8 个字符", nameof(initialAdministratorPassword));
+        if (File.Exists(_factory.DatabasePath))
+            throw new IOException($"数据库文件“{_factory.DatabasePath}”已存在；新库初始化不会覆盖或接管现有文件。");
+
+        await CreateSchemaAndSeedAsync(storageId, initialAdministratorPassword, ct);
+    }
+
+    private async Task CreateSchemaAndSeedAsync(
+        string storageId,
+        string initialAdministratorPassword,
+        CancellationToken ct)
     {
         await using var lease = await _factory.OpenLeaseAsync(ct);
         var connection = lease.Connection;
@@ -76,8 +76,12 @@ public sealed class SqliteDatabase
                 "INSERT INTO app_metadata (key, value) VALUES ('database_instance_id', @value)",
                 new { value = Guid.NewGuid().ToString("D").ToLowerInvariant() }, ct);
             await db.Ado.ExecuteNonQueryAsync(
+                connection, transaction,
+                "INSERT INTO app_metadata (key, value) VALUES ('storage_id', @value)",
+                new { value = storageId }, ct);
+            await db.Ado.ExecuteNonQueryAsync(
                 connection, transaction, "PRAGMA user_version = 9", new { }, ct);
-            await SeedAsync(connection, transaction, ct);
+            await SeedAsync(connection, transaction, initialAdministratorPassword, ct);
             await transaction.CommitAsync(ct);
         }
         catch
@@ -87,7 +91,11 @@ public sealed class SqliteDatabase
         }
     }
 
-    private async Task SeedAsync(DbConnection connection, DbTransaction transaction, CancellationToken ct)
+    private async Task SeedAsync(
+        DbConnection connection,
+        DbTransaction transaction,
+        string initialAdministratorPassword,
+        CancellationToken ct)
     {
         var db = _factory.Db;
         ct.ThrowIfCancellationRequested();
@@ -120,7 +128,7 @@ public sealed class SqliteDatabase
         {
             LoginName = "admin",
             DisplayName = "管理员",
-            PasswordHash = _hasher.Hash("admin123"),
+            PasswordHash = _hasher.Hash(initialAdministratorPassword),
             MustChangePassword = 1,
             IsEnabled = 1,
             FailedLoginCount = 0,
@@ -129,6 +137,23 @@ public sealed class SqliteDatabase
             CreatedAtUtc = DateTime.UtcNow.ToString("O")
         }).WithConnection(connection).WithTransaction(transaction).ExecuteAffrows();
         await Task.CompletedTask;
+    }
+
+    private static void ValidateExistingInspection(SqliteDatabaseInspection inspection, string databasePath)
+    {
+        if (!inspection.Exists)
+            throw new FileNotFoundException($"数据库文件“{databasePath}”不存在；启动检查不会创建新库。", databasePath);
+        if (!string.Equals(inspection.IntegrityCheck, "ok", StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException($"SQLite 完整性检查失败：{inspection.IntegrityCheck}；原文件未修改。");
+        if (inspection.ForeignKeyErrors.Count > 0)
+            throw new InvalidOperationException("SQLite 外键检查失败，原文件未修改：" + string.Join("；", inspection.ForeignKeyErrors));
+        if (inspection.UserVersion is 7 or 8)
+            throw new InvalidOperationException($"数据库文件“{databasePath}”为 v{inspection.UserVersion}，请先使用独立离线升级工具生成 v9 副本；原文件未修改。");
+        if (inspection.UserVersion != CurrentSchemaVersion)
+            throw new InvalidOperationException($"不支持的数据库版本或结构（user_version={inspection.UserVersion}）；原文件未修改。");
+        var issues = SqliteSchemaV9.Validate(inspection);
+        if (issues.Count > 0)
+            throw new InvalidOperationException("数据库 v9 结构校验失败，原文件未修改：" + string.Join("；", issues));
     }
 
     private static void InsertRole(

@@ -17,6 +17,7 @@ public sealed record SqliteDatabaseInspection(
     string IntegrityCheck,
     string? AppMetadataSchemaVersion,
     string? AppMetadataDatabaseInstanceId,
+    string? AppMetadataStorageId,
     IReadOnlyList<SqliteSchemaObjectInfo> Objects,
     IReadOnlyList<string> Tables,
     IReadOnlyDictionary<string, IReadOnlyList<SqliteColumnInfo>> Columns,
@@ -34,7 +35,7 @@ public static class SqliteDatabaseInspector
         ct.ThrowIfCancellationRequested();
         var fullPath = Path.GetFullPath(databasePath);
         if (!File.Exists(fullPath))
-            return Task.FromResult(new SqliteDatabaseInspection(false, 0, "不存在", null, null,
+            return Task.FromResult(new SqliteDatabaseInspection(false, 0, "不存在", null, null, null,
                 Array.Empty<SqliteSchemaObjectInfo>(), Array.Empty<string>(),
                 new Dictionary<string, IReadOnlyList<SqliteColumnInfo>>(StringComparer.OrdinalIgnoreCase),
                 Array.Empty<SqliteForeignKeyInfo>(), Array.Empty<SqliteIndexInfo>(), Array.Empty<string>()));
@@ -71,6 +72,7 @@ public static class SqliteDatabaseInspector
 
         string? metadataVersion = null;
         string? databaseInstanceId = null;
+        string? storageId = null;
         if (tables.Contains("app_metadata", StringComparer.OrdinalIgnoreCase)
             && columns.TryGetValue("app_metadata", out var metadataColumns)
             && metadataColumns.Any(column => column.Name.Equals("key", StringComparison.OrdinalIgnoreCase))
@@ -81,6 +83,11 @@ public static class SqliteDatabaseInspector
             && metadataColumns.Any(column => column.Name.Equals("key", StringComparison.OrdinalIgnoreCase))
             && metadataColumns.Any(column => column.Name.Equals("value", StringComparison.OrdinalIgnoreCase)))
             databaseInstanceId = Convert.ToString(Scalar(connection, "SELECT value FROM app_metadata WHERE key = 'database_instance_id' LIMIT 1"), System.Globalization.CultureInfo.InvariantCulture);
+        if (tables.Contains("app_metadata", StringComparer.OrdinalIgnoreCase)
+            && columns.TryGetValue("app_metadata", out metadataColumns)
+            && metadataColumns.Any(column => column.Name.Equals("key", StringComparison.OrdinalIgnoreCase))
+            && metadataColumns.Any(column => column.Name.Equals("value", StringComparison.OrdinalIgnoreCase)))
+            storageId = Convert.ToString(Scalar(connection, "SELECT value FROM app_metadata WHERE key = 'storage_id' LIMIT 1"), System.Globalization.CultureInfo.InvariantCulture);
 
         var foreignKeyErrors = new List<string>();
         using (var command = connection.CreateCommand())
@@ -92,7 +99,7 @@ public static class SqliteDatabaseInspector
         }
 
         return Task.FromResult(new SqliteDatabaseInspection(
-            true, userVersion, integrity, metadataVersion, databaseInstanceId,
+            true, userVersion, integrity, metadataVersion, databaseInstanceId, storageId,
             objects, tables, columns, foreignKeys, indexes, foreignKeyErrors));
     }
 
