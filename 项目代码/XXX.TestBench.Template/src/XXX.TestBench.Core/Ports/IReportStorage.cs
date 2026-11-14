@@ -1,3 +1,7 @@
+using System.Security.Cryptography;
+using System.Text.Json;
+using System.Text.Json.Serialization;
+
 namespace XXX.TestBench.Core.Ports;
 
 /// <summary>
@@ -64,3 +68,26 @@ public sealed record ReportStorageManifest(
 public sealed record StorageVerificationResult(bool Matches, string? ActualSha256, string? Error);
 
 public sealed record ReportExportResult(bool Succeeded, string? Error);
+
+/// <summary>
+/// 报表 manifest 的唯一序列化合同；数据库保存的 ManifestHash 使用相同字节计算。
+/// </summary>
+public static class ReportStorageManifestSerializer
+{
+    private static readonly JsonSerializerOptions Options = new()
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        PropertyNameCaseInsensitive = false,
+        UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow,
+        WriteIndented = false
+    };
+
+    public static byte[] Serialize(ReportStorageManifest manifest)
+    {
+        ArgumentNullException.ThrowIfNull(manifest);
+        return JsonSerializer.SerializeToUtf8Bytes(manifest, Options);
+    }
+
+    public static string ComputeSha256(ReportStorageManifest manifest)
+        => Convert.ToHexString(SHA256.HashData(Serialize(manifest))).ToLowerInvariant();
+}

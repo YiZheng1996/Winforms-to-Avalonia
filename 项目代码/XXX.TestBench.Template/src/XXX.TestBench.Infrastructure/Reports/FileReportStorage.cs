@@ -253,7 +253,11 @@ public sealed class FileReportStorage : IReportStorage
         finally
         {
             if (temporaryPath is not null && File.Exists(temporaryPath))
-                File.Delete(temporaryPath);
+            {
+                try { File.Delete(temporaryPath); }
+                catch (IOException) { }
+                catch (UnauthorizedAccessException) { }
+            }
         }
     }
 
@@ -398,7 +402,7 @@ public sealed class FileReportStorage : IReportStorage
     {
         Directory.CreateDirectory(Path.GetDirectoryName(manifestPath)!);
         EnsureNoReparsePoints(manifestPath);
-        var bytes = JsonSerializer.SerializeToUtf8Bytes(manifest, JsonOptions);
+        var bytes = ReportStorageManifestSerializer.Serialize(manifest);
         var temporaryPath = manifestPath + "." + Guid.NewGuid().ToString("N") + ".tmp";
         try
         {
