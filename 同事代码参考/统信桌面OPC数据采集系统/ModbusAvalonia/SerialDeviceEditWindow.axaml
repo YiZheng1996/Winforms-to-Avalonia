@@ -1,0 +1,55 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="ModbusAvalonia.SerialDeviceEditWindow"
+        Title="编辑串口设备"
+        Width="540" Height="520"
+        WindowStartupLocation="CenterOwner"
+        CanResize="False">
+    <DockPanel>
+        <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" Spacing="8" Margin="10" HorizontalAlignment="Right">
+            <Button x:Name="btnOK" Content="确定" Width="80" Click="btnOK_Click" />
+            <Button x:Name="btnCancel" Content="取消" Width="80" Click="btnCancel_Click" />
+        </StackPanel>
+
+        <StackPanel Margin="12" Spacing="8">
+            <StackPanel Orientation="Horizontal" Spacing="6">
+                <TextBlock Text="串口:" VerticalAlignment="Center" />
+                <TextBox x:Name="txtPortName" Width="100" Watermark="COM3" />
+                <TextBlock Text="波特率:" VerticalAlignment="Center" Margin="10,0,0,0" />
+                <TextBox x:Name="txtBaudRate" Width="80" Text="9600" />
+                <CheckBox x:Name="chkEnabled" Content="启用(Enabled=1)" VerticalAlignment="Center" Margin="10,0,0,0" />
+            </StackPanel>
+
+            <StackPanel Orientation="Horizontal" Spacing="6">
+                <TextBlock Text="校验:" VerticalAlignment="Center" />
+                <ComboBox x:Name="cmbParity" Width="100" SelectedIndex="0">
+                    <ComboBoxItem Content="None" />
+                    <ComboBoxItem Content="Odd" />
+                    <ComboBoxItem Content="Even" />
+                </ComboBox>
+                <TextBlock Text="数据位:" VerticalAlignment="Center" Margin="10,0,0,0" />
+                <TextBox x:Name="txtDataBits" Width="60" Text="8" />
+                <TextBlock Text="停止位:" VerticalAlignment="Center" Margin="10,0,0,0" />
+                <ComboBox x:Name="cmbStopBits" Width="90" SelectedIndex="0">
+                    <ComboBoxItem Content="One" />
+                    <ComboBoxItem Content="Two" />
+                </ComboBox>
+            </StackPanel>
+
+            <TextBlock Text="文件 → 485站号 (SlaveMap):" />
+            <ListBox x:Name="lstMap" Height="180" />
+
+            <StackPanel Orientation="Horizontal" Spacing="6">
+                <TextBox x:Name="txtFile" Width="240" Watermark="文件名" />
+                <Button x:Name="btnBrowse" Content="浏览..." Width="70" Click="btnBrowse_Click" />
+            </StackPanel>
+
+            <StackPanel Orientation="Horizontal" Spacing="6">
+                <TextBlock Text="站号:" VerticalAlignment="Center" />
+                <TextBox x:Name="txtSlave" Width="60" Text="1" />
+                <Button x:Name="btnAddFile" Content="添加" Width="60" Click="btnAddFile_Click" />
+                <Button x:Name="btnRemoveFile" Content="删除选中" Width="80" Click="btnRemoveFile_Click" />
+            </StackPanel>
+        </StackPanel>
+    </DockPanel>
+</Window>

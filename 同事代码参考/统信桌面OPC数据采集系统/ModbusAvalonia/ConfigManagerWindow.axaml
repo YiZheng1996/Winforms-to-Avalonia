@@ -1,0 +1,48 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="ModbusAvalonia.ConfigManagerWindow"
+        Title="OPCConfig.json 配置管理"
+        Width="680" Height="600"
+        WindowStartupLocation="CenterOwner">
+    <DockPanel>
+        <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" Spacing="8" Margin="10" HorizontalAlignment="Right">
+            <Button x:Name="btnSave" Content="保存" Width="80" Click="btnSave_Click" />
+            <Button x:Name="btnClose" Content="关闭" Width="80" Click="btnClose_Click" />
+        </StackPanel>
+
+        <TabControl Margin="10">
+            <TabItem Header="串口服务器">
+                <DockPanel>
+                    <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" Spacing="8" Margin="10">
+                        <Button x:Name="btnAdd" Content="添加" Width="80" Click="btnAdd_Click" />
+                        <Button x:Name="btnEdit" Content="编辑" Width="80" Click="btnEdit_Click" />
+                        <Button x:Name="btnDelete" Content="删除" Width="80" Click="btnDelete_Click" />
+                    </StackPanel>
+                    <ListBox x:Name="lstServers" Margin="10" />
+                </DockPanel>
+            </TabItem>
+
+            <TabItem Header="PLC">
+                <DockPanel>
+                    <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" Spacing="8" Margin="10">
+                        <Button x:Name="btnAddPlc" Content="添加" Width="80" Click="btnAddPlc_Click" />
+                        <Button x:Name="btnEditPlc" Content="编辑" Width="80" Click="btnEditPlc_Click" />
+                        <Button x:Name="btnDeletePlc" Content="删除" Width="80" Click="btnDeletePlc_Click" />
+                    </StackPanel>
+                    <ListBox x:Name="lstPlcs" Margin="10" />
+                </DockPanel>
+            </TabItem>
+
+            <TabItem Header="串口设备">
+                <DockPanel>
+                    <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" Spacing="8" Margin="10">
+                        <Button x:Name="btnAddSerial" Content="添加" Width="80" Click="btnAddSerial_Click" />
+                        <Button x:Name="btnEditSerial" Content="编辑" Width="80" Click="btnEditSerial_Click" />
+                        <Button x:Name="btnDeleteSerial" Content="删除" Width="80" Click="btnDeleteSerial_Click" />
+                    </StackPanel>
+                    <ListBox x:Name="lstSerialDevices" Margin="10" />
+                </DockPanel>
+            </TabItem>
+        </TabControl>
+    </DockPanel>
+</Window>
