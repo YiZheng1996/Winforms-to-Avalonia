@@ -1,5 +1,9 @@
+using XXX.TestBench.Core.Common;
 using XXX.TestBench.Core.Configuration;
+using XXX.TestBench.Core.Execution;
 using XXX.TestBench.Core.Ports;
+using XXX.TestBench.Devices.Drivers;
+using XXX.TestBench.Devices.Executors;
 using XXX.TestBench.Infrastructure.Configuration;
 
 namespace XXX.TestBench.Integration.Tests;
@@ -7,144 +11,104 @@ namespace XXX.TestBench.Integration.Tests;
 public sealed class DeviceConfigurationBootstrapperTests
 {
     [Fact]
-    public async Task FirstLoadMigratesLegacyFilesAndNextLoadPrefersActiveRevision()
+    public async Task FirstLoadInitializesCurrentFilesAndNextLoadPrefersActiveRevision()
     {
-        var root = Path.Combine("D:\\Codex相关\\多设备点位改造", "bootstrap-tests-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(root);
-        try
-        {
-            File.WriteAllText(Path.Combine(root, "device.json"), """
-            {
-              "schemaVersion": 1,
-              "deviceMode": "Simulation",
-              "pollIntervalMs": 500,
-              "timeoutMs": 1000,
-              "devices": [ { "name": "LegacySim", "protocol": "Simulation", "address": "sim://legacy", "enabled": true } ]
-            }
-            """);
-            File.WriteAllText(Path.Combine(root, "points.json"), """
-            {
-              "schemaVersion": 1,
-              "points": [ { "code": "P1", "name": "压力", "protocol": "Simulation", "address": "sim.pressure", "dataType": "Decimal", "isWritable": false, "riskLevel": "Normal" } ]
-            }
-            """);
-            File.WriteAllText(Path.Combine(root, "simulation.json"), """
-            {
-              "schemaVersion": 1,
-              "initialValues": { "sim.pressure": 1.5 },
-              "changeRules": [],
-              "faultInjectionScenarios": []
-            }
-            """);
+        using var env = TestEnv.Create();
+        var files = new JsonConfigStore(env.ConfigRoot);
+        await using var store = new DeviceConfigurationStore(env.ConfigRoot);
+        var bootstrapper = CreateBootstrapper(env.ConfigRoot, files, store);
 
-            var legacyStore = new JsonConfigStore(root);
-            await using var versionedStore = new DeviceConfigurationStore(root);
-            var bootstrapper = new DeviceConfigurationBootstrapper(root, legacyStore, versionedStore);
+        var first = await bootstrapper.LoadAsync();
 
-            var first = await bootstrapper.LoadAsync();
-            Assert.True(first.WasMigrated);
-            Assert.True(File.Exists(Path.Combine(root, "device-config", "active.json")));
-            Assert.Equal(DeviceConfig.CurrentSchemaVersion, first.Snapshot.Device.SchemaVersion);
-            Assert.Equal(PointsConfig.CurrentSchemaVersion, first.Snapshot.Points.SchemaVersion);
-            var firstRevision = first.Snapshot.Revision;
-            Assert.All(first.Snapshot.Points.Points, point => Assert.True(Guid.TryParse(point.Id, out _)));
+        Assert.True(first.WasMigrated);
+        Assert.True(File.Exists(Path.Combine(env.ConfigRoot, "device-config", "active.json")));
+        Assert.Equal(DeviceConfig.CurrentSchemaVersion, first.Snapshot.Device.SchemaVersion);
+        Assert.Equal(PointsConfig.CurrentSchemaVersion, first.Snapshot.Points.SchemaVersion);
+        Assert.Equal(SimulationConfig.CurrentSchemaVersion, first.Snapshot.Simulation.SchemaVersion);
+        var firstRevision = first.Snapshot.Revision;
 
-            File.WriteAllText(Path.Combine(root, "device.json"), "not used after active revision");
-            var second = await bootstrapper.LoadAsync();
+        await File.WriteAllTextAsync(Path.Combine(env.ConfigRoot, "device.json"), "not used after active revision");
+        var second = await bootstrapper.LoadAsync();
 
-            Assert.False(second.WasMigrated);
-            Assert.Equal(firstRevision, second.Snapshot.Revision);
-            Assert.Equal("P1", Assert.Single(second.Snapshot.Points.Points).Code);
-        }
-        finally
-        {
-            try { if (Directory.Exists(root)) Directory.Delete(root, recursive: true); } catch { }
-        }
+        Assert.False(second.WasMigrated);
+        Assert.Equal(firstRevision, second.Snapshot.Revision);
+        Assert.Equal("AI_Pressure", Assert.Single(second.Snapshot.Points.Points, point => point.Code == "AI_Pressure").Code);
     }
 
     [Fact]
-    public async Task InvalidActiveRevision_RebuildsFromCurrentSchemaFiles()
+    public async Task InvalidActiveSemanticConfiguration_UsesValidatedPreviousWithoutCommitting()
     {
-        var root = Path.Combine("D:\\Codex相关\\设备点位按设备仿真", "bootstrap-recovery-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(Path.Combine(root, "device-config"));
-        try
-        {
-            File.WriteAllText(Path.Combine(root, "device-config", "active.json"), "{}\n");
-            File.WriteAllText(Path.Combine(root, "device.json"), """
-            {
-              "schemaVersion": 3,
-              "pollIntervalMs": 500,
-              "timeoutMs": 1000,
-              "channels": [
-                { "id": "10000000-0000-0000-0000-000000000001", "code": "CH_PLC", "name": "PLC网络通道", "transportKind": "Tcp", "enabled": true, "timeoutMs": 1000, "retryCount": 0, "tcp": { "host": "127.0.0.1", "port": 102 } }
-              ],
-              "devices": [
-                { "id": "20000000-0000-0000-0000-000000000001", "code": "DEV_CURRENT", "name": "当前设备", "deviceMode": "Simulation", "protocol": "SiemensS7", "address": "127.0.0.1", "channelId": "10000000-0000-0000-0000-000000000001", "driverKey": "siemens-s7", "model": "S7-1500", "pollIntervalMs": 500, "staleAfterMs": 2000 }
-              ]
-            }
-            """);
-            File.WriteAllText(Path.Combine(root, "points.json"), """
-            {
-              "schemaVersion": 3,
-              "groups": [
-                { "id": "30000000-0000-0000-0000-000000000001", "deviceId": "20000000-0000-0000-0000-000000000001", "code": "DEFAULT", "name": "未分组", "sortOrder": 0 }
-              ],
-              "points": [
-                { "id": "40000000-0000-0000-0000-000000000001", "code": "P1", "name": "压力", "protocol": "SiemensS7", "deviceId": "20000000-0000-0000-0000-000000000001", "groupId": "30000000-0000-0000-0000-000000000001", "address": "DB1.DBD0", "dataType": "Float32", "rawDataType": "Float32" }
-              ]
-            }
-            """);
-            File.WriteAllText(Path.Combine(root, "simulation.json"), """
-            {
-              "schemaVersion": 2,
-              "initialValuesByPointId": {},
-              "changeRules": [],
-              "faultInjectionScenarios": []
-            }
-            """);
+        using var env = TestEnv.Create();
+        var files = new JsonConfigStore(env.ConfigRoot);
+        await using var store = new DeviceConfigurationStore(env.ConfigRoot);
+        var first = await env.LoadSnapshotAsync();
+        first.Revision = "previous-good";
+        await store.StageAsync(first);
+        await store.CommitActiveAsync(first.Revision);
 
-            var versionedStore = new RejectingActiveStore();
-            var bootstrapper = new DeviceConfigurationBootstrapper(
-                root,
-                new JsonConfigStore(root),
-                versionedStore);
+        var invalidActive = await env.LoadSnapshotAsync();
+        invalidActive.Revision = "active-unknown-binding";
+        invalidActive.SignalBindings.Bindings["UNKNOWN_SIGNAL"] = invalidActive.Points.Points[0].Id;
+        await store.StageAsync(invalidActive);
+        await store.CommitActiveAsync(invalidActive.Revision);
+        var activePath = Path.Combine(env.ConfigRoot, "device-config", "active.json");
+        var invalidActivePointer = await File.ReadAllBytesAsync(activePath);
 
-            var result = await bootstrapper.LoadAsync();
+        var bootstrapper = CreateBootstrapper(env.ConfigRoot, files, store);
+        var recovered = await bootstrapper.LoadAsync();
 
-            Assert.True(result.WasMigrated);
-            Assert.Contains("重建", result.Message, StringComparison.Ordinal);
-            Assert.Equal(DeviceConfig.CurrentSchemaVersion, result.Snapshot.Device.SchemaVersion);
-            Assert.Equal("DEV_CURRENT", Assert.Single(result.Snapshot.Device.Devices).Code);
-            Assert.Equal(result.Snapshot.Revision, versionedStore.CommittedRevision);
-            Assert.Equal(result.Snapshot.Revision, versionedStore.Staged?.Revision);
-        }
-        finally
-        {
-            try { if (Directory.Exists(root)) Directory.Delete(root, recursive: true); } catch { }
-        }
+        Assert.True(recovered.UsedPrevious);
+        Assert.Equal(first.Revision, recovered.SourceRevision);
+        Assert.Contains("应用校验失败", recovered.RecoveryMessage, StringComparison.Ordinal);
+        Assert.Equal(invalidActivePointer, await File.ReadAllBytesAsync(activePath));
     }
 
-    private sealed class RejectingActiveStore : IDeviceConfigurationStore
+    [Fact]
+    public async Task InvalidHistoryDoesNotRebuildFromCurrentDeploymentFiles()
     {
-        public DeviceConfigurationSnapshot? Staged { get; private set; }
-        public string? CommittedRevision { get; private set; }
+        using var env = TestEnv.Create();
+        var files = new JsonConfigStore(env.ConfigRoot);
+        await using var store = new DeviceConfigurationStore(env.ConfigRoot);
+        var historyRoot = Path.Combine(env.ConfigRoot, "device-config");
+        Directory.CreateDirectory(historyRoot);
+        await File.WriteAllTextAsync(Path.Combine(historyRoot, "active.json"), "{}\n");
 
-        public Task<DeviceConfigurationSnapshot> LoadActiveAsync(CancellationToken ct = default)
-            => throw new ConfigValidationException("旧 active 中的 device.json schemaVersion=2 不受支持");
+        var bootstrapper = CreateBootstrapper(env.ConfigRoot, files, store);
+        await Assert.ThrowsAsync<ConfigValidationException>(() => bootstrapper.LoadAsync());
 
-        public Task<DeviceConfigurationSnapshot> LoadRevisionAsync(string revision, CancellationToken ct = default)
-            => throw new NotSupportedException();
+        Assert.False(Directory.Exists(Path.Combine(historyRoot, "revisions")));
+        Assert.Equal("{}\n", await File.ReadAllTextAsync(Path.Combine(historyRoot, "active.json")));
+    }
 
-        public Task StageAsync(DeviceConfigurationSnapshot snapshot, CancellationToken ct = default)
-        {
-            Staged = snapshot;
-            return Task.CompletedTask;
-        }
+    [Fact]
+    public async Task OldDeploymentSchemaIsRejectedWithoutInitializingRevision()
+    {
+        using var env = TestEnv.Create();
+        var devicePath = Path.Combine(env.ConfigRoot, "device.json");
+        var json = await File.ReadAllTextAsync(devicePath);
+        await File.WriteAllTextAsync(devicePath, json.Replace("\"schemaVersion\": 5", "\"schemaVersion\": 3", StringComparison.Ordinal));
+        var files = new JsonConfigStore(env.ConfigRoot);
+        await using var store = new DeviceConfigurationStore(env.ConfigRoot);
 
-        public Task CommitActiveAsync(string revision, CancellationToken ct = default)
-        {
-            CommittedRevision = revision;
-            return Task.CompletedTask;
-        }
+        var bootstrapper = CreateBootstrapper(env.ConfigRoot, files, store);
+
+        var error = await Assert.ThrowsAnyAsync<Exception>(() => bootstrapper.LoadAsync());
+        Assert.Contains("请使用离线升级工具", error.Message, StringComparison.Ordinal);
+        Assert.False(Directory.Exists(Path.Combine(env.ConfigRoot, "device-config", "revisions")));
+    }
+
+    private static DeviceConfigurationBootstrapper CreateBootstrapper(
+        string configRoot,
+        JsonConfigStore files,
+        IDeviceConfigurationStore store)
+    {
+        var executors = new ExecutorFactory();
+        var requiredSignals = executors.Codes.SelectMany(code => executors.Get(code).RequiredSignals).ToArray();
+        return new DeviceConfigurationBootstrapper(
+            configRoot,
+            files,
+            store,
+            DriverRegistry.CreateDefault().Descriptors,
+            requiredSignals);
     }
 }

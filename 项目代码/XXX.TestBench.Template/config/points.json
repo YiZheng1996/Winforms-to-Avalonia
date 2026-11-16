@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 3,
+  "schemaVersion": 4,
   "groups": [
     {
       "id": "30000000-0000-5000-8000-000000000001",
@@ -36,7 +36,6 @@
       "groupId": "30000000-0000-5000-8000-000000000002",
       "address": "DB1.DBD0",
       "dataType": "Float32",
-      "rawDataType": "Float32",
       "decodeOptions": { "byteOrder": "BigEndian", "wordOrder": "None" },
       "isWritable": false,
       "riskLevel": "Normal",
@@ -54,8 +53,7 @@
       "deviceId": "20000000-0000-5000-8000-000000000001",
       "groupId": "30000000-0000-5000-8000-000000000003",
       "address": "DB1.DBX4.0",
-      "dataType": "Boolean",
-      "rawDataType": "Boolean",
+      "dataType": "Bool",
       "decodeOptions": { "byteOrder": "BigEndian", "wordOrder": "None" },
       "writePolicy": "ReadBackEqual",
       "isWritable": true,

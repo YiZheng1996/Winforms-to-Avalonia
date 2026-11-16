@@ -9,10 +9,10 @@ public sealed record PointValue(
     PointQuality Quality,
     object? Value,
     DateTime TimestampUtc,
-    string PointId = "",
-    string DeviceId = "",
-    long ConnectionGeneration = 0,
-    string Revision = "",
+    string PointId,
+    string DeviceId,
+    long ConnectionGeneration,
+    string Revision,
     /// <summary>
     /// 协议解码后的原始值。Value 始终表示工程值；没有量程时两者通常相同。
     /// </summary>

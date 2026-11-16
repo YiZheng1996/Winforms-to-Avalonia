@@ -16,5 +16,9 @@ public enum ReportStatus
     /// <summary>
     /// 生成失败。
     /// </summary>
-    Failed = 2
+    Failed = 2,
+    /// <summary>
+    /// 已被 worker 领取并正在生成。
+    /// </summary>
+    Generating = 3
 }

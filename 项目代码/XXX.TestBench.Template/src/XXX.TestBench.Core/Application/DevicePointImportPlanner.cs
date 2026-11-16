@@ -61,19 +61,54 @@ public sealed class DevicePointImportPlanner
     public DevicePointImportPlan Build(
         IReadOnlyList<DevicePointImportRow> importedRows,
         IReadOnlyList<PointsConfig.PointEntry> currentPoints,
-        IReadOnlyList<PointsConfig.PointGroupEntry> currentGroups)
+        IReadOnlyList<PointsConfig.PointGroupEntry> currentGroups,
+        Func<PointsConfig.PointEntry, string>? normalizeAddress = null,
+        Func<PointsConfig.PointEntry, DevicePointAddressRange?>? getAddressRange = null)
     {
         ArgumentNullException.ThrowIfNull(importedRows);
         ArgumentNullException.ThrowIfNull(currentPoints);
         ArgumentNullException.ThrowIfNull(currentGroups);
 
         var merged = currentPoints.Select(ClonePoint).ToList();
+        var invalidCurrentAddresses = new List<(PointsConfig.PointEntry Point, string Error)>();
+        if (normalizeAddress is not null)
+        {
+            foreach (var point in merged)
+            {
+                try
+                {
+                    // 导入预览不信任 JsonIgnore 的旧规范键，按当前已加载设备重新计算。
+                    point.CanonicalAddress = normalizeAddress(point);
+                }
+                catch (Exception ex)
+                {
+                    point.CanonicalAddress = string.Empty;
+                    invalidCurrentAddresses.Add((point, ex.Message));
+                }
+            }
+        }
         var rows = new List<DevicePointImportPlanRow>();
         foreach (var sourceRow in importedRows)
         {
             var incoming = ClonePoint(sourceRow.Entry);
             var issues = new List<string>();
+            if (normalizeAddress is not null)
+            {
+                try
+                {
+                    incoming.CanonicalAddress = normalizeAddress(incoming);
+                }
+                catch (Exception ex)
+                {
+                    incoming.CanonicalAddress = string.Empty;
+                    issues.Add($"地址无法规范化，不能继续检查重复地址：{ex.Message}");
+                }
+            }
             var existing = FindMatch(incoming, merged, currentGroups);
+
+            var invalidCurrent = invalidCurrentAddresses.FirstOrDefault(item => IsSameDevice(item.Point, incoming));
+            if (invalidCurrent.Point is not null)
+                issues.Add($"设备内已有点位“{DisplayName(invalidCurrent.Point)}”的地址无法规范化，不能可靠检查地址冲突：{invalidCurrent.Error}");
 
             if (existing is not null && !IsSameDevice(existing, incoming))
                 issues.Add("点位身份与设备归属不一致，不允许跨设备更新");
@@ -97,11 +132,35 @@ public sealed class DevicePointImportPlanner
                     IsSameDevice(point, candidate)
                     && (existing is null || !IsSameIdentity(point, existing))
                     && string.Equals(
-                        CanonicalAddress(point),
-                        CanonicalAddress(candidate),
+                        CanonicalAddress(point, normalizeAddress is not null),
+                        CanonicalAddress(candidate, normalizeAddress is not null),
                         StringComparison.OrdinalIgnoreCase));
                 if (addressOwner is not null)
                     issues.Add($"设备内地址已被“{DisplayName(addressOwner)}”占用");
+            }
+
+            if (candidate is not null && getAddressRange is not null)
+            {
+                try
+                {
+                    var candidateRange = getAddressRange(candidate);
+                    if (candidateRange is not null)
+                    {
+                        foreach (var other in merged.Where(point =>
+                                     IsSameDevice(point, candidate)
+                                     && (existing is null || !IsSameIdentity(point, existing))))
+                        {
+                            var otherRange = getAddressRange(other);
+                            if (otherRange is not null
+                                && DevicePointAddressRangeValidator.Overlaps(candidateRange, otherRange))
+                                issues.Add($"{DevicePointAddressRangeValidator.FormatRange(candidateRange)} 与点位“{DisplayName(other)}”占用的 {DevicePointAddressRangeValidator.FormatRange(otherRange)} 重叠");
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    issues.Add($"地址占用范围无法校验：{ex.Message}");
+                }
             }
 
             if (candidate is not null)
@@ -112,8 +171,8 @@ public sealed class DevicePointImportPlanner
                     && IsSameDevice(row.Candidate, candidate)
                     && !IsSameIdentity(row.Candidate, candidate)
                     && string.Equals(
-                        CanonicalAddress(row.Candidate),
-                        CanonicalAddress(candidate),
+                        CanonicalAddress(row.Candidate, normalizeAddress is not null),
+                        CanonicalAddress(candidate, normalizeAddress is not null),
                         StringComparison.OrdinalIgnoreCase));
                 if (duplicateIncoming is not null)
                     issues.Add($"导入文件中存在重复地址：{incoming.Address}");
@@ -246,16 +305,10 @@ public sealed class DevicePointImportPlanner
             OriginalAddress = incoming.OriginalAddress,
             CanonicalAddress = incoming.CanonicalAddress,
             DataType = incoming.DataType?.Trim() ?? string.Empty,
-            RawDataType = string.IsNullOrWhiteSpace(incoming.RawDataType)
-                ? incoming.DataType?.Trim() ?? string.Empty
-                : incoming.RawDataType.Trim(),
-            DecodeOptions = CloneDecodeOptions(incoming.DecodeOptions),
-            ByteOrderSource = incoming.ByteOrderSource,
-            WordOrderSource = incoming.WordOrderSource,
+            S7DecodeOptions = CloneDecodeOptions(incoming.S7DecodeOptions),
             WritePolicy = incoming.WritePolicy,
             IsWritable = incoming.IsWritable,
             RiskLevel = WriteRiskLevel.Normal,
-            Scale = CloneScale(incoming.Scale),
             RawMin = incoming.RawMin,
             RawMax = incoming.RawMax,
             EngMin = incoming.EngMin,
@@ -288,9 +341,6 @@ public sealed class DevicePointImportPlanner
                 ? CloneAddressDefinition(existing.AddressDefinition)
                 : CloneAddressDefinition(incoming.AddressDefinition);
         candidate.DataType = incoming.DataType?.Trim() ?? string.Empty;
-        candidate.RawDataType = string.IsNullOrWhiteSpace(incoming.RawDataType)
-            ? candidate.DataType
-            : incoming.RawDataType.Trim();
         candidate.DeviceId = string.IsNullOrWhiteSpace(incoming.DeviceId) ? existing.DeviceId : incoming.DeviceId.Trim();
         candidate.DeviceCode = string.IsNullOrWhiteSpace(incoming.DeviceCode) ? existing.DeviceCode : incoming.DeviceCode.Trim();
         candidate.GroupId = string.IsNullOrWhiteSpace(incoming.GroupId) ? existing.GroupId : incoming.GroupId.Trim();
@@ -304,17 +354,13 @@ public sealed class DevicePointImportPlanner
         candidate.EngMin = incoming.EngMin;
         candidate.EngMax = incoming.EngMax;
         candidate.Description = incoming.Description?.Trim() ?? string.Empty;
-        candidate.Scale = CloneScale(incoming.Scale);
         // 模板不承载的字段必须保留现有点位安全边界。
         candidate.WritePolicy = existing.WritePolicy;
-        // v6 模板已正式承载 Modbus 字节序/字序；结构化 Modbus 行的值必须
-        // 进入候选配置。其他协议的两列为空时，继续保留既有解码方式，避免
-        // 用户仅整理地址/量程就意外改变 S7 点位。
-        candidate.DecodeOptions = isStructuredModbus
-            ? CloneDecodeOptions(incoming.DecodeOptions)
-            : CloneDecodeOptions(existing.DecodeOptions);
-        candidate.ByteOrderSource = incoming.ByteOrderSource;
-        candidate.WordOrderSource = incoming.WordOrderSource;
+        // 当前模板不承载设备级 Modbus 数据排列。Modbus 点位不能继续携带
+        // 旧的点位级解码对象；S7 点位的解码元数据则沿用现有配置。
+        candidate.S7DecodeOptions = IsModbusPoint(existing) || IsModbusPoint(incoming)
+            ? null
+            : CloneDecodeOptions(existing.S7DecodeOptions);
         candidate.Protocol = string.IsNullOrWhiteSpace(existing.Protocol) ? incoming.Protocol : existing.Protocol;
         return candidate;
     }
@@ -324,9 +370,6 @@ public sealed class DevicePointImportPlanner
            && string.Equals(left.Name?.Trim(), right.Name?.Trim(), StringComparison.OrdinalIgnoreCase)
            && string.Equals(left.Address?.Trim(), right.Address?.Trim(), StringComparison.OrdinalIgnoreCase)
            && string.Equals(left.DataType?.Trim(), right.DataType?.Trim(), StringComparison.OrdinalIgnoreCase)
-           && string.Equals(left.RawDataType?.Trim(), right.RawDataType?.Trim(), StringComparison.OrdinalIgnoreCase)
-           && left.DecodeOptions?.ByteOrder == right.DecodeOptions?.ByteOrder
-           && left.DecodeOptions?.WordOrder == right.DecodeOptions?.WordOrder
            && left.IsWritable == right.IsWritable
            && left.RawMin == right.RawMin
            && left.RawMax == right.RawMax
@@ -354,15 +397,29 @@ public sealed class DevicePointImportPlanner
         return string.Equals(left.DeviceCode?.Trim(), right.DeviceCode?.Trim(), StringComparison.OrdinalIgnoreCase);
     }
 
+    private static bool IsModbusPoint(PointsConfig.PointEntry point)
+    {
+        if (point.ProtocolKind is DevicePointProtocol.ModbusRtu or DevicePointProtocol.ModbusTcp)
+            return true;
+
+        var area = point.AddressDefinition?.Area?.Trim();
+        return string.Equals(area, "C", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(area, "DI", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(area, "HR", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(area, "IR", StringComparison.OrdinalIgnoreCase);
+    }
+
     private static bool IsSameIdentity(PointsConfig.PointEntry left, PointsConfig.PointEntry right)
         => !string.IsNullOrWhiteSpace(left.Id)
            && !string.IsNullOrWhiteSpace(right.Id)
            && string.Equals(left.Id.Trim(), right.Id.Trim(), StringComparison.OrdinalIgnoreCase);
 
-    private static string CanonicalAddress(PointsConfig.PointEntry point)
-        => point.AddressDefinition?.ToCanonical(point.Address ?? string.Empty)
-           ?? point.Address?.Trim()
-           ?? string.Empty;
+    private static string CanonicalAddress(PointsConfig.PointEntry point, bool useResolvedAddress)
+        => useResolvedAddress
+            ? point.CanonicalAddress?.Trim() ?? string.Empty
+            : point.AddressDefinition?.ToCanonical(point.Address ?? string.Empty)
+              ?? point.Address?.Trim()
+              ?? string.Empty;
 
     private static string ResolveTag(
         PointsConfig.PointEntry point,
@@ -396,16 +453,13 @@ public sealed class DevicePointImportPlanner
             point.Name?.Trim() ?? string.Empty,
             point.Address?.Trim() ?? string.Empty,
             point.DataType?.Trim() ?? string.Empty,
-            point.RawDataType?.Trim() ?? string.Empty,
             point.IsWritable.ToString(),
             point.RiskLevel.ToString(),
             point.WritePolicy.ToString(),
-            point.DecodeOptions?.ByteOrder.ToString() ?? string.Empty,
-            point.DecodeOptions?.WordOrder.ToString() ?? string.Empty,
-            point.EffectiveRawMin?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? string.Empty,
-            point.EffectiveRawMax?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? string.Empty,
-            point.EffectiveEngMin?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? string.Empty,
-            point.EffectiveEngMax?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? string.Empty,
+            point.RawMin?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? string.Empty,
+            point.RawMax?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? string.Empty,
+            point.EngMin?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? string.Empty,
+            point.EngMax?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? string.Empty,
             point.Description?.Trim() ?? string.Empty);
 
     private static PointsConfig.PointEntry ClonePoint(PointsConfig.PointEntry source)
@@ -424,14 +478,10 @@ public sealed class DevicePointImportPlanner
             OriginalAddress = source.OriginalAddress,
             CanonicalAddress = source.CanonicalAddress,
             DataType = source.DataType,
-            RawDataType = source.RawDataType,
-            DecodeOptions = CloneDecodeOptions(source.DecodeOptions),
-            ByteOrderSource = source.ByteOrderSource,
-            WordOrderSource = source.WordOrderSource,
+            S7DecodeOptions = CloneDecodeOptions(source.S7DecodeOptions),
             WritePolicy = source.WritePolicy,
             IsWritable = source.IsWritable,
             RiskLevel = source.RiskLevel,
-            Scale = CloneScale(source.Scale),
             RawMin = source.RawMin,
             RawMax = source.RawMax,
             EngMin = source.EngMin,
@@ -439,24 +489,13 @@ public sealed class DevicePointImportPlanner
             Description = source.Description
         };
 
-    private static DecodeOptions CloneDecodeOptions(DecodeOptions? source)
+    private static DecodeOptions? CloneDecodeOptions(DecodeOptions? source)
         => source is null
-            ? new DecodeOptions()
+            ? null
             : new DecodeOptions
             {
                 ByteOrder = source.ByteOrder,
                 WordOrder = source.WordOrder
-            };
-
-    private static PointsConfig.ScaleValues? CloneScale(PointsConfig.ScaleValues? source)
-        => source is null
-            ? null
-            : new PointsConfig.ScaleValues
-            {
-                RawMin = source.RawMin,
-                RawMax = source.RawMax,
-                EngMin = source.EngMin,
-                EngMax = source.EngMax
             };
 
     private static PointAddressDefinition? CloneAddressDefinition(PointAddressDefinition? source)

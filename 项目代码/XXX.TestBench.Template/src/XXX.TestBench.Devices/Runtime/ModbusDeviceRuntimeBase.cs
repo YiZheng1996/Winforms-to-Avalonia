@@ -3,6 +3,7 @@ using XXX.TestBench.Core.Common;
 using XXX.TestBench.Core.Configuration;
 using XXX.TestBench.Core.Domain.Devices;
 using XXX.TestBench.Core.Ports;
+using XXX.TestBench.Devices.Drivers;
 using XXX.TestBench.Devices.Modbus;
 
 namespace XXX.TestBench.Devices.Runtime;
@@ -187,6 +188,23 @@ public abstract class ModbusDeviceRuntimeBase : IDeviceRuntime
         return Task.FromResult<IReadOnlyList<DevicePoint>>(_points);
     }
 
+    public bool TryGetCachedValue(string pointId, out PointValue value)
+    {
+        value = default!;
+        return false;
+    }
+
+    public IReadOnlyList<PointValue> ListCachedValues() => Array.Empty<PointValue>();
+
+    public DeviceRuntimeInfo GetDeviceStatus(string deviceId)
+    {
+        if (!string.Equals(deviceId?.Trim(), _device.Id, StringComparison.OrdinalIgnoreCase))
+            throw new DomainException($"设备 {deviceId} 不属于当前运行时");
+        return Status;
+    }
+
+    public IReadOnlyList<DeviceRuntimeInfo> ListDeviceStatuses() => new[] { Status };
+
     public Task<PointValue> ReadAsync(DevicePoint point, CancellationToken ct = default)
         => ReadFreshAsync(ResolvePoint(point).PointId, ct);
 
@@ -207,6 +225,7 @@ public abstract class ModbusDeviceRuntimeBase : IDeviceRuntime
 
         var values = new Dictionary<string, PointValue>(StringComparer.OrdinalIgnoreCase);
         var validPoints = new List<DevicePoint>(points.Count);
+        var originalPointsById = points.ToDictionary(point => point.PointId, StringComparer.OrdinalIgnoreCase);
         foreach (var point in points)
         {
             if (TryValidatePoint(point, out var reason))
@@ -222,7 +241,9 @@ public abstract class ModbusDeviceRuntimeBase : IDeviceRuntime
         try
         {
             var client = await EnsureConnectionAsync(GetConnectTimeout(), ct);
-            var batches = ModbusReadBatchPlanner.Plan(validPoints);
+            var order = _device.ModbusDataOrder
+                ?? throw new DomainException("Modbus 设备必须配置字节序模式和多寄存器字序");
+            var batches = PlanReadBatches(validPoints, order);
             foreach (var batch in batches)
             {
                 ct.ThrowIfCancellationRequested();
@@ -242,15 +263,18 @@ public abstract class ModbusDeviceRuntimeBase : IDeviceRuntime
                             var registers = (ushort[])response;
                             raw = ModbusValueCodec.DecodeRegisters(
                                 item.Point,
+                                order,
                                 registers.AsSpan(item.OffsetInBatch, item.ValueLength));
                         }
-                        values[item.Point.PointId] = CreateGoodValue(item.Point, raw);
+                        var originalPoint = originalPointsById[item.Point.PointId];
+                        values[originalPoint.PointId] = CreateGoodValue(originalPoint, raw);
                     }
                     catch (Exception ex)
                     {
-                        values[item.Point.PointId] = CreateBadValue(item.Point, ex.Message);
+                        var originalPoint = originalPointsById[item.Point.PointId];
+                        values[originalPoint.PointId] = CreateBadValue(originalPoint, ex.Message);
                         Publish(DeviceEventSeverity.Warning, "MODBUS_POINT_BAD",
-                            $"点位“{DisplayPoint(item.Point)}”解码失败：{ex.Message}");
+                            $"点位“{DisplayPoint(originalPoint)}”解码失败：{ex.Message}");
                     }
                 }
             }
@@ -291,10 +315,10 @@ public abstract class ModbusDeviceRuntimeBase : IDeviceRuntime
         try
         {
             var client = await EnsureConnectionAsync(GetConnectTimeout(), ct);
-            var address = ModbusAddressParser.Parse(current.Address);
+            var address = ModbusPointAddressResolver.Resolve(_device, current);
             var requestTimeout = GetRequestTimeout();
-            var type = ModbusTypeCapabilities.NormalizeCompatibilityType(address.Area, current.DataType);
-            if (type is DevicePointDataType.Bool or DevicePointDataType.Boolean)
+            var type = current.DataType;
+            if (type == DevicePointDataType.Bool)
             {
                 await client.WriteSingleCoilAsync(
                     GetUnitId(),
@@ -305,7 +329,10 @@ public abstract class ModbusDeviceRuntimeBase : IDeviceRuntime
             }
             else
             {
-                var registers = ModbusValueCodec.EncodeRegisters(current, value);
+                var order = _device.ModbusDataOrder
+                    ?? throw new DomainException("Modbus 设备必须配置字节序模式和多寄存器字序");
+                var protocolPoint = ToProtocolPoint(current);
+                var registers = ModbusValueCodec.EncodeRegisters(protocolPoint, order, value);
                 if (registers.Length == 1)
                 {
                     await client.WriteSingleRegisterAsync(
@@ -369,13 +396,13 @@ public abstract class ModbusDeviceRuntimeBase : IDeviceRuntime
     private DevicePoint ResolvePoint(DevicePoint requested)
     {
         ArgumentNullException.ThrowIfNull(requested);
-        if (!string.IsNullOrWhiteSpace(requested.PointId)
-            && GetPoint(requested.PointId.Trim()) is { } byId)
-            return byId;
-        if (_points.FirstOrDefault(point =>
-                string.Equals(point.Address, requested.Address, StringComparison.OrdinalIgnoreCase)) is { } byAddress)
-            return byAddress;
-        throw new DomainException($"点位 {requested.PointId}/{requested.Address} 不属于设备 {_device.Code}");
+        if (string.IsNullOrWhiteSpace(requested.PointId)
+            || GetPoint(requested.PointId.Trim()) is not { } byId)
+            throw new DomainException($"点位缺少有效 PointId，或不属于设备 {_device.Code}");
+        if (!string.Equals(requested.DeviceId, _device.Id, StringComparison.OrdinalIgnoreCase)
+            || !string.Equals(requested.Revision, _revision, StringComparison.Ordinal))
+            throw new DomainException($"点位 {requested.Code} 的设备身份或配置版本已变化");
+        return byId;
     }
 
     private async Task<object> ReadBatchAsync(
@@ -413,6 +440,16 @@ public abstract class ModbusDeviceRuntimeBase : IDeviceRuntime
         if (!GetUnitId(out var unitId))
             throw new DomainException("Modbus 站号必须在 1-247 范围内，首版不支持广播站号 0");
         _ = unitId;
+        if (_device.ModbusDataOrder is null)
+            throw new DomainException("Modbus 设备必须配置字节序模式和多寄存器字序");
+        if (_device.ModbusDataOrder.ByteOrder is not (ByteOrder.BigEndian or ByteOrder.LittleEndian))
+            throw new DomainException("Modbus 设备字节序必须选择大端模式或小端模式");
+        if (_device.ModbusDataOrder.WordOrder is not (WordOrder.HighWordFirst or WordOrder.LowWordFirst))
+            throw new DomainException("Modbus 设备字序必须选择高字在前或低字在前");
+        if (ModbusPointAddressResolver.IsXinjeFieldV1(_device.Model)
+            && (_device.ModbusDataOrder.ByteOrder != ByteOrder.BigEndian
+                || _device.ModbusDataOrder.WordOrder != WordOrder.LowWordFirst))
+            throw new DomainException("信捷 PLC（现场验证配置 V1）固定使用大端模式、低字在前");
         if (_channel.TransportKind == ChannelTransportKind.Tcp && _device.ModbusTcp is null)
             throw new DomainException("Modbus TCP 缺少设备专属端点");
         if (_channel.TransportKind == ChannelTransportKind.Serial && _channel.Serial is null)
@@ -421,10 +458,59 @@ public abstract class ModbusDeviceRuntimeBase : IDeviceRuntime
 
     private bool TryValidatePoint(DevicePoint point, out string? reason)
     {
-        if (!ModbusAddressParser.TryParse(point.Address, out var address, out reason))
+        if (!ModbusPointValidation.TryValidate(point, _device, out _, out reason))
             return false;
-        var type = ModbusTypeCapabilities.NormalizeCompatibilityType(address.Area, point.DataType);
-        return ModbusTypeCapabilities.TryValidate(address.Area, type, point.IsWritable, point.DecodeOptions, out reason);
+        if (!ModbusPointAddressResolver.IsXinjeFieldV1(_device.Model))
+            return true;
+
+        var range = ModbusPointValidation.GetAddressRange(point, _device);
+        if (range is null)
+            return true;
+        foreach (var other in _points)
+        {
+            if (string.Equals(other.PointId, point.PointId, StringComparison.OrdinalIgnoreCase)
+                || !ModbusPointValidation.TryValidate(other, _device, out _, out _))
+                continue;
+            var otherRange = ModbusPointValidation.GetAddressRange(other, _device);
+            if (otherRange is not null && DevicePointAddressRangeValidator.Overlaps(range, otherRange))
+            {
+                reason = $"点位“{DisplayPoint(point)}”的地址占用范围与点位“{DisplayPoint(other)}”重叠";
+                return false;
+            }
+        }
+        reason = null;
+        return true;
+    }
+
+    private IReadOnlyList<ModbusReadBatch> PlanReadBatches(
+        IReadOnlyList<DevicePoint> points,
+        ModbusDataOrderOptions order)
+    {
+        if (!ModbusPointAddressResolver.IsXinjeFieldV1(_device.Model))
+            return ModbusReadBatchPlanner.Plan(points.Select(ToProtocolPoint), order);
+
+        // D/HD 和 M/HM 映射到相同 Modbus 数据区，但不同原生区之间不合并。
+        return points
+            .GroupBy(point => XinjeFieldV1AddressParser.Parse(point.Address).Area)
+            .SelectMany(group => ModbusReadBatchPlanner.Plan(
+                group.Select(ToProtocolPoint),
+                order,
+                requireContiguous: true))
+            .ToList();
+    }
+
+    private DevicePoint ToProtocolPoint(DevicePoint point)
+    {
+        var address = ModbusPointAddressResolver.Resolve(_device, point);
+        return point with
+        {
+            Address = address.Canonical,
+            AddressDefinition = new PointAddressDefinition
+            {
+                Area = address.Area.ToCode(),
+                Offset = address.Offset
+            }
+        };
     }
 
     private void EnsureReadable()

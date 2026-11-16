@@ -147,7 +147,6 @@ public sealed class SiemensS7OptimizedBlockAccessAdvisorTests
             Address = address,
             Protocol = "SiemensS7",
             DataType = "Float32",
-            RawDataType = "Float32"
         };
 
     private static DeviceConfigurationSnapshot CreateSnapshot(

@@ -5,6 +5,9 @@ using XXX.TestBench.Core.Application;
 
 namespace XXX.TestBench.App.Controls.Process;
 
+/// <summary>
+/// 根据点位状态显示文字及对应的颜色提示。
+/// </summary>
 public partial class PointStatusBadge : UserControl
 {
     public static readonly StyledProperty<string> TextProperty =
@@ -37,6 +40,9 @@ public partial class PointStatusBadge : UserControl
             UpdateVisual();
     }
 
+    /// <summary>
+    /// 同步状态文字、前景色、底色和边框色。
+    /// </summary>
     private void UpdateVisual()
     {
         if (BadgeTextBlock is null || BadgeBorder is null)

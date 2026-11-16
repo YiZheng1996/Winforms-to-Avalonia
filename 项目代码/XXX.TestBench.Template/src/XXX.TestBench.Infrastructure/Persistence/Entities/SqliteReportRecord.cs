@@ -61,4 +61,28 @@ internal sealed class SqliteReportRecord
     /// </summary>
     [Column(Name = "completed_at_utc", IsNullable = true)]
     public string? CompletedAtUtc { get; set; }
+
+    [Column(Name = "revision_id", IsNullable = true)] public string? RevisionId { get; set; }
+    [Column(Name = "revision_no", IsNullable = true)] public int? RevisionNo { get; set; }
+    [Column(Name = "trigger", IsNullable = true)] public string? Trigger { get; set; }
+    [Column(Name = "owner_node_id", IsNullable = true)] public string? OwnerNodeId { get; set; }
+    [Column(Name = "attempt_token", IsNullable = true)] public string? AttemptToken { get; set; }
+    [Column(Name = "active_attempt_key", IsNullable = true)] public string? ActiveAttemptKey { get; set; }
+    [Column(Name = "storage_key", IsNullable = true)] public string? StorageKey { get; set; }
+    [Column(Name = "template_hash", IsNullable = true)] public string? TemplateHash { get; set; }
+    [Column(Name = "mapping_hash", IsNullable = true)] public string? MappingHash { get; set; }
+    [Column(Name = "input_hash", IsNullable = true)] public string? InputHash { get; set; }
+    [Column(Name = "manifest_hash", IsNullable = true)] public string? ManifestHash { get; set; }
+    [Column(Name = "engine_name", IsNullable = true)] public string? EngineName { get; set; }
+    [Column(Name = "engine_version", IsNullable = true)] public string? EngineVersion { get; set; }
+    [Column(Name = "calculation_result_json", IsNullable = true)] public string? CalculationResultJson { get; set; }
+    [Column(Name = "error_stage", IsNullable = true)] public string? ErrorStage { get; set; }
+    [Column(Name = "request_id", IsNullable = true)] public string? RequestId { get; set; }
+    [Column(Name = "purpose", IsNullable = true)] public int? Purpose { get; set; }
+    [Column(Name = "row_version")] public long RowVersion { get; set; }
+    [Column(Name = "pdf_storage_key", IsNullable = true)] public string? PdfStorageKey { get; set; }
+    [Column(Name = "pdf_artifact_id", IsNullable = true)] public string? PdfArtifactId { get; set; }
+    [Column(Name = "pdf_hash", IsNullable = true)] public string? PdfHash { get; set; }
+    [Column(Name = "pdf_manifest_key", IsNullable = true)] public string? PdfManifestKey { get; set; }
+    [Column(Name = "pdf_state")] public int PdfState { get; set; }
 }

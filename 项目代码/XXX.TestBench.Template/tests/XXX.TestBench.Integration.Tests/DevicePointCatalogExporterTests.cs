@@ -189,7 +189,6 @@ public sealed class DevicePointCatalogExporterTests
             GroupId = groupId,
             Address = "sim." + code,
             DataType = "Decimal",
-            RawDataType = "Decimal",
             IsWritable = writable,
             RiskLevel = writable ? WriteRiskLevel.HighRisk : WriteRiskLevel.Normal
         };
@@ -201,14 +200,11 @@ public sealed class DevicePointCatalogExporterTests
             Code = code,
             Name = name,
             DeviceMode = DeviceMode.Simulation,
-            Protocol = "Simulation",
-            Address = "sim",
             ChannelId = "10000000-0000-0000-0000-000000000001",
             DriverKey = "simulation",
             Model = "sim",
             PollIntervalMs = 500,
-            StaleAfterMs = 1500,
-            Enabled = true
+            StaleAfterMs = 1500
         };
 
     private static string NewTestPath(string extension = ".xlsx")

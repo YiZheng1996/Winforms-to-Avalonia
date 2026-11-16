@@ -6,7 +6,7 @@ namespace XXX.TestBench.App.Localization;
 /// </summary>
 public static class LogTextLocalizer
 {
-    private static readonly IReadOnlyDictionary<string, string> ActionNames = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+    private static readonly IReadOnlyDictionary<string, string> CurrentActionNames = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
     {
         ["LoginFailed"] = "登录失败",
         ["LoginBlocked"] = "登录被拒绝",
@@ -15,10 +15,15 @@ public static class LogTextLocalizer
         ["PasswordChanged"] = "修改密码",
         ["SessionRevoked"] = "退出登录",
         ["AccessDenied"] = "权限不足",
+        ["AuthorizationDenied"] = "权限不足",
         ["DeviceModeInitialized"] = "设备模式初始化",
         ["DeviceModeInitFailed"] = "设备模式初始化失败",
-        ["DevicePointCatalogSaved"] = "保存设备点位",
+        ["DeviceConfigurationApplied"] = "应用设备配置",
+        ["DeviceConfigurationApplyWarning"] = "设备配置应用提示",
+        ["DeviceConfigurationApplyFailed"] = "设备配置应用失败",
         ["DeviceWrite"] = "设备点位写入",
+        ["DeviceWriteFailed"] = "设备点位写入失败",
+        ["DeviceWriteUncertain"] = "设备点位写入结果不确定",
         ["ProductTypeCreated"] = "新增产品类型",
         ["ProductTypeEnabled"] = "启用产品类型",
         ["ProductTypeDisabled"] = "停用产品类型",
@@ -35,16 +40,27 @@ public static class LogTextLocalizer
         ["ModelPointConfigSaved"] = "保存型号试验项点配置",
         ["ProjectTestParameterSaved"] = "保存项目级试验参数",
         ["ProductTestParameterSaved"] = "保存产品试验参数",
-        // 兼容升级前已经写入的历史动作码；当前页面不再产生这两类记录。
-        ["TypeTestParameterSaved"] = "保存产品类型试验参数",
-        ["ModelTestParameterSaved"] = "保存产品型号试验参数",
         ["TestStarted"] = "开始试验",
+        ["SignalDependencyFailed"] = "试验信号预检失败",
         ["ItemExecuted"] = "执行试验项点",
         ["TestFinished"] = "结束试验",
         ["ReportGenerated"] = "生成报表成功",
         ["ReportFailed"] = "生成报表失败",
 
-        // 兼容早期任务/配方版本可能已经写入数据库的动作码。
+        ["UserCreated"] = "新增用户",
+        ["UserPasswordReset"] = "重置用户密码",
+        ["UserUnlocked"] = "解除用户锁定",
+        ["RoleCreated"] = "新增角色",
+        ["RoleRenamed"] = "修改角色名称",
+        ["RoleDeleted"] = "删除角色",
+        ["RolePermissionsChanged"] = "修改角色权限"
+    };
+
+    private static readonly IReadOnlyDictionary<string, string> HistoricalActionNames = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+    {
+        ["DevicePointCatalogSaved"] = "保存设备点位",
+        ["TypeTestParameterSaved"] = "保存产品类型试验参数",
+        ["ModelTestParameterSaved"] = "保存产品型号试验参数",
         ["TaskCreated"] = "新增试验任务",
         ["TaskUpdated"] = "修改试验任务",
         ["TaskCancelled"] = "取消试验任务",
@@ -55,7 +71,6 @@ public static class LogTextLocalizer
         ["RecipePublished"] = "发布配方",
         ["RecipeDisabled"] = "停用配方",
         ["RecipeDeleted"] = "删除配方",
-        ["UserCreated"] = "新增用户",
         ["UserUpdated"] = "修改用户",
         ["UserEnabled"] = "启用用户",
         ["UserDisabled"] = "停用用户"
@@ -64,8 +79,16 @@ public static class LogTextLocalizer
     /// <summary>
     /// 已知动作码及其显示名称，供日志查询下拉框使用。
     /// </summary>
+    public static IReadOnlyList<KeyValuePair<string, string>> CurrentKnownActions { get; } =
+        CurrentActionNames.OrderBy(pair => pair.Value, StringComparer.CurrentCulture).ToArray();
+
+    public static IReadOnlyList<KeyValuePair<string, string>> HistoricalKnownActions { get; } =
+        HistoricalActionNames.OrderBy(pair => pair.Value, StringComparer.CurrentCulture).ToArray();
+
     public static IReadOnlyList<KeyValuePair<string, string>> KnownActions { get; } =
-        ActionNames.OrderBy(pair => pair.Value, StringComparer.CurrentCulture).ToArray();
+        CurrentActionNames.Concat(HistoricalActionNames)
+            .OrderBy(pair => pair.Value, StringComparer.CurrentCulture)
+            .ToArray();
 
     private static readonly IReadOnlyDictionary<string, string> PermissionNames = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
     {
@@ -108,7 +131,9 @@ public static class LogTextLocalizer
     {
         var value = action?.Trim();
         if (string.IsNullOrWhiteSpace(value)) return "未知操作";
-        return ActionNames.TryGetValue(value, out var display)
+        if (CurrentActionNames.TryGetValue(value, out var display))
+            return display;
+        return HistoricalActionNames.TryGetValue(value, out display)
             ? display
             : ContainsChinese(value) ? value : "其他系统操作";
     }

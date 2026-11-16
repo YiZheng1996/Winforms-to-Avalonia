@@ -16,16 +16,28 @@ public sealed class SignalResolutionSnapshot
     public static string ToJson(
         string revision,
         IReadOnlyDictionary<string, ResolvedSignal> signals)
-        => JsonSerializer.Serialize(new SignalResolutionSnapshot
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(revision);
+        ArgumentNullException.ThrowIfNull(signals);
+        return JsonSerializer.Serialize(new SignalResolutionSnapshot
         {
             Revision = revision,
             Bindings = signals.ToDictionary(pair => pair.Key, pair => pair.Value.PointId, StringComparer.OrdinalIgnoreCase)
         }, Options);
+    }
 
     public static SignalResolutionSnapshot? FromJson(string? json)
     {
         if (string.IsNullOrWhiteSpace(json)) return null;
-        return JsonSerializer.Deserialize<SignalResolutionSnapshot>(json, Options);
+        var snapshot = JsonSerializer.Deserialize<SignalResolutionSnapshot>(json, Options);
+        if (snapshot is null
+            || snapshot.SchemaVersion != CurrentSchemaVersion
+            || string.IsNullOrWhiteSpace(snapshot.Revision)
+            || snapshot.Bindings is null
+            || snapshot.Bindings.Any(pair => string.IsNullOrWhiteSpace(pair.Key)
+                || !Guid.TryParse(pair.Value, out _)))
+            return null;
+        return snapshot;
     }
 
     private static readonly JsonSerializerOptions Options = new()

@@ -40,11 +40,11 @@ public sealed class SiemensS7DriverDescriptor : IDeviceDriverDescriptor
             issues.Add(new("driverKey", "设备驱动键与西门子 S7 描述不匹配"));
         if (!DeviceModels.Any(model => string.Equals(model.Key, device.Model, StringComparison.OrdinalIgnoreCase)))
             issues.Add(new("model", "请选择受支持的西门子系列：S7-200 SMART、S7-1200 或 S7-1500"));
-        if (device.DeviceMode == DeviceMode.Hardware
-            && device.SiemensS7 is null
-            && string.IsNullOrWhiteSpace(device.Address)
-            && (channel.Tcp is null || string.IsNullOrWhiteSpace(channel.Tcp.Host)))
-            issues.Add(new("siemensS7", "硬件 Siemens S7 必须配置设备专属端点"));
+        if (device.SiemensS7 is null)
+            issues.Add(new("siemensS7", "Siemens S7 必须配置设备专属端点"));
+        else
+            issues.AddRange(device.SiemensS7.Validate("siemensS7")
+                .Select(issue => new DriverValidationIssue("siemensS7." + issue.Path, issue.Message)));
         return issues;
     }
 
@@ -69,15 +69,15 @@ public sealed class SiemensS7DriverDescriptor : IDeviceDriverDescriptor
         if (is1200Or1500 && address!.Canonical.StartsWith("V", StringComparison.OrdinalIgnoreCase))
             issues.Add(new("address", $"地址无法导入该设备：{device.Model} 不支持 S7-200 SMART 的 V 区地址"));
 
-        var dataType = point.RawDataTypeKind;
+        var dataType = point.DataTypeKind;
         if (device.DeviceMode == DeviceMode.Simulation && dataType == DevicePointDataType.Decimal)
             return issues;
         if (!SiemensS7TypeCapabilities.IsShapeCompatible(address!.Shape, dataType, out var reason))
-            issues.Add(new("rawDataType", $"点位“{DisplayPoint(point)}”：{reason}"));
+            issues.Add(new("dataType", $"点位“{DisplayPoint(point)}”：{reason}"));
         return issues;
     }
 
-    public string NormalizeAddress(PointsConfig.PointEntry point)
+    public string NormalizeAddress(PointsConfig.PointEntry point, DeviceConfig.DeviceEntry device)
         => S7AddressParser.TryParse(point.Address, out var address, out _)
             ? address!.Canonical
             : (point.Address ?? string.Empty).Trim().Replace(" ", string.Empty, StringComparison.Ordinal)

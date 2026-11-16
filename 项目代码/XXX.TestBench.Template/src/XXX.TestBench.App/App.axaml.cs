@@ -55,6 +55,7 @@ public partial class App : Application
             // 登录窗口是桌面生命周期的初始主窗口；认证完成后会被 LoginWindow 替换为工艺主窗口。
             // 固定为主窗口关闭即退出，避免退出工艺界面后又回到登录界面。
             desktop.ShutdownMode = ShutdownMode.OnMainWindowClose;
+            desktop.Exit += (_, _) => _composition?.Dispose();
 
             if (_composition.StartupError is null)
             {

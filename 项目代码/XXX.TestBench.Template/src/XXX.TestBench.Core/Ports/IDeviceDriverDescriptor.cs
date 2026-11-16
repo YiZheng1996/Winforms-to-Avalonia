@@ -20,7 +20,14 @@ public interface IDeviceDriverDescriptor
     IReadOnlyList<DriverValidationIssue> ValidateChannel(ChannelEntry channel);
     IReadOnlyList<DriverValidationIssue> ValidateDevice(DeviceConfig.DeviceEntry device, ChannelEntry channel);
     IReadOnlyList<DriverValidationIssue> ValidatePoint(PointsConfig.PointEntry point, DeviceConfig.DeviceEntry device);
-    string NormalizeAddress(PointsConfig.PointEntry point);
+    string NormalizeAddress(PointsConfig.PointEntry point, DeviceConfig.DeviceEntry device);
+
+    /// <summary>
+    /// 返回该驱动点位的协议占用范围；默认不增加范围约束。
+    /// </summary>
+    DevicePointAddressRange? GetAddressRange(
+        PointsConfig.PointEntry point,
+        DeviceConfig.DeviceEntry device) => null;
 }
 
 /// <summary>

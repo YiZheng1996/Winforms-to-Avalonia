@@ -72,19 +72,14 @@ public sealed class MultiDeviceRuntimeTests
     }
 
     [Fact]
-    public async Task FactoryCarriesSignalBindingsIntoV2Runtime()
+    public async Task FactoryCarriesSignalBindingsFromCompleteSnapshot()
     {
         var snapshot = CreateSnapshot();
         var point = snapshot.Points.Points[0];
         snapshot.SignalBindings.Bindings["AI_Pressure"] = point.Id;
 
         var factory = new DeviceRuntimeFactory(
-            snapshot.Device,
-            snapshot.Points,
-            snapshot.Simulation,
-            new TestClock(),
-            snapshot.Revision,
-            snapshot.SignalBindings);
+            snapshot, new TestClock(), requiredSignals: TestEnv.RegisteredRequiredSignals());
         await using var runtime = await factory.CreateAsync();
 
         Assert.Equal(point.Id, runtime.SignalBindings.Bindings["AI_Pressure"]);
@@ -99,7 +94,7 @@ public sealed class MultiDeviceRuntimeTests
             Code = "PLC_SHARED",
             Name = "PLC 网络通道",
             TransportKind = ChannelTransportKind.Tcp,
-            Tcp = new TcpChannelParameters { Host = "127.0.0.1", Port = 102 }
+            Tcp = new TcpChannelParameters()
         };
         var device1 = CreateDevice("PLC1", channel.Id);
         var device2 = CreateDevice("PLC2", channel.Id);
@@ -144,6 +139,7 @@ public sealed class MultiDeviceRuntimeTests
             DriverKey = DriverKeyCatalog.SiemensS7,
             Model = "S7-1500",
             DeviceMode = DeviceMode.Simulation,
+            SiemensS7 = new SiemensS7ConnectionOptions { Host = "127.0.0.1", Port = 102, Rack = 0, Slot = 0 },
             PollIntervalMs = 500,
             StaleAfterMs = 2000
         };
@@ -168,7 +164,6 @@ public sealed class MultiDeviceRuntimeTests
             Address = "DB1.DBD0",
             Protocol = "SiemensS7",
             DataType = "Float32",
-            RawDataType = "Float32",
             IsWritable = true
         };
 

@@ -25,9 +25,7 @@ public sealed class PointsConfig
     /// <summary>
     /// 当前支持的配置版本号。
     /// </summary>
-    public const int LegacySchemaVersion = 1;
-    public const int PreviousSchemaVersion = 2;
-    public const int CurrentSchemaVersion = 3;
+    public const int CurrentSchemaVersion = 4;
 
     /// <summary>
     /// 单个点位定义。
@@ -102,10 +100,6 @@ public sealed class PointsConfig
         /// </summary>
         public string DataType { get; set; } = string.Empty;
         /// <summary>
-        /// 点位实际采用的数据类型。
-        /// </summary>
-        public string RawDataType { get; set; } = string.Empty;
-        /// <summary>
         /// 解析后的数据类型。DataType 字符串只保留在 JSON 兼容边界。
         /// </summary>
         [JsonIgnore]
@@ -114,31 +108,11 @@ public sealed class PointsConfig
                 ? value
                 : DevicePointDataType.Unknown;
         /// <summary>
-        /// 实际采用的数据类型；未填写原始字段时回退到 DataType。
+        /// S7 点位专用的解码字节序和字序。Modbus 数据排列属于所属设备，
+        /// 不在点位中保存。
         /// </summary>
-        [JsonIgnore]
-        public DevicePointDataType RawDataTypeKind
-            => DevicePointTypeCatalog.TryParseDataType(
-                    string.IsNullOrWhiteSpace(RawDataType) ? DataType : RawDataType,
-                    out var value)
-                ? value
-                : DevicePointDataType.Unknown;
-        /// <summary>
-        /// 解码字节序和字序。
-        /// </summary>
-        public DecodeOptions DecodeOptions { get; set; } = new();
-
-        /// <summary>
-        /// 导入预览中标记字节序来源，例如“显式填写”或“项目初始值”；不落盘。
-        /// </summary>
-        [JsonIgnore]
-        public string ByteOrderSource { get; set; } = string.Empty;
-
-        /// <summary>
-        /// 导入预览中标记字序来源；不落盘。
-        /// </summary>
-        [JsonIgnore]
-        public string WordOrderSource { get; set; } = string.Empty;
+        [JsonPropertyName("decodeOptions")]
+        public DecodeOptions? S7DecodeOptions { get; set; }
         /// <summary>
         /// 第一版可执行写入策略，仅支持写后新鲜回读相等。
         /// </summary>
@@ -152,10 +126,6 @@ public sealed class PointsConfig
         /// </summary>
         public WriteRiskLevel RiskLevel { get; set; } = WriteRiskLevel.Normal;
 
-        /// <summary>
-        /// 可选的量程对象；新配置优先使用扁平字段写法。
-        /// </summary>
-        public ScaleValues? Scale { get; set; }
         /// <summary>
         /// 原始值下限。
         /// </summary>
@@ -178,38 +148,24 @@ public sealed class PointsConfig
         public string Description { get; set; } = string.Empty;
 
         /// <summary>
-        /// 实际采用的原始值下限。
-        /// </summary>
-        public decimal? EffectiveRawMin => RawMin ?? Scale?.RawMin;
-        /// <summary>
-        /// 实际采用的原始值上限。
-        /// </summary>
-        public decimal? EffectiveRawMax => RawMax ?? Scale?.RawMax;
-        /// <summary>
-        /// 实际采用的工程值下限。
-        /// </summary>
-        public decimal? EffectiveEngMin => EngMin ?? Scale?.EngMin;
-        /// <summary>
-        /// 实际采用的工程值上限。
-        /// </summary>
-        public decimal? EffectiveEngMax => EngMax ?? Scale?.EngMax;
-
-        /// <summary>
         /// 把配置点位转换为领域对象。
         /// </summary>
-        public DevicePoint ToDomain(string? driverKey = null, string? revision = null)
+        public DevicePoint ToDomain(DeviceConfig.DeviceEntry device, string? revision = null)
         {
-            var protocol = ProtocolKind;
-            if (protocol == DevicePointProtocol.Unknown)
-                DevicePointTypeCatalog.TryParseDriverKey(driverKey, out protocol);
-            if (protocol == DevicePointProtocol.Unknown)
-                throw new ConfigValidationException($"点位 {Code} 的通信方式不受支持：{Protocol}");
-            if (RawDataTypeKind == DevicePointDataType.Unknown)
+            ArgumentNullException.ThrowIfNull(device);
+            if (!DevicePointTypeCatalog.TryParseDriverKey(device.DriverKey, out var protocol))
+                throw new ConfigValidationException($"点位 {Code} 所属设备的通信方式不受支持：{device.DriverKey}");
+            if (ProtocolKind != DevicePointProtocol.Unknown && ProtocolKind != protocol)
+                throw new ConfigValidationException($"点位 {Code} 的协议与设备 {device.Code} 不一致");
+            if (DataTypeKind == DevicePointDataType.Unknown)
                 throw new ConfigValidationException($"点位 {Code} 的数据类型不受支持：{DataType}");
 
-            return new DevicePoint(Code, protocol, Address, RawDataTypeKind, IsWritable, RiskLevel,
-                EffectiveRawMin, EffectiveRawMax, EffectiveEngMin, EffectiveEngMax, Name, Description,
-                Id, DeviceId, driverKey ?? string.Empty, AddressDefinition, DecodeOptions, WritePolicy, revision ?? string.Empty);
+            return new DevicePoint(Code, protocol, Address, DataTypeKind, IsWritable, RiskLevel,
+                RawMin, RawMax, EngMin, EngMax,
+                Id, DeviceId, string.IsNullOrWhiteSpace(revision)
+                    ? throw new ConfigValidationException($"点位 {Code} 缺少配置版本")
+                    : revision,
+                Name, Description, device.DriverKey, AddressDefinition, S7DecodeOptions, WritePolicy);
         }
     }
 
@@ -245,101 +201,16 @@ public sealed class PointsConfig
     }
 
     /// <summary>
-    /// 量程上下限集合，供旧配置文件兼容使用。
-    /// </summary>
-    public sealed class ScaleValues
-    {
-        /// <summary>
-        /// 原始值下限。
-        /// </summary>
-        public decimal? RawMin { get; set; }
-        /// <summary>
-        /// 原始值上限。
-        /// </summary>
-        public decimal? RawMax { get; set; }
-        /// <summary>
-        /// 工程值下限。
-        /// </summary>
-        public decimal? EngMin { get; set; }
-        /// <summary>
-        /// 工程值上限。
-        /// </summary>
-        public decimal? EngMax { get; set; }
-    }
-
-    /// <summary>
     /// 校验点位配置，存在空值或重复项时直接报错。
     /// </summary>
     public void Validate()
     {
-        if (SchemaVersion == LegacySchemaVersion)
-        {
-            ValidateLegacy();
-            return;
-        }
-        if (SchemaVersion != PreviousSchemaVersion && SchemaVersion != CurrentSchemaVersion)
-            throw new ConfigValidationException($"points.json schemaVersion={SchemaVersion} 不受支持（支持 {LegacySchemaVersion}/{PreviousSchemaVersion} 迁移或当前版本 {CurrentSchemaVersion}）");
-
-        if (SchemaVersion == PreviousSchemaVersion)
-            ValidateV2();
-        else
-            ValidateV3();
+        if (SchemaVersion != CurrentSchemaVersion)
+            throw new ConfigValidationException($"points.json schemaVersion={SchemaVersion} 不受支持（仅支持当前版本 {CurrentSchemaVersion}）");
+        ValidateGroupOwnership();
     }
 
-    private void ValidateLegacy()
-    {
-
-        // 至少需要一个点位，否则直接报错。
-        if (Points is null || Points.Count == 0)
-            throw new ConfigValidationException("points.json 至少需要配置一个点位");
-
-        // 不允许存在空点位行。
-        if (Points.Any(point => point is null))
-            throw new ConfigValidationException("points.json 存在空点位行");
-
-        // 收集点位编码，检查空值和重复。
-        var codes = Points.Select(p => p.Code?.Trim() ?? string.Empty).ToList();
-        if (codes.Any(string.IsNullOrWhiteSpace))
-            throw new ConfigValidationException("点位编码不能为空");
-        if (codes.Distinct(StringComparer.OrdinalIgnoreCase).Count() != codes.Count)
-            throw new ConfigValidationException("points.json 存在重复点位代码");
-
-        // 用协议和地址拼成连接键，检查空值和重复。
-        var addresses = Points
-            .Select(p => $"{p.Protocol?.Trim() ?? string.Empty}\u001f{p.Address?.Trim() ?? string.Empty}")
-            .ToList();
-        if (addresses.Any(key => key.StartsWith("\u001f", StringComparison.Ordinal) || key.EndsWith("\u001f", StringComparison.Ordinal)))
-            throw new ConfigValidationException("点位协议和地址不能为空");
-        if (addresses.Distinct(StringComparer.OrdinalIgnoreCase).Count() != addresses.Count)
-            throw new ConfigValidationException("points.json 存在重复的协议/地址组合");
-
-        foreach (var point in Points)
-        {
-            if (string.IsNullOrWhiteSpace(point.Protocol))
-                throw new ConfigValidationException($"点位 {point.Code} 的协议不能为空");
-            if (point.ProtocolKind == DevicePointProtocol.Unknown)
-                throw new ConfigValidationException($"点位 {point.Code} 的通信方式不受支持：{point.Protocol}");
-            if (string.IsNullOrWhiteSpace(point.Address))
-                throw new ConfigValidationException($"点位 {point.Code} 的地址不能为空");
-            if (string.IsNullOrWhiteSpace(point.DataType))
-                throw new ConfigValidationException($"点位 {point.Code} 的数据类型不能为空");
-            if (point.DataTypeKind == DevicePointDataType.Unknown)
-                throw new ConfigValidationException($"点位 {point.Code} 的数据类型不受支持：{point.DataType}");
-            // 只读点位没有写入动作，不能再配置高风险等级，避免导入或旧配置产生矛盾语义。
-            if (!point.IsWritable && point.RiskLevel == WriteRiskLevel.HighRisk)
-                throw new ConfigValidationException($"点位 {point.Code} 为只读点位，不能设置为高风险写入");
-
-            var scale = new[] { point.EffectiveRawMin, point.EffectiveRawMax, point.EffectiveEngMin, point.EffectiveEngMax };
-            // 量程必须整组填写，不允许只填一半。
-            if (scale.Any(value => value.HasValue) && scale.Any(value => !value.HasValue))
-                throw new ConfigValidationException($"点位 {point.Code} 的量程必须完整填写原始/工程上下限");
-            // 量程下限不能大于上限。
-            if (point.EffectiveRawMin > point.EffectiveRawMax || point.EffectiveEngMin > point.EffectiveEngMax)
-                throw new ConfigValidationException($"点位 {point.Code} 的量程下限不能大于上限");
-        }
-    }
-
-    private void ValidateV2()
+    private void ValidatePointEntries()
     {
         if (Points is null || Points.Count == 0)
             throw new ConfigValidationException("points.json 至少需要配置一个点位");
@@ -372,29 +243,27 @@ public sealed class PointsConfig
                 throw new ConfigValidationException($"点位 {point.Code} 的 DeviceId 不能为空");
             if (string.IsNullOrWhiteSpace(point.Address))
                 throw new ConfigValidationException($"点位 {point.Code} 的地址不能为空");
-            if (point.RawDataTypeKind == DevicePointDataType.Unknown)
-                throw new ConfigValidationException($"点位 {point.Code} 的原始数据类型不受支持：{point.RawDataType}");
+            if (point.DataTypeKind == DevicePointDataType.Unknown)
+                throw new ConfigValidationException($"点位 {point.Code} 的数据类型不受支持：{point.DataType}");
             if (!point.IsWritable && point.RiskLevel == WriteRiskLevel.HighRisk)
                 throw new ConfigValidationException($"点位 {point.Code} 为只读点位，不能设置为高风险写入");
             if (point.IsWritable && point.WritePolicy != PointWritePolicy.ReadBackEqual)
                 throw new ConfigValidationException($"点位 {point.Code} 的写入策略不受支持：{point.WritePolicy}");
 
-            var scale = new[] { point.EffectiveRawMin, point.EffectiveRawMax, point.EffectiveEngMin, point.EffectiveEngMax };
+            var scale = new[] { point.RawMin, point.RawMax, point.EngMin, point.EngMax };
             if (scale.Any(value => value.HasValue) && scale.Any(value => !value.HasValue))
                 throw new ConfigValidationException($"点位 {point.Code} 的量程必须完整填写原始/工程上下限");
-            if (point.EffectiveRawMin > point.EffectiveRawMax || point.EffectiveEngMin > point.EffectiveEngMax)
+            if (point.RawMin > point.RawMax || point.EngMin > point.EngMax)
                 throw new ConfigValidationException($"点位 {point.Code} 的量程下限不能大于上限");
-            if ((point.EffectiveRawMin.HasValue && point.EffectiveRawMax.HasValue
-                 && point.EffectiveRawMin == point.EffectiveRawMax)
-                || (point.EffectiveEngMin.HasValue && point.EffectiveEngMax.HasValue
-                    && point.EffectiveEngMin == point.EffectiveEngMax))
+            if ((point.RawMin.HasValue && point.RawMax.HasValue && point.RawMin == point.RawMax)
+                || (point.EngMin.HasValue && point.EngMax.HasValue && point.EngMin == point.EngMax))
                 throw new ConfigValidationException($"点位 {point.Code} 的量程上下限不能相等");
         }
     }
 
-    private void ValidateV3()
+    private void ValidateGroupOwnership()
     {
-        ValidateV2();
+        ValidatePointEntries();
 
         if (Groups is null || Groups.Count == 0)
             throw new ConfigValidationException("points.json 每个设备至少需要一个点位分组");

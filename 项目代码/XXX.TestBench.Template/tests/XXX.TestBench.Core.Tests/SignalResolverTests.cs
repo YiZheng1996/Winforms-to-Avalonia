@@ -90,6 +90,8 @@ public sealed class SignalResolverTests
         public DeviceRuntimeInfo Status => new(Name, "simulation", "sim://signal-test", true,
             DeviceHealth.Healthy, true, null, point.DeviceId, "channel-1", "r1", 1, DeviceConnectionState.Online);
         public string ActiveRevision => "r1";
+        public SignalBindingsConfig SignalBindings => new();
+        public RuntimeActivationReport ActivationReport => new(1, 1, Array.Empty<DeviceActivationIssue>());
         public Task StartAsync(CancellationToken ct = default) => Task.CompletedTask;
         public Task StopAsync(CancellationToken ct = default) => Task.CompletedTask;
         public ValueTask DisposeAsync() => ValueTask.CompletedTask;
@@ -106,7 +108,17 @@ public sealed class SignalResolverTests
             => Task.FromResult(CreateValue(value));
         public DevicePoint? GetPoint(string pointId)
             => string.Equals(pointId, point.PointId, StringComparison.OrdinalIgnoreCase) ? point : null;
-        public DeviceRuntimeInfo GetDeviceStatus(string deviceId) => Status with { DeviceId = deviceId };
+        public bool TryGetCachedValue(string pointId, out PointValue value)
+        {
+            value = default!;
+            return false;
+        }
+        public IReadOnlyList<PointValue> ListCachedValues() => Array.Empty<PointValue>();
+        public IReadOnlyList<DeviceRuntimeInfo> ListDeviceStatuses() => new[] { Status };
+        public DeviceRuntimeInfo GetDeviceStatus(string deviceId)
+            => string.Equals(deviceId, point.DeviceId, StringComparison.OrdinalIgnoreCase)
+                ? Status
+                : throw new DomainException($"设备 {deviceId} 不在测试运行时");
 
         private PointValue CreateValue(object? value = null)
             => new(point.Code, point.Address, Quality, value ?? 1.5m, clock.UtcNow, point.PointId, point.DeviceId, 1, "r1");

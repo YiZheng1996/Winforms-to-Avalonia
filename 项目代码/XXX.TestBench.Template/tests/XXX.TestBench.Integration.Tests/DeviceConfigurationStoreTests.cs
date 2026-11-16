@@ -11,7 +11,7 @@ public sealed class DeviceConfigurationStoreTests
     [Fact]
     public async Task StageCommitAndRecoveryUseCompleteHashedRevisions()
     {
-        var root = Path.Combine("D:\\Codex相关\\多设备点位改造", "store-tests-" + Guid.NewGuid().ToString("N"));
+        var root = Path.Combine(Path.GetTempPath(), "device-config-store-tests-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(root);
         try
         {
@@ -57,7 +57,7 @@ public sealed class DeviceConfigurationStoreTests
             Code = "SIM",
             Name = "仿真通道",
             TransportKind = ChannelTransportKind.Tcp,
-            Tcp = new TcpChannelParameters { Host = "127.0.0.1", Port = 102 }
+            Tcp = new TcpChannelParameters()
         };
         var device = new DeviceConfig.DeviceEntry
         {
@@ -68,6 +68,7 @@ public sealed class DeviceConfigurationStoreTests
             DriverKey = DriverKeyCatalog.SiemensS7,
             Model = "S7-1500",
             DeviceMode = DeviceMode.Simulation,
+            SiemensS7 = new SiemensS7ConnectionOptions { Host = "127.0.0.1", Port = 102, Rack = 0, Slot = 0 },
             PollIntervalMs = 500,
             StaleAfterMs = 2000
         };
@@ -88,7 +89,6 @@ public sealed class DeviceConfigurationStoreTests
             Protocol = "SiemensS7",
             Address = "DB1.DBD0",
             DataType = "Float32",
-            RawDataType = "Float32"
         };
         var simulation = new SimulationConfig
         {

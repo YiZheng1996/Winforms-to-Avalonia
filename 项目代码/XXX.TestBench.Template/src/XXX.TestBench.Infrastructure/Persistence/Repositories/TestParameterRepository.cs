@@ -32,7 +32,8 @@ public sealed class TestParameterRepository : SqliteRepositoryBase, ITestParamet
         {
             TestTimeSeconds = row.TestTimeSeconds,
             UpdatedBy = row.UpdatedBy,
-            UpdatedAtUtc = ParseUtc(row.UpdatedAtUtc)
+            UpdatedAtUtc = ParseUtc(row.UpdatedAtUtc),
+            RowVersion = row.RowVersion
         };
     }
 
@@ -40,15 +41,39 @@ public sealed class TestParameterRepository : SqliteRepositoryBase, ITestParamet
     /// 保存项目级参数。
     /// </summary>
     public Task SaveProjectAsync(ProjectTestParameter value, CancellationToken ct = default)
-        => RunDbAsync(() => InsertOrUpdate<SqliteProjectTestParameter>()
-            .SetSource(new SqliteProjectTestParameter
+        => RunDbAsync(() =>
+        {
+            var current = Select<SqliteProjectTestParameter>()
+                .Where(x => x.ScopeKey == ProjectKey)
+                .ToOne();
+            if (current is null)
             {
-                ScopeKey = ProjectKey,
-                TestTimeSeconds = value.TestTimeSeconds,
-                UpdatedBy = value.UpdatedBy,
-                UpdatedAtUtc = value.UpdatedAtUtc.ToString("O")
-            })
-            .ExecuteAffrows(), ct);
+                var inserted = Insert(new SqliteProjectTestParameter
+                {
+                    ScopeKey = ProjectKey,
+                    TestTimeSeconds = value.TestTimeSeconds,
+                    UpdatedBy = value.UpdatedBy,
+                    UpdatedAtUtc = value.UpdatedAtUtc.ToString("O"),
+                    RowVersion = value.RowVersion
+                }).ExecuteAffrows();
+                if (inserted != 1)
+                    throw new XXX.TestBench.Core.Common.DomainException("项目参数创建失败，请刷新后重试。");
+                value.RowVersion = 0;
+                return;
+            }
+
+            var expectedVersion = value.RowVersion;
+            var affected = Update<SqliteProjectTestParameter>()
+                .Where(x => x.ScopeKey == ProjectKey && x.RowVersion == expectedVersion)
+                .Set(x => x.TestTimeSeconds, value.TestTimeSeconds)
+                .Set(x => x.UpdatedBy, value.UpdatedBy)
+                .Set(x => x.UpdatedAtUtc, value.UpdatedAtUtc.ToString("O"))
+                .Set(x => x.RowVersion, checked(expectedVersion + 1))
+                .ExecuteAffrows();
+            if (affected != 1)
+                throw new XXX.TestBench.Core.Common.DomainException("项目参数已被其他用户修改，请刷新后重试。");
+            value.RowVersion = checked(expectedVersion + 1);
+        }, ct);
 
     /// <summary>
     /// 读取产品级参数。
@@ -66,7 +91,8 @@ public sealed class TestParameterRepository : SqliteRepositoryBase, ITestParamet
             TestVoltageV = row.TestVoltageV,
             ProtectCurrentMa = row.ProtectCurrentMa,
             UpdatedBy = row.UpdatedBy,
-            UpdatedAtUtc = ParseUtc(row.UpdatedAtUtc)
+            UpdatedAtUtc = ParseUtc(row.UpdatedAtUtc),
+            RowVersion = row.RowVersion
         };
     }
 
@@ -74,15 +100,41 @@ public sealed class TestParameterRepository : SqliteRepositoryBase, ITestParamet
     /// 保存产品级参数。
     /// </summary>
     public Task SaveProductAsync(ProductTestParameter value, CancellationToken ct = default)
-        => RunDbAsync(() => InsertOrUpdate<SqliteProductTestParameter>()
-            .SetSource(new SqliteProductTestParameter
+        => RunDbAsync(() =>
+        {
+            var current = Select<SqliteProductTestParameter>()
+                .Where(x => x.ProductModelId == value.ProductModelId)
+                .ToOne();
+            if (current is null)
             {
-                ProductTypeId = value.ProductTypeId,
-                ProductModelId = value.ProductModelId,
-                TestVoltageV = value.TestVoltageV,
-                ProtectCurrentMa = value.ProtectCurrentMa,
-                UpdatedBy = value.UpdatedBy,
-                UpdatedAtUtc = value.UpdatedAtUtc.ToString("O")
-            })
-            .ExecuteAffrows(), ct);
+                var inserted = Insert(new SqliteProductTestParameter
+                {
+                    ProductTypeId = value.ProductTypeId,
+                    ProductModelId = value.ProductModelId,
+                    TestVoltageV = value.TestVoltageV,
+                    ProtectCurrentMa = value.ProtectCurrentMa,
+                    UpdatedBy = value.UpdatedBy,
+                    UpdatedAtUtc = value.UpdatedAtUtc.ToString("O"),
+                    RowVersion = value.RowVersion
+                }).ExecuteAffrows();
+                if (inserted != 1)
+                    throw new XXX.TestBench.Core.Common.DomainException("产品参数创建失败，请刷新后重试。");
+                value.RowVersion = 0;
+                return;
+            }
+
+            var expectedVersion = value.RowVersion;
+            var affected = Update<SqliteProductTestParameter>()
+                .Where(x => x.ProductModelId == value.ProductModelId && x.RowVersion == expectedVersion)
+                .Set(x => x.ProductTypeId, value.ProductTypeId)
+                .Set(x => x.TestVoltageV, value.TestVoltageV)
+                .Set(x => x.ProtectCurrentMa, value.ProtectCurrentMa)
+                .Set(x => x.UpdatedBy, value.UpdatedBy)
+                .Set(x => x.UpdatedAtUtc, value.UpdatedAtUtc.ToString("O"))
+                .Set(x => x.RowVersion, checked(expectedVersion + 1))
+                .ExecuteAffrows();
+            if (affected != 1)
+                throw new XXX.TestBench.Core.Common.DomainException("产品参数已被其他用户修改，请刷新后重试。");
+            value.RowVersion = checked(expectedVersion + 1);
+        }, ct);
 }

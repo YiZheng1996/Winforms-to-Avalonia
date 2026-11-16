@@ -27,7 +27,7 @@ public sealed class ProcessMonitorViewModelTests
     }
 
     [Fact]
-    public async Task DemoData_OnlyChangesDisplayProjection()
+    public async Task SimulationRuntime_AutomaticallyAppliesDisplayProjection()
     {
         using var harness = AppTestHarness.Create(grouped: true);
         var viewModel = new ProcessMonitorViewModel(
@@ -35,9 +35,9 @@ public sealed class ProcessMonitorViewModelTests
             await harness.AdminActorAsync());
 
         await viewModel.LoadAsync();
-        viewModel.ToggleDemoDataCommand.Execute(null);
 
         Assert.True(viewModel.IsDemoData);
+        Assert.Equal("仿真模式 · 模拟数据已加载", viewModel.RuntimePresentationText);
         Assert.Equal("0.800", viewModel.SupplyPressure.DisplayValueText);
         Assert.Equal("0.628", viewModel.MainPressure.DisplayValueText);
         Assert.Equal("0.625", viewModel.DutPressure.DisplayValueText);

@@ -97,12 +97,13 @@ public sealed class RecordRepository : SqliteRepositoryBase, IRecordRepository
     }
 
     /// <summary>
-    /// 读取当前正在执行的试验记录。
+    /// 按试验台身份读取当前正在执行的试验记录。
     /// </summary>
-    public async Task<TestRecord?> GetActiveRunningRecordAsync(CancellationToken ct = default)
+    public async Task<TestRecord?> GetActiveRunningRecordAsync(string benchId, CancellationToken ct = default)
     {
+        ArgumentException.ThrowIfNullOrWhiteSpace(benchId);
         var row = await RunDbAsync(() => Select<SqliteTestRecord>()
-            .Where(x => x.State == (int)RecordState.Running)
+            .Where(x => x.BenchId == benchId && x.State == (int)RecordState.Running)
             .OrderByDescending(x => x.StartedAtUtc)
             .OrderByDescending(x => x.Id)
             .Limit(1)
@@ -129,10 +130,14 @@ public sealed class RecordRepository : SqliteRepositoryBase, IRecordRepository
     }
 
     /// <summary>
-    /// 更新试验记录状态与结论。
+    /// 更新试验记录状态与结论；必须在终态与 Pending 报表共享的工作单元内调用。
     /// </summary>
     public Task UpdateRecordAsync(TestRecord record, CancellationToken ct = default)
-        => RunDbAsync(() =>
+    {
+        if (SqliteAmbient.Current is null)
+            throw new DomainException("新版试验终态必须通过同一工作单元与 Pending 报表一并提交。");
+
+        return RunDbAsync(() =>
         {
             if (record.ResultContractVersion != 2)
                 throw new DomainException("历史合同记录只允许查询，不能通过当前仓储推进状态");
@@ -157,6 +162,7 @@ public sealed class RecordRepository : SqliteRepositoryBase, IRecordRepository
                 throw new DomainException("试验记录已被其他操作更新，拒绝覆盖终态。");
             record.RowVersion = checked(expectedVersion + 1);
         }, ct);
+    }
 
     /// <summary>
     /// 新增项点结果并回填编号。

@@ -1,5 +1,4 @@
 using System.Diagnostics;
-using XXX.TestBench.Core.Application;
 using XXX.TestBench.Core.Configuration;
 using XXX.TestBench.Core.Domain.Devices;
 using XXX.TestBench.Core.Ports;
@@ -16,14 +15,10 @@ namespace XXX.TestBench.Devices.Runtime;
 public sealed class ModbusTcpConnectionTester : IDeviceConnectionTester
 {
     private readonly IModbusClientFactory _factory;
-    private readonly DeviceOperationCoordinator? _operations;
 
-    public ModbusTcpConnectionTester(
-        IModbusClientFactory? factory = null,
-        DeviceOperationCoordinator? operations = null)
+    public ModbusTcpConnectionTester(IModbusClientFactory? factory = null)
     {
         _factory = factory ?? new NModbusClientFactory();
-        _operations = operations;
     }
 
     public async Task<DeviceConnectionTestResult> TestAsync(
@@ -33,11 +28,6 @@ public sealed class ModbusTcpConnectionTester : IDeviceConnectionTester
     {
         ArgumentNullException.ThrowIfNull(device);
         ArgumentNullException.ThrowIfNull(channel);
-        if (_operations is not null)
-        {
-            await using var lease = await _operations.EnterDiagnosticsAsync(ct);
-            return await TestCoreAsync(device, channel, ct);
-        }
         return await TestCoreAsync(device, channel, ct);
     }
 

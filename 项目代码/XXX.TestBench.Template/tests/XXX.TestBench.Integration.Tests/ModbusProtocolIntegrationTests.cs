@@ -53,65 +53,86 @@ public sealed class ModbusProtocolIntegrationTests
     [Fact]
     public void TypeCapabilities_EnforceAreaAccessAndExplicitWordOrder()
     {
-        var bigEndian = new DecodeOptions
+        var bigEndian = new ModbusDataOrderOptions
         {
             ByteOrder = ByteOrder.BigEndian,
             WordOrder = WordOrder.HighWordFirst
         };
-        var singleRegister = new DecodeOptions
+        var deviceOrder = new ModbusDataOrderOptions
+        {
+            ByteOrder = ByteOrder.BigEndian,
+            WordOrder = WordOrder.HighWordFirst
+        };
+        var missingWordOrder = new ModbusDataOrderOptions
         {
             ByteOrder = ByteOrder.BigEndian,
             WordOrder = WordOrder.None
         };
 
         Assert.True(ModbusTypeCapabilities.TryValidate(
-            ModbusArea.Coil, DevicePointDataType.Bool, true, singleRegister, out _));
+            ModbusArea.Coil, DevicePointDataType.Bool, true, deviceOrder, out _));
         Assert.False(ModbusTypeCapabilities.TryValidate(
-            ModbusArea.DiscreteInput, DevicePointDataType.Bool, true, singleRegister, out var discreteError));
+            ModbusArea.DiscreteInput, DevicePointDataType.Bool, true, deviceOrder, out var discreteError));
         Assert.Contains("只读", discreteError, StringComparison.Ordinal);
         Assert.False(ModbusTypeCapabilities.TryValidate(
-            ModbusArea.HoldingRegister, DevicePointDataType.Bool, false, singleRegister, out _));
+            ModbusArea.HoldingRegister, DevicePointDataType.Bool, false, deviceOrder, out _));
         Assert.False(ModbusTypeCapabilities.TryValidate(
-            ModbusArea.HoldingRegister, DevicePointDataType.Float32, false, singleRegister, out var wordError));
-        Assert.Contains("字序", wordError, StringComparison.Ordinal);
+            ModbusArea.HoldingRegister, DevicePointDataType.Float32, false, missingWordOrder, out var wordError));
+        Assert.Contains("设备字序", wordError, StringComparison.Ordinal);
         Assert.True(ModbusTypeCapabilities.TryValidate(
             ModbusArea.HoldingRegister, DevicePointDataType.Float32, false, bigEndian, out _));
+        Assert.False(ModbusTypeCapabilities.TryValidate(
+            ModbusArea.HoldingRegister, DevicePointDataType.Float32, false, null, out var missingOrderError));
+        Assert.Contains("设备", missingOrderError, StringComparison.Ordinal);
     }
 
     [Fact]
     public void ValueCodec_UsesConfiguredByteAndWordOrderWithoutHostEndianAssumption()
     {
-        var highWordFirst = ModbusPoint(
-            "HR:0",
-            DevicePointDataType.Int32,
-            byteOrder: ByteOrder.BigEndian,
-            wordOrder: WordOrder.HighWordFirst);
-        var lowWordFirst = ModbusPoint(
-            "HR:0",
-            DevicePointDataType.Int32,
-            byteOrder: ByteOrder.BigEndian,
-            wordOrder: WordOrder.LowWordFirst);
-        var littleEndian = ModbusPoint(
-            "HR:0",
-            DevicePointDataType.Int32,
-            byteOrder: ByteOrder.LittleEndian,
-            wordOrder: WordOrder.HighWordFirst);
+        var point = ModbusPoint("HR:0", DevicePointDataType.Int32);
+        var bigHigh = new ModbusDataOrderOptions
+        {
+            ByteOrder = ByteOrder.BigEndian,
+            WordOrder = WordOrder.HighWordFirst
+        };
+        var bigLow = new ModbusDataOrderOptions
+        {
+            ByteOrder = ByteOrder.BigEndian,
+            WordOrder = WordOrder.LowWordFirst
+        };
+        var littleHigh = new ModbusDataOrderOptions
+        {
+            ByteOrder = ByteOrder.LittleEndian,
+            WordOrder = WordOrder.HighWordFirst
+        };
+        var littleLow = new ModbusDataOrderOptions
+        {
+            ByteOrder = ByteOrder.LittleEndian,
+            WordOrder = WordOrder.LowWordFirst
+        };
 
-        Assert.Equal(DevicePointDataType.Int32, highWordFirst.DataType);
+        Assert.Equal(DevicePointDataType.Int32, point.DataType);
         var highDecoded = ModbusValueCodec.DecodeRegisters(
-            highWordFirst,
+            point,
+            bigHigh,
             new ushort[] { 0x0102, 0x0304 });
         Assert.IsType<int>(highDecoded);
         Assert.Equal(0x01020304, (int)highDecoded);
         Assert.Equal(0x01020304, (int)ModbusValueCodec.DecodeRegisters(
-            lowWordFirst,
+            point,
+            bigLow,
             new ushort[] { 0x0304, 0x0102 }));
         Assert.Equal(0x01020304, (int)ModbusValueCodec.DecodeRegisters(
-            littleEndian,
+            point,
+            littleHigh,
             new ushort[] { 0x0201, 0x0403 }));
+        Assert.Equal(0x01020304, (int)ModbusValueCodec.DecodeRegisters(
+            point,
+            littleLow,
+            new ushort[] { 0x0403, 0x0201 }));
         Assert.Equal(
             new ushort[] { 0x0201, 0x0403 },
-            ModbusValueCodec.EncodeRegisters(littleEndian, 0x01020304));
+            ModbusValueCodec.EncodeRegisters(point, littleHigh, 0x01020304));
     }
 
     [Fact]
@@ -121,11 +142,15 @@ public sealed class ModbusProtocolIntegrationTests
         {
             ModbusPoint("C:0", DevicePointDataType.Bool),
             ModbusPoint("HR:0", DevicePointDataType.Int16),
-            ModbusPoint("HR:2", DevicePointDataType.Float32, wordOrder: WordOrder.HighWordFirst),
+            ModbusPoint("HR:2", DevicePointDataType.Float32),
             ModbusPoint("HR:126", DevicePointDataType.Int16)
         };
 
-        var batches = ModbusReadBatchPlanner.Plan(points);
+        var batches = ModbusReadBatchPlanner.Plan(points, new ModbusDataOrderOptions
+        {
+            ByteOrder = ByteOrder.BigEndian,
+            WordOrder = WordOrder.HighWordFirst
+        });
 
         Assert.Equal(3, batches.Count);
         var firstRegisterBatch = batches.Single(batch => batch.Area == ModbusArea.HoldingRegister && batch.Start == 0);
@@ -136,10 +161,14 @@ public sealed class ModbusProtocolIntegrationTests
 
         var overlap = new[]
         {
-            ModbusPoint("HR:10", DevicePointDataType.Int32, wordOrder: WordOrder.HighWordFirst),
+            ModbusPoint("HR:10", DevicePointDataType.Int32),
             ModbusPoint("HR:11", DevicePointDataType.Int16)
         };
-        Assert.Throws<DomainException>(() => ModbusReadBatchPlanner.Plan(overlap));
+        Assert.Throws<DomainException>(() => ModbusReadBatchPlanner.Plan(overlap, new ModbusDataOrderOptions
+        {
+            ByteOrder = ByteOrder.BigEndian,
+            WordOrder = WordOrder.HighWordFirst
+        }));
     }
 
     [Fact]
@@ -155,13 +184,33 @@ public sealed class ModbusProtocolIntegrationTests
         Assert.Empty(rtu.ValidateChannel(serialChannel));
         Assert.NotEmpty(rtu.ValidateChannel(tcpChannel));
         Assert.Empty(tcp.ValidatePoint(
-            ModbusPointEntry("HR:0", DevicePointDataType.Float32, ByteOrder.BigEndian, WordOrder.HighWordFirst),
+            ModbusPointEntry("HR:0", DevicePointDataType.Float32),
             ModbusDevice(DriverKeyCatalog.ModbusTcp)));
         Assert.Contains(
             tcp.ValidatePoint(
-                ModbusPointEntry("HR:0", DevicePointDataType.Bool, ByteOrder.BigEndian, WordOrder.None),
+            ModbusPointEntry("HR:0", DevicePointDataType.Bool),
                 ModbusDevice(DriverKeyCatalog.ModbusTcp)),
-            issue => issue.Path == "rawDataType");
+                issue => issue.Path == "dataType");
+    }
+
+    [Fact]
+    public void DriverDescriptors_RejectPointLevelOrderInsteadOfUsingItAsCompatibility()
+    {
+        var point = ModbusPointEntry("HR:0", DevicePointDataType.Float32);
+        point.S7DecodeOptions = new DecodeOptions
+        {
+            ByteOrder = ByteOrder.LittleEndian,
+            WordOrder = WordOrder.LowWordFirst
+        };
+
+        var issues = new ModbusTcpDriverDescriptor().ValidatePoint(
+            point,
+            ModbusDevice(DriverKeyCatalog.ModbusTcp));
+
+        Assert.Contains(
+            issues,
+            issue => issue.Path == "s7DecodeOptions"
+                && issue.Message.Contains("设备属性", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -172,13 +221,18 @@ public sealed class ModbusProtocolIntegrationTests
             HoldingRegisters = new ushort[] { 0x0102, 0x0304 }
         };
         var factory = new FakeModbusClientFactory(client);
+        var device = ModbusDevice(DriverKeyCatalog.ModbusTcp);
         var point = ModbusPoint(
             "HR:0",
             DevicePointDataType.Int32,
             isWritable: true,
-            wordOrder: WordOrder.HighWordFirst);
+            protocol: DevicePointProtocol.ModbusTcp) with
+        {
+            DeviceId = device.Id,
+            Revision = "modbus-test"
+        };
         await using var runtime = new ModbusTcpDeviceRuntime(
-            ModbusDevice(DriverKeyCatalog.ModbusTcp),
+            device,
             TcpChannel(),
             new[] { point },
             new TestClock(),
@@ -307,8 +361,6 @@ public sealed class ModbusProtocolIntegrationTests
         string address,
         DevicePointDataType type,
         bool isWritable = false,
-        ByteOrder byteOrder = ByteOrder.BigEndian,
-        WordOrder wordOrder = WordOrder.None,
         DevicePointProtocol protocol = DevicePointProtocol.ModbusTcp)
         => new(
             Code: "P_" + address.Replace(':', '_'),
@@ -324,27 +376,27 @@ public sealed class ModbusProtocolIntegrationTests
             Name: "测试点位",
             PointId: Guid.NewGuid().ToString("D"),
             DeviceId: "device-1",
-            DriverKey: protocol == DevicePointProtocol.ModbusRtu
-                ? DriverKeyCatalog.ModbusRtu
-                : DriverKeyCatalog.ModbusTcp,
-            DecodeOptions: new DecodeOptions { ByteOrder = byteOrder, WordOrder = wordOrder });
+            Revision: "rev-1",
+             DriverKey: protocol == DevicePointProtocol.ModbusRtu
+                 ? DriverKeyCatalog.ModbusRtu
+                 : DriverKeyCatalog.ModbusTcp);
 
     private static PointsConfig.PointEntry ModbusPointEntry(
         string address,
-        DevicePointDataType type,
-        ByteOrder byteOrder,
-        WordOrder wordOrder)
+        DevicePointDataType type)
         => new()
         {
             Code = "AI.Pressure",
             Address = address,
             Protocol = "ModbusTcp",
             DataType = DevicePointTypeCatalog.ToStorage(type),
-            RawDataType = DevicePointTypeCatalog.ToStorage(type),
-            DecodeOptions = new DecodeOptions { ByteOrder = byteOrder, WordOrder = wordOrder }
         };
 
-    private static DeviceConfig.DeviceEntry ModbusDevice(string driverKey, int unitId = 1)
+    private static DeviceConfig.DeviceEntry ModbusDevice(
+        string driverKey,
+        int unitId = 1,
+        ByteOrder byteOrder = ByteOrder.BigEndian,
+        WordOrder wordOrder = WordOrder.HighWordFirst)
         => new()
         {
             Id = driverKey + "-device",
@@ -357,6 +409,11 @@ public sealed class ModbusProtocolIntegrationTests
                 : "GENERIC_MODBUS_TCP",
             DeviceMode = DeviceMode.Hardware,
             ModbusUnitId = unitId,
+            ModbusDataOrder = new ModbusDataOrderOptions
+            {
+                ByteOrder = byteOrder,
+                WordOrder = wordOrder
+            },
             ModbusTcp = driverKey == DriverKeyCatalog.ModbusTcp
                 ? new ModbusTcpConnectionOptions { Host = "127.0.0.1", Port = 1502 }
                 : null,
@@ -375,7 +432,7 @@ public sealed class ModbusProtocolIntegrationTests
             Code = "TCP_1",
             Name = "TCP 测试通道",
             TransportKind = ChannelTransportKind.Tcp,
-            Tcp = new TcpChannelParameters { Host = "127.0.0.1", Port = 1502 }
+            Tcp = new TcpChannelParameters()
         };
 
     private static ChannelEntry SerialChannel()

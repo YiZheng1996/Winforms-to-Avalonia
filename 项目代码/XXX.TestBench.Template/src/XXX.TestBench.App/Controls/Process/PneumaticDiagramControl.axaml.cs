@@ -4,6 +4,9 @@ using XXX.TestBench.App.ViewModels.Process;
 
 namespace XXX.TestBench.App.Controls.Process;
 
+/// <summary>
+/// 显示工艺气路图，并将图形模型设为控件的数据上下文。
+/// </summary>
 public partial class PneumaticDiagramControl : UserControl
 {
     public static readonly StyledProperty<ProcessDiagramViewModel?> ModelProperty =

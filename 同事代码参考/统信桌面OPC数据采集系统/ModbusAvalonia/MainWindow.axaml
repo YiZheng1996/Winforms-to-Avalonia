@@ -1,0 +1,28 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="ModbusAvalonia.MainWindow"
+        Title="统信桌面系统 OPC接口处理演示(数据未做缩放处理)"
+        Width="1200" Height="760"
+        WindowStartupLocation="CenterScreen">
+    <DockPanel>
+        <Border DockPanel.Dock="Top" Padding="10" BorderThickness="0,0,0,1" BorderBrush="#DDDDDD">
+            <StackPanel Orientation="Horizontal" Spacing="8">
+                <Button x:Name="btnConnect" Content="连接" Width="90" Click="btnConnect_Click" />
+                <Button x:Name="btnLoadConfig" Content="加载配置" Width="90" Click="btnLoadConfig_Click" />
+                <Button x:Name="btnReadAmbient" Content="读取温湿度" Width="100" Click="btnReadAmbient_Click" IsVisible="False" />
+                <Button x:Name="btnManageConfig" Content="配置管理" Width="90" Click="btnManageConfig_Click"/>
+                <Button x:Name="btnExit" Content="退出" Width="90" Click="btnExit_Click"/>
+                <TextBlock x:Name="txtAmbientTemp" Text="环境温度：--" VerticalAlignment="Center" Margin="20,0,0,0" IsVisible="False" />
+                <TextBlock x:Name="txtAmbientHumidity" Text="环境湿度：--" VerticalAlignment="Center" IsVisible="False" />
+            </StackPanel>
+        </Border>
+
+        <Border DockPanel.Dock="Bottom" Padding="8" BorderThickness="0,1,0,0" BorderBrush="#DDDDDD">
+            <TextBlock x:Name="txtStatus" Text="就绪" />
+        </Border>
+
+        <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+            <WrapPanel x:Name="PointsPanel" Margin="10" />
+        </ScrollViewer>
+    </DockPanel>
+</Window>

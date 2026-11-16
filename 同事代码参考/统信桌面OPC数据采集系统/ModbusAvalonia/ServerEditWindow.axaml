@@ -1,0 +1,39 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="ModbusAvalonia.ServerEditWindow"
+        Title="编辑服务器"
+        Width="500" Height="450"
+        WindowStartupLocation="CenterOwner"
+        CanResize="False">
+    <DockPanel>
+        <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" Spacing="8" Margin="10" HorizontalAlignment="Right">
+            <Button x:Name="btnOK" Content="确定" Width="80" Click="btnOK_Click" />
+            <Button x:Name="btnCancel" Content="取消" Width="80" Click="btnCancel_Click" />
+        </StackPanel>
+
+        <StackPanel Margin="12" Spacing="8">
+            <StackPanel Orientation="Horizontal" Spacing="6">
+                <TextBlock Text="IP:" VerticalAlignment="Center" />
+                <TextBox x:Name="txtIP" Width="150" Watermark="192.168.1.125" />
+                <TextBlock Text="端口:" VerticalAlignment="Center" Margin="10,0,0,0" />
+                <TextBox x:Name="txtPort" Width="80" Text="10001" />
+                <CheckBox x:Name="chkEnabled" Content="启用(Enabled=1)" VerticalAlignment="Center" Margin="10,0,0,0" />
+            </StackPanel>
+
+            <TextBlock Text="文件 → 485站号 (SlaveMap):" />
+            <ListBox x:Name="lstMap" Height="200" />
+
+            <StackPanel Orientation="Horizontal" Spacing="6">
+                <TextBox x:Name="txtFile" Width="240" Watermark="文件名" />
+                <Button x:Name="btnBrowse" Content="浏览..." Width="70" Click="btnBrowse_Click" />
+            </StackPanel>
+
+            <StackPanel Orientation="Horizontal" Spacing="6">
+                <TextBlock Text="站号:" VerticalAlignment="Center" />
+                <TextBox x:Name="txtSlave" Width="60" Text="1" />
+                <Button x:Name="btnAddFile" Content="添加" Width="60" Click="btnAddFile_Click" />
+                <Button x:Name="btnRemoveFile" Content="删除选中" Width="80" Click="btnRemoveFile_Click" />
+            </StackPanel>
+        </StackPanel>
+    </DockPanel>
+</Window>

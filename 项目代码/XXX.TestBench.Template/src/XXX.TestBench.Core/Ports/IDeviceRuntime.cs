@@ -27,7 +27,7 @@ public interface IDeviceRuntime : IAsyncDisposable
     /// <summary>
     /// 启动时每台设备的激活结果；旧运行时默认视为尚未提供明细。
     /// </summary>
-    RuntimeActivationReport ActivationReport => RuntimeActivationReport.Empty;
+    RuntimeActivationReport ActivationReport { get; }
     /// <summary>
     /// 启动设备通信。
     /// </summary>
@@ -52,24 +52,17 @@ public interface IDeviceRuntime : IAsyncDisposable
     /// <summary>
     /// 当前完整配置快照的生效版本。旧运行时返回空字符串，表示尚未接入版本门面。
     /// </summary>
-    string ActiveRevision => string.Empty;
+    string ActiveRevision { get; }
 
     /// <summary>
     /// 当前运行时所使用的项目级信号绑定。旧兼容运行时没有绑定快照。
     /// </summary>
-    SignalBindingsConfig SignalBindings => new();
+    SignalBindingsConfig SignalBindings { get; }
 
     /// <summary>
     /// 强制从目标设备读取一次新鲜样本，不能用旧缓存冒充回读。
     /// </summary>
-    async Task<PointValue> ReadFreshAsync(string pointId, CancellationToken ct = default)
-    {
-        var point = (await ListPointsAsync(ct)).FirstOrDefault(item =>
-            string.Equals(item.PointId, pointId, StringComparison.OrdinalIgnoreCase));
-        if (point is null)
-            throw new Common.DomainException($"点位 {pointId} 不在当前运行时");
-        return await ReadAsync(point, ct);
-    }
+    Task<PointValue> ReadFreshAsync(string pointId, CancellationToken ct = default);
 
     /// <summary>
     /// 强制从设备批量读取新鲜样本。默认实现保留旧运行时兼容性，具体驱动应覆盖以合并请求。
@@ -87,31 +80,25 @@ public interface IDeviceRuntime : IAsyncDisposable
     /// <summary>
     /// 只从当前缓存读取，不触发任何硬件访问。
     /// </summary>
-    bool TryGetCachedValue(string pointId, out PointValue value)
-    {
-        value = default!;
-        return false;
-    }
+    bool TryGetCachedValue(string pointId, out PointValue value);
 
     /// <summary>
     /// 返回当前已缓存样本，不触发任何硬件访问。
     /// </summary>
-    IReadOnlyList<PointValue> ListCachedValues() => Array.Empty<PointValue>();
+    IReadOnlyList<PointValue> ListCachedValues();
 
     /// <summary>
     /// 返回单台设备状态；单设备兼容运行时使用自身状态。
     /// </summary>
-    DeviceRuntimeInfo GetDeviceStatus(string deviceId) => Status with { DeviceId = deviceId };
+    DeviceRuntimeInfo GetDeviceStatus(string deviceId);
 
     /// <summary>
     /// 返回当前全部设备状态。
     /// </summary>
-    IReadOnlyList<DeviceRuntimeInfo> ListDeviceStatuses() => new[] { Status };
+    IReadOnlyList<DeviceRuntimeInfo> ListDeviceStatuses();
 
     /// <summary>
     /// 按稳定 PointId 获取当前点位定义。
     /// </summary>
-    DevicePoint? GetPoint(string pointId)
-        => ListPointsAsync().GetAwaiter().GetResult().FirstOrDefault(point =>
-            string.Equals(point.PointId, pointId, StringComparison.OrdinalIgnoreCase));
+    DevicePoint? GetPoint(string pointId);
 }

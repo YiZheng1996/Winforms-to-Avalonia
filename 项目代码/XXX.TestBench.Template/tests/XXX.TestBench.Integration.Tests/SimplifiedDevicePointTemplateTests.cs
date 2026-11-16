@@ -13,7 +13,7 @@ public sealed class SimplifiedDevicePointTemplateTests
         {
             await File.WriteAllTextAsync(path, string.Join('\n',
                 Headers(),
-                "AI.L32,DB144.DBD88,单精度浮点数,,,只读,0,10000,0,10,厂房进气压力"));
+                "AI.L32,DB144.DBD88,单精度浮点数,只读,0,10000,0,10,厂房进气压力"));
 
             var result = await new DevicePointImporter().ImportAsync(path);
 
@@ -25,7 +25,7 @@ public sealed class SimplifiedDevicePointTemplateTests
             Assert.Empty(point.DeviceCode);
             Assert.Equal("DB144.DBD88", point.Address);
             Assert.Equal("DB144.DBD88", point.AddressDefinition?.LogicalAddress);
-            Assert.Equal("Float32", point.RawDataType);
+            Assert.Equal("Float32", point.DataType);
             Assert.False(point.IsWritable);
         }
         finally { TryDelete(path); }
@@ -39,8 +39,8 @@ public sealed class SimplifiedDevicePointTemplateTests
         {
             await File.WriteAllTextAsync(path, string.Join('\n',
                 Headers(),
-                "S71500/AI.L32,DB144.DBD88,单精度浮点数,,,只读,0,10000,0,10,压力",
-                "S7200/AI.L32,VW5022,16 位无符号整数,,,只读,0,10000,0,10,状态"));
+                "S71500/AI.L32,DB144.DBD88,单精度浮点数,只读,0,10000,0,10,压力",
+                "S7200/AI.L32,VW5022,16 位无符号整数,只读,0,10000,0,10,状态"));
 
             var result = await new DevicePointImporter().ImportAsync(path);
 
@@ -59,7 +59,7 @@ public sealed class SimplifiedDevicePointTemplateTests
         {
             await File.WriteAllTextAsync(path, string.Join('\n',
                 Headers(),
-                ",DB144.DBD88,单精度浮点数,,,只读,0,10000,0,10,压力"));
+                ",DB144.DBD88,单精度浮点数,只读,0,10000,0,10,压力"));
 
             var result = await new DevicePointImporter().ImportAsync(path);
 

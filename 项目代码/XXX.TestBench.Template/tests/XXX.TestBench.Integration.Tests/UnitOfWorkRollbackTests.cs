@@ -20,7 +20,8 @@ public class UnitOfWorkRollbackTests
     {
         using var env = TestEnv.Create();
         var factory = new SqliteConnectionFactory(env.DbPath);
-        await new SqliteDatabase(factory, new Pbkdf2PasswordHasher()).InitializeAsync();
+        await new SqliteDatabase(factory, new Pbkdf2PasswordHasher())
+            .CreateNewAsync(Guid.NewGuid().ToString("D").ToLowerInvariant(), "admin123");
 
         var productRepo = new ProductRepository(factory);
         var type = new ProductType { Name = "回滚测试", CreatedAtUtc = DateTime.UtcNow };
@@ -40,7 +41,8 @@ public class UnitOfWorkRollbackTests
     {
         using var env = TestEnv.Create();
         var factory = new SqliteConnectionFactory(env.DbPath);
-        await new SqliteDatabase(factory, new Pbkdf2PasswordHasher()).InitializeAsync();
+        await new SqliteDatabase(factory, new Pbkdf2PasswordHasher())
+            .CreateNewAsync(Guid.NewGuid().ToString("D").ToLowerInvariant(), "admin123");
 
         var clock = new SystemClock();
         var audit = new SqliteAuditLog(factory);

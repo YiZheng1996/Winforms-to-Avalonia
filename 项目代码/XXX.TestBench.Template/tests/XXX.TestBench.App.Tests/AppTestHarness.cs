@@ -98,7 +98,9 @@ public sealed class AppTestHarness : IDisposable
         var hasher = new Pbkdf2PasswordHasher();
         var dbPath = Path.Combine(dataRoot, appConfig.DefaultPaths.Database);
         var factory = new SqliteConnectionFactory(dbPath);
-        new SqliteDatabase(factory, hasher).InitializeAsync().GetAwaiter().GetResult();
+        new SqliteDatabase(factory, hasher)
+            .CreateNewAsync(Guid.NewGuid().ToString("D").ToLowerInvariant(), "admin123")
+            .GetAwaiter().GetResult();
 
         var userRepo = new UserRepository(factory);
         var productRepo = new ProductRepository(factory);
@@ -117,6 +119,7 @@ public sealed class AppTestHarness : IDisposable
         var testPoints = new TestPointService(pointRepo, configRepo, productRepo, executorFactory, clock, audit);
         var testParameters = new TestParameterService(testParameterRepo, productRepo, clock, audit);
         var coordinator = new DeviceOperationCoordinator();
+        const string benchId = "app-test-bench";
         var writePipeline = new DeviceWritePipeline(audit, logger, coordinator);
         var runtimeSnapshot = new DeviceConfigurationSnapshot
         {
@@ -154,7 +157,7 @@ public sealed class AppTestHarness : IDisposable
                 coordinator,
                 audit,
                 DriverRegistry.CreateDefault().Descriptors,
-                hasActiveRun: () => recordRepo.GetActiveRunningRecordAsync().GetAwaiter().GetResult() is not null,
+                hasActiveRun: () => recordRepo.GetActiveRunningRecordAsync(benchId).GetAwaiter().GetResult() is not null,
                 runtimeFactory: (snapshot, ct) => new DeviceRuntimeFactory(
                     snapshot, clock, requiredSignals: requiredSignals).CreateAsync(ct),
                 currentRuntime: () => deviceModes.Runtime,
@@ -164,7 +167,7 @@ public sealed class AppTestHarness : IDisposable
         }
         var reportRepository = new ReportRepository(factory);
         var identityAdministration = new IdentityAdministrationService(userRepo, hasher, clock, audit, new SqliteUnitOfWorkFactory(factory));
-        var manualOperationGuard = new DeviceManualOperationGuard(coordinator, recordRepo);
+        var manualOperationGuard = new DeviceManualOperationGuard(coordinator, recordRepo, benchId);
         var diagnosticReader = new DevicePointDiagnosticReader(
             manualOperationGuard,
             () => deviceModes.Runtime,
@@ -176,7 +179,7 @@ public sealed class AppTestHarness : IDisposable
             recordRepo, pointRepo, configRepo, productRepo, testParameterRepo, userRepo, reportRepository, audit, executorFactory,
             devicePoints, devicePointImporter, devicePointTemplateExporter,
             new DevicePointCatalogExporter(),
-            appConfig, deviceConfig, dbPath, "0.1.0");
+            appConfig, deviceConfig, benchId, dbPath, "0.1.0");
 
         services = services with
         {

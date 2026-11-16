@@ -14,12 +14,12 @@ public sealed record DevicePoint(
     decimal? RawMax,
     decimal? EngMin,
     decimal? EngMax,
+    string PointId,
+    string DeviceId,
+    string Revision,
     string Name = "",
     string Description = "",
-    string PointId = "",
-    string DeviceId = "",
     string DriverKey = "",
     PointAddressDefinition? AddressDefinition = null,
-    DecodeOptions? DecodeOptions = null,
-    PointWritePolicy WritePolicy = PointWritePolicy.ReadBackEqual,
-    string Revision = "");
+    DecodeOptions? S7DecodeOptions = null,
+    PointWritePolicy WritePolicy = PointWritePolicy.ReadBackEqual);

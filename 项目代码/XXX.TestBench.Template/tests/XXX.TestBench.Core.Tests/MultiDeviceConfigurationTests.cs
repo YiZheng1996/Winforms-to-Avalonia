@@ -19,7 +19,6 @@ public sealed class MultiDeviceConfigurationTests
             GroupId = snapshot.Points.Groups.Single(group => group.DeviceId == device2.Id).Id,
             Address = "DB1.DBD0",
             DataType = "Float32",
-            RawDataType = "Float32",
             Protocol = "SiemensS7"
         });
 
@@ -39,7 +38,6 @@ public sealed class MultiDeviceConfigurationTests
             DeviceId = snapshot.Device.Devices[0].Id,
             Address = "DB1.DBD0",
             DataType = "Float32",
-            RawDataType = "Float32",
             Protocol = "SiemensS7"
         });
 
@@ -89,44 +87,14 @@ public sealed class MultiDeviceConfigurationTests
     }
 
     [Fact]
-    public void LegacyMigrationIsDeterministicAndDoesNotGuessDecimalType()
+    public void RuntimeModelsRejectHistoricalSchemaVersions()
     {
-        var device = new DeviceConfig
-        {
-            SchemaVersion = DeviceConfig.LegacySchemaVersion,
-            DeviceMode = DeviceMode.Simulation,
-            PollIntervalMs = 500,
-            TimeoutMs = 1000
-        };
-        device.Devices.Add(new DeviceConfig.DeviceEntry
-        {
-            Name = "旧仿真设备",
-            Protocol = "Simulation",
-            Address = "sim://legacy"
-        });
-        var points = new PointsConfig { SchemaVersion = PointsConfig.LegacySchemaVersion };
-        points.Points.Add(new PointsConfig.PointEntry
-        {
-            Code = "AI_Pressure",
-            Name = "压力",
-            Protocol = "Simulation",
-            Address = "sim.pressure",
-            DataType = "Decimal"
-        });
-        var simulation = new SimulationConfig { SchemaVersion = SimulationConfig.LegacySchemaVersion };
-        simulation.InitialValues["sim.pressure"] = 1.5m;
-
-        var first = DeviceConfigurationMigrator.Migrate(device, points, simulation);
-        var second = DeviceConfigurationMigrator.Migrate(device, points, simulation);
-
-        Assert.True(first.IsValid, string.Join("；", first.Issues));
-        Assert.Equal(first.Candidate.Revision, second.Candidate.Revision);
-        Assert.Equal(first.Candidate.Device.Devices[0].Id, second.Candidate.Device.Devices[0].Id);
-        Assert.Equal(first.Candidate.Points.Points[0].Id, second.Candidate.Points.Points[0].Id);
-        Assert.Single(first.Candidate.Points.Groups);
-        Assert.Equal(first.Candidate.Points.Groups[0].Id, first.Candidate.Points.Points[0].GroupId);
-        Assert.Equal("Decimal", first.Candidate.Points.Points[0].RawDataType);
-        Assert.NotEqual(DevicePointDataType.Float32, first.Candidate.Points.Points[0].RawDataTypeKind);
+        Assert.Throws<ConfigValidationException>(() =>
+            new DeviceConfig { SchemaVersion = 4 }.Validate());
+        Assert.Throws<ConfigValidationException>(() =>
+            new PointsConfig { SchemaVersion = 3 }.Validate());
+        Assert.Throws<ConfigValidationException>(() =>
+            new SimulationConfig { SchemaVersion = 2 }.Validate());
     }
 
     private static DeviceConfigurationSnapshot CreateSnapshot()
@@ -137,7 +105,7 @@ public sealed class MultiDeviceConfigurationTests
             Code = "SIM",
             Name = "仿真通道",
             TransportKind = ChannelTransportKind.Tcp,
-            Tcp = new TcpChannelParameters { Host = "127.0.0.1", Port = 102 }
+            Tcp = new TcpChannelParameters()
         };
         var device1 = new DeviceConfig.DeviceEntry
         {
@@ -171,7 +139,6 @@ public sealed class MultiDeviceConfigurationTests
             GroupId = "40000000-0000-5000-8000-000000000001",
             Address = "DB1.DBD0",
             DataType = "Float32",
-            RawDataType = "Float32",
             Protocol = "SiemensS7"
         };
         var simulation = new SimulationConfig

@@ -11,11 +11,15 @@ public sealed class DeviceConnectionTestResultFormatterTests
     public void Success_UsesChineseLabelsAndExplainsS7Endpoint()
     {
         var result = new DeviceConnectionTestResult(
-            true,
-            "192.168.1.10:102 rack=0 slot=1",
-            TimeSpan.FromMilliseconds(38),
-            960,
-            null);
+            Ok: true,
+            Executed: true,
+            Endpoint: "192.168.1.10:102 rack=0 slot=1",
+            Elapsed: TimeSpan.FromMilliseconds(38),
+            DriverKey: DriverKeyCatalog.SiemensS7,
+            Level: DeviceConnectionTestLevel.TransportOnly,
+            Summary: "TCP/S7 会话建立成功",
+            NegotiatedPduSize: 960,
+            Error: null);
 
         var text = DeviceConnectionTestResultFormatter.Format(result);
 
@@ -31,11 +35,15 @@ public sealed class DeviceConnectionTestResultFormatterTests
     public void EnglishSocketError_UsesChineseActionableGuidance()
     {
         var result = new DeviceConnectionTestResult(
-            false,
-            "192.168.1.10:102 rack=0 slot=1",
-            TimeSpan.Zero,
-            null,
-            "Connection refused");
+            Ok: false,
+            Executed: true,
+            Endpoint: "192.168.1.10:102 rack=0 slot=1",
+            Elapsed: TimeSpan.Zero,
+            DriverKey: DriverKeyCatalog.SiemensS7,
+            Level: DeviceConnectionTestLevel.TransportOnly,
+            Summary: "TCP/S7 会话连接失败",
+            NegotiatedPduSize: null,
+            Error: "Connection refused");
 
         var text = DeviceConnectionTestResultFormatter.Format(result);
 

@@ -118,16 +118,37 @@ public partial class MainWindow : Window
         }
     }
 
+    /// <summary>
+    /// 确认工艺页顶部的当前会话产品上下文；失败时给出明确原因，成功后由状态徽标反馈。
+    /// </summary>
+    private async void OnConfirmProductContextClick(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is not ShellViewModel shell)
+            return;
+
+        try
+        {
+            var result = await shell.TryConfirmProductContextAsync();
+            if (!result.Succeeded)
+                await ShowFeedbackAsync(result);
+        }
+        catch (Exception ex)
+        {
+            await ShowFeedbackAsync(OperationFeedback.Failure("产品信息确认未完成，请查看日志"));
+            System.Diagnostics.Debug.WriteLine($"产品信息确认失败：{ex}");
+        }
+    }
+
     private void UpdateProcessProductInfoLayout()
     {
         if (ProcessProductInfoWide is null || ProcessProductInfoCompact is null)
             return;
         var width = WorkspaceRegion?.Bounds.Width ?? Bounds.Width;
-        var compact = width > 0 && width < 1180;
+        var compact = width > 0 && width < 1320;
         var isProcessPage = (DataContext as ShellViewModel)?.IsProcessMonitorPage == true;
         ProcessProductInfoWide.IsVisible = isProcessPage && !compact;
         ProcessProductInfoCompact.IsVisible = isProcessPage && compact;
-        ProductInfoBar.MinHeight = isProcessPage && compact ? 104 : 70;
+        ProductInfoBar.MinHeight = isProcessPage && compact ? 116 : 70;
     }
 
     private async Task ShowFeedbackAsync(OperationFeedback feedback)

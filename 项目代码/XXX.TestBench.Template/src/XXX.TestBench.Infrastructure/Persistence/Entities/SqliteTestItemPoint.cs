@@ -21,12 +21,6 @@ internal sealed class SqliteTestItemPoint
     public int ProductTypeId { get; set; }
 
     /// <summary>
-    /// 试验项点业务编码。
-    /// </summary>
-    [Column(Name = "code")]
-    public string Code { get; set; } = string.Empty;
-
-    /// <summary>
     /// 试验项点名称。
     /// </summary>
     [Column(Name = "name")]
@@ -67,4 +61,7 @@ internal sealed class SqliteTestItemPoint
     /// </summary>
     [Column(Name = "updated_at_utc")]
     public string UpdatedAtUtc { get; set; } = string.Empty;
+
+    [Column(Name = "row_version")]
+    public long RowVersion { get; set; }
 }

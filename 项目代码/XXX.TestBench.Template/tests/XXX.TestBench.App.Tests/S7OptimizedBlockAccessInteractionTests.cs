@@ -166,6 +166,5 @@ public sealed class S7OptimizedBlockAccessInteractionTests
             Address = address,
             Protocol = "SiemensS7",
             DataType = "Float32",
-            RawDataType = "Float32"
         };
 }

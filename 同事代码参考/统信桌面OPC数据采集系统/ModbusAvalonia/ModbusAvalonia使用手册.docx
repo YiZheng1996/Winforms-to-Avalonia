@@ -1,0 +1,406 @@
+                      统信桌面OPC 数据采集系统
+                                 使用手册
+                     版本：V1.0    日期：2026-09-04
+
+--------------------------------------------------------------------------------
+1. 概述
+1.1 软件简介
+本系统是基于 Avalonia（.NET 8）开发的电机综合性能试验台数据采集与监控桌面程序，用于实时采集现场 PLC、串口服务器与串口 Modbus 设备的数据，并在界面上集中显示、支持在线写入设定值。程序通过 CSV 点表文件描述需要采集的寄存器/变量，配置文件统一管理通信参数。
+1.2 主要功能
+支持三类通信对象：Modbus TCP 串口服务器、PLC（S7-200 Smart / 信捷 XD/XL / S7-1200）、Modbus RTU 串口设备。
+通过 CSV 点表自动解析寄存器/变量地址、数据类型与描述，无需修改代码。
+后台多线程实时轮询读取，界面数据卡片动态刷新。
+支持按变量名（TagName）向 PLC/设备写入设定值。
+可视化配置管理：可增删改串口服务器、PLC、串口设备，并从 OPC 目录浏览选择点表文件。
+配置保存于 OPC/OPCConfig.json，支持旧配置自动兼容迁移。
+1.3 运行环境
+项目
+说明
+目标框架
+.NET 8.0
+UI 框架
+Avalonia 11.1.5
+操作系统
+Windows 10/11、Linux（统信 UOS / x64）
+通信协议
+Modbus TCP、Modbus RTU、S7（S7-200 Smart / S7-1200）
+点表格式
+CSV（UTF-8，逗号分隔）
+配置文件
+OPC/OPCConfig.json（JSON）
+
+--------------------------------------------------------------------------------
+2. 通信架构与支持协议
+程序按"配置对象"组织通信，每个通信对象对应一个后台轮询线程。各通信模块文件及其职责如下：
+文件
+职责 / 协议
+ModbusServer.cs
+串口服务器（Modbus TCP 主站）、配置类、公共点数据模型与接口
+XDPModbus.cs
+信捷 XD/XL 系列 PLC（Modbus TCP，默认端口 502）
+Smart200.cs
+西门子 S7-200 SMART PLC（S7 协议）
+S71200.cs
+西门子 S7-1200 PLC（S7 协议，支持多 CSV 点表）
+SerialModbus.cs
+串口 Modbus RTU 设备（可挂多个从站）
+
+说明：XDPModbus.cs 文件名中的"XDP"沿用项目历史命名，实际实现的是信捷（Xinje）PLC 通信。
+--------------------------------------------------------------------------------
+3. 界面与操作说明
+3.1 主界面
+顶部工具区包含"连接""加载配置""配置管理""退出"等按钮，以及环境温度显示。
+主区域以数据卡片形式实时显示各通信对象采集到的点位值。
+支持在线写入：在对应点位控件输入值后写回设备。
+3.2 配置管理
+点击"配置管理"打开配置管理窗口，可对串口服务器、PLC、串口设备进行增删改。编辑窗口中的文件列表带序号，并提供"浏览..."按钮，可直接从 OPC 目录选择 CSV 点表文件。
+3.3 退出
+点击顶部"退出"按钮即关闭主窗口并退出程序，程序会在退出时统一断开所有通信连接并释放资源。
+--------------------------------------------------------------------------------
+4. CSV 点表格式
+所有点表文件为 UTF-8 编码、逗号分隔、首行为表头的 CSV。通用字段如下：
+字段
+说明
+必填
+Tag Name
+变量名称（唯一标识，写入时按此名称定位）
+是
+Address
+寄存器/变量地址（格式随协议而异，见下表）
+是
+Data Type
+数据类型（Boolean/Byte/Int/Word/DWord/Long/Float 及中文）
+是
+Description
+变量描述
+否
+
+4.1 Address 地址格式
+通信对象
+Address 示例
+说明
+S7-200 Smart
+Q0.1、M10.3、V20.0、VD1000
+I/Q/M/V 区域，位用 . 分隔
+信捷 XD/XL
+HD1000、D1820、M400、D10.3
+软元件前缀 + 编号，位用 . 分隔
+S7-1200
+DB47.DBD98、DB47.DBX0.0、I0.0、Q0.1
+支持 DB / I / Q / M 区域
+串口服务器/串口设备
+H406401 等 H 前缀地址
+H+区域码+5位16进制地址
+
+4.2 Data Type 取值
+Boolean（布尔）、Byte（字节）、Int（整型）、Word（字）、DWord（双整型/双字）、Long（长整型）、Float（浮点/浮点型）。程序对中英文写法均做了兼容。
+--------------------------------------------------------------------------------
+5. 配置文件 OPCConfig.json
+配置文件位于可执行程序同级的 OPC 目录下（OPC/OPCConfig.json）。结构如下：
+ {
+   "Servers": [
+     { "IP": "192.168.1.125", "Port": 10001, "Enabled": 1,
+       "SlaveMap": { "COMServer1_Current.csv": 1 } }
+   ],
+   "Plcs": [
+     { "Type": "Smart200", "IP": "192.168.1.111", "Enabled": 1, "CsvFiles": ["PLC.S7.csv"] },
+     { "Type": "Xinje",   "IP": "192.168.1.51",  "Enabled": 1, "CsvFiles": ["PLC_XDP.csv"] },
+     { "Type": "S71200",  "IP": "192.168.1.120", "Enabled": 1,
+       "CsvFiles": ["dis_SJG20.csv", "dis_SJG30.csv", "dis_SJG40.csv"] }
+   ],
+   "SerialDevices": [
+     { "PortName": "COM3", "BaudRate": 9600, "Parity": "None",
+       "DataBits": 8, "StopBits": "One", "Enabled": 1,
+       "SlaveMap": { "Humiture.csv": 1 } }
+   ]
+ }
+
+字段说明：
+Servers：串口服务器列表；SlaveMap 为"CSV 文件 --> 从站地址"映射。
+Plcs：PLC 列表；Type 取值 Smart200 / Xinje / S71200；CsvFiles 为一个 PLC 可加载的多个点表文件。
+SerialDevices：串口设备列表；PortName/BaudRate/Parity/DataBits/StopBits 为串口参数。
+Enabled：1 启用，0 禁用。旧版单文件字段 CsvFile 会自动迁移到 CsvFiles。
+--------------------------------------------------------------------------------
+6. 移植通信模块到其它项目
+通信模块高度内聚，可整体迁移到任意 .NET 8 项目（WinForms / WPF / 控制台 / Avalonia 均可）。下面以移植 XDPModbus.cs（信捷 PLC）及配套公共类型为例说明。
+6.1 需要复制的文件与类型
+通信实现依赖一组公共类型（点数据模型、枚举、CSV 映射、接口、配置类）。这些公共类型位于 ModbusServer.cs 中，与实现文件处于同一命名空间 PressureTestApp.Communication.Plc。移植时建议按需复制，避免遗漏：
+模块
+必须一起复制的公共类型
+XDPModbus.cs（信捷）
+XdpPlcDataModel、XdpAddressType、XdpDataValueType、XdpPlcDataModelMap、IXdpPlcCommunicator
+ModbusServer.cs（串口服务器）
+XdpPlcDataModel、XdpAddressType、XdpDataValueType、XdpPlcDataModelMap、XdpServerConfig、XdpConfig
+SerialModbus.cs（串口设备）
+XdpPlcDataModel、XdpAddressType、XdpDataValueType、XdpPlcDataModelMap、SerialDeviceConfig
+Smart200.cs（S7-200 Smart）
+PlcDataModel、PlcDataType、PlcDataValueType、PlcDataModelMap
+S71200.cs（S7-1200）
+S71200DataModel、S71200Area、S71200DataModelMap、S71200AddressParser
+
+6.2 依赖的 NuGet 包
+包
+版本
+用途
+NModbus
+3.0.81
+Modbus TCP / RTU 主站
+NModbus.Serial
+3.0.81
+串口 Modbus RTU
+CsvHelper
+30.0.1
+CSV 点表解析
+S7netplus
+0.20.0
+S7-200 Smart / S7-1200 通信
+
+安装命令示例（在目标项目的包管理器控制台或 csproj 中添加）：
+ dotnet add package NModbus --version 3.0.81
+ dotnet add package NModbus.Serial --version 3.0.81
+ dotnet add package CsvHelper --version 30.0.1
+ dotnet add package S7netplus --version 0.20.0
+
+6.3 移植步骤
+步骤 1：将所需实现文件（如 XDPModbus.cs）复制到目标项目。
+步骤 2：将公共类型（见 6.1 表）一并复制，或保留 ModbusServer.cs 中的公共类型定义。
+步骤 3：确认目标项目命名空间与文件中的命名空间一致，或在目标项目中统一 using PressureTestApp.Communication.Plc。
+步骤 4：在目标项目 csproj 中添加 6.2 节依赖包。
+步骤 5：若不需要某协议，可只复制对应文件与其依赖的公共类型，无需引入全部依赖（例如只用串口 RTU，则无需 S7netplus）。
+6.4 使用示例
+信捷 PLC（XDPModbus.cs）示例：
+ using PressureTestApp.Communication.Plc;
+  
+ // 1. 连接信捷 PLC（Modbus TCP，默认端口 502）
+ using var xinje = new XinjePlcCommunicator("192.168.1.51");
+  
+ // 2. 加载点表并启动后台实时读取
+ xinje.MappingPlcFromCSV(@"OPC\PLC_XDP.csv");
+  
+ // 3. 读取实时数据
+ var list = xinje.GetPlcStatusList();
+  
+ // 4. 按变量名写入值
+ xinje.WriteTag("PLC_XDP.MD100", 123.45f);
+  
+ // 5. 停止后台线程 / 断开
+ xinje.Stop();
+ xinje.Disconnect();
+
+串口服务器（Modbus TCP，ModbusServer.cs）示例：
+ using PressureTestApp.Communication.Plc;
+  
+ var server = new XdpPlcCommunicator("192.168.1.125", 10001);
+ server.MappingPlcFromCSV(@"OPC\COMServer1_Current.csv");
+ var list = server.GetPlcStatusList();
+ server.Disconnect();
+
+串口设备（Modbus RTU，SerialModbus.cs）示例：
+ using PressureTestApp.Communication.Plc;
+  
+ var cfg = new SerialDeviceConfig
+ {
+     PortName = "COM3", BaudRate = 9600,
+     Parity = "None", DataBits = 8, StopBits = "One"
+ };
+ var dev = new SerialModbusCommunicator(cfg);
+ dev.AddCsv(1, @"OPC\Humiture.csv");   // 从站1加载点表
+ dev.Start();                          // 开始后台轮询
+ var list = dev.GetPlcStatusList();
+ dev.Disconnect();
+
+S7-1200（S71200.cs，支持多 CSV）示例：
+ using PressureTestApp.Communication.Plc;
+  
+ var s7 = new S71200("192.168.1.120");
+ s7.MappingPlcFromCSV(new[] { @"OPC\dis_SJG20.csv", @"OPC\dis_SJG30.csv" });
+ var list = s7.GetPlcStatusList();
+ s7.WriteTag("dis_SJG20.某个变量名", 1.0f);
+ s7.Disconnect();
+
+S7-200 Smart（Smart200.cs）示例：
+ using PressureTestApp.Communication.Plc;
+  
+ var smart = new Smart200("192.168.1.111");
+ smart.MappingPlcFromCSV(@"OPC\PLC.S7.csv");
+ var list = smart.GetPlcStatusList();
+ smart.Disconnect();
+
+--------------------------------------------------------------------------------
+7. 程序部署
+7.1 发布命令
+在项目根目录执行 dotnet publish。发布为自包含程序（内置 .NET 运行时，目标机无需预装 .NET）。
+统信 UOS / Linux x64：
+ dotnet publish ModbusAvalonia.csproj -c Release -r linux-x64 --self-contained true -o publish/linux-x64
+
+Windows x64：
+ dotnet publish ModbusAvalonia.csproj -c Release -r win-x64 --self-contained true -o publish/win-x64
+
+7.2 OPC 目录与配置部署
+发布产物中，可执行程序（Linux 下为 ModbusAvalonia，Windows 下为 ModbusAvalonia.exe）运行时会在其同级目录查找 OPC 文件夹。
+必须在发布目录下建立 OPC 文件夹，并放入 OPCConfig.json 以及 OPCConfig.json 中引用的所有 CSV 点表文件。
+注意：使用 dotnet publish -o 重新发布会重建目标目录，可能清空手动放入的 OPC 配置，请先备份或发布后重新拷贝 OPC 目录。
+7.3 统信 UOS 运行说明
+将 publish/linux-x64 整个目录拷贝到目标机，例如 /opt/ModbusAvalonia。
+为可执行文件增加执行权限：chmod +x /opt/ModbusAvalonia/ModbusAvalonia。
+运行：cd /opt/ModbusAvalonia && ./ModbusAvalonia。
+使用串口时，需确保当前用户对串口设备（如 /dev/ttyUSB0、/dev/ttyS0）有读写权限，必要时加入 dialout 用户组。
+自包含发布已内置 .NET 运行时；若系统提示缺少 libssl 等系统库，请安装对应依赖包。
+
+--------------------------------------------------------------------------------
+8. 串口服务器与串口设备配置说明
+本章补充串口服务器（Modbus TCP）和串口设备（Modbus RTU）两类通信对象的配置项、界面操作步骤及其在 OPCConfig.json 中的对应关系。
+8.1 串口服务器（Modbus TCP）配置
+串口服务器是接入以太网的 Modbus 从站设备。程序作为 Modbus TCP 主站连接它，通过"文件 --> 485站号（SlaveMap）"描述一个服务器下挂载的多个从站：每个 CSV 点表文件对应一个从站地址。
+
+配置项：
+配置项
+界面控件
+说明
+IP
+文本框
+串口服务器的 IP 地址，如 192.168.1.125
+端口
+文本框
+Modbus TCP 端口，默认 10001
+启用
+复选框
+勾选后 Enabled=1，启动时连接该服务器
+文件 --> 485站号
+列表（带序号）
+SlaveMap，每条显示"序号. 文件名 = 站号"
+
+操作步骤：
+在"IP""端口"输入串口服务器地址和端口，勾选"启用"。
+在文件名输入框手动输入 CSV 文件名，或点击"浏览..."从 OPC 目录选择 CSV 点表文件。
+输入对应的 485 站号（从站地址，默认 1，取值范围 1 - 247），点击"添加"。
+列表按序号显示已添加的"文件 --> 站号"映射；选中某项后点击"删除选中"可移除。
+点击"确定"保存到配置。
+OPCConfig.json 对应结构：
+ "Servers": [
+   {
+     "IP": "192.168.1.125",
+     "Port": 10001,
+     "Enabled": 1,
+     "SlaveMap": {
+       "COMServer1_Current.csv": 1,
+       "COMServer1_Ambient.csv": 2
+     }
+   }
+ ]
+
+8.2 串口设备（Modbus RTU）配置
+串口设备通过本机串口（Windows 下为 COM 口，Linux 下为 /dev/ttyS0、/dev/ttyUSB0 等）连接，使用 Modbus RTU 协议。程序作为 RTU 主站，一个串口下可挂多个从站，同样通过 SlaveMap 描述文件与从站地址的对应关系。
+
+配置项：
+配置项
+界面控件
+说明
+串口
+文本框
+串口名称，如 COM3
+波特率
+文本框
+默认 9600
+校验
+下拉框
+None（无）/ Odd（奇）/ Even（偶）
+数据位
+文本框
+默认 8
+停止位
+下拉框
+One（1 位）/ Two（2 位）
+启用
+复选框
+勾选后 Enabled=1，启动时打开该串口
+文件 --> 485站号
+列表（带序号）
+SlaveMap，每条显示"序号. 文件名 = 站号"
+
+操作步骤：
+输入"串口"名与波特率，选择"校验""数据位""停止位"，勾选"启用"。
+在文件名输入框手动输入，或点击"浏览..."从 OPC 目录选择 CSV 点表文件。
+输入对应的 485 站号，点击"添加"；列表带序号显示，可"删除选中"。
+点击"确定"保存到配置。
+OPCConfig.json 对应结构：
+ "SerialDevices": [
+   {
+     "PortName": "COM3",
+     "BaudRate": 9600,
+     "Parity": "None",
+     "DataBits": 8,
+     "StopBits": "One",
+     "Enabled": 1,
+     "SlaveMap": {
+       "Humiture.csv": 1
+     }
+   }
+ ]
+
+8.3 SlaveMap（文件 --> 站号）说明
+SlaveMap 是一个键值对字典：键为 OPC 目录下的 CSV 点表文件名，值为该文件对应的 485 从站地址（SlaveId，1 - 247）。
+程序会逐个解析 CSV 文件，并把其中所有点的 SlaveId 设置为对应的站号，从而在一个连接下同时读取多个从站。
+文件名只需填写文件名（不含路径），程序会自动到可执行程序同级的 OPC 目录查找该文件。
+
+--------------------------------------------------------------------------------
+9. PLC 配置说明
+本章补充 PLC（S7-200 Smart、信捷 XD/XL、S7-1200）的配置项、界面操作步骤及其在 OPCConfig.json 中的对应关系。
+9.1 支持的 PLC 类型
+类型
+通信协议
+默认端口
+说明
+Smart200
+S7（S7-200 Smart）
+102
+西门子 S7-200 SMART PLC
+信捷 Xinje
+Modbus TCP
+502
+信捷 XD/XL 系列 PLC
+S7-1200
+S7（S7-1200）
+102
+西门子 S7-1200 PLC
+
+9.2 配置项
+
+配置项
+界面控件
+说明
+类型
+下拉框
+Smart200 / 信捷 Xinje / S7-1200
+IP
+文本框
+PLC 的 IP 地址，需与电脑同网段
+启用
+复选框
+勾选后 Enabled=1，启动时连接该 PLC
+CSV 点表文件列表
+列表（带序号）
+CsvFiles，一个 PLC 可加载多个点表文件
+
+9.3 操作步骤
+在"类型"下拉框选择 PLC 类型。
+输入 PLC 的 IP 地址，勾选"启用"。
+在文件名输入框手动输入 CSV 文件名，或点击"浏览..."从 OPC 目录选择 CSV 点表文件（支持多选）。
+点击"添加"把文件加入列表；列表按序号显示，选中后点"删除选中"可移除。
+点击"确定"保存到配置。
+9.4 OPCConfig.json 对应结构
+ "Plcs": [
+   { "Type": "Smart200", "IP": "192.168.1.111", "Enabled": 1,
+     "CsvFiles": ["PLC.S7.csv"] },
+   { "Type": "Xinje", "IP": "192.168.1.51", "Enabled": 1,
+     "CsvFiles": ["PLC_XDP.csv"] },
+   { "Type": "S71200", "IP": "192.168.1.120", "Enabled": 1,
+     "CsvFiles": ["dis_SJG20.csv", "dis_SJG30.csv", "dis_SJG40.csv"] }
+ ]
+
+9.5 说明
+与串口服务器/串口设备不同，PLC 使用 CsvFiles 文件列表而非 SlaveMap：PLC 的从站/站号由协议决定（信捷 Modbus TCP 默认站号 1，S7 协议无需站号）。
+S7-1200 支持一个 PLC 加载多个 CSV 点表，程序会将多个文件合并为一个点表统一轮询；Smart200 与信捷同样支持列表，但通常只配置一个文件。
+旧版配置中的单文件字段 CsvFile 会在加载时自动迁移到 CsvFiles 列表。
+
+                             --  --  全文完  --  -- 

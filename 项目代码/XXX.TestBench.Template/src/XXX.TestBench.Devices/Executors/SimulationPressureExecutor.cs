@@ -28,7 +28,7 @@ public sealed class SimulationPressureExecutor : ITestItemExecutor
     public IReadOnlyList<RequiredSignal> RequiredSignals { get; } =
     [
         new RequiredSignal(PressureSignalKey, SignalAccessKind.Read,
-            DevicePointDataType.Decimal, "MPa", TimeSpan.FromSeconds(2))
+            DevicePointDataType.Float32, "MPa", TimeSpan.FromSeconds(2))
     ];
 
     /// <summary>
@@ -37,36 +37,18 @@ public sealed class SimulationPressureExecutor : ITestItemExecutor
     public async Task<ItemExecutionOutcome> ExecuteAsync(ItemExecutionContext context, CancellationToken ct = default)
     {
         var effective = context.EffectiveParameters;
-        if (effective is null)
-            return new ItemExecutionOutcome(ItemResultState.Failed, null, "缺少有效试验参数快照");
 
         // 校验已在启动前由 TestParameterValidator 完成，此处仅做防御性复核。
         var validation = XXX.TestBench.Core.Domain.TestParameters.TestParameterValidator.Validate(effective);
         if (!validation.IsValid)
             return new ItemExecutionOutcome(ItemResultState.Failed, null, validation.Error);
 
-        PointValue read;
-        if (context.SignalResolver is not null)
-        {
-            if (context.ResolvedSignals is null)
-                return new ItemExecutionOutcome(ItemResultState.Failed, null, "缺少本次试验的信号解析快照");
-            read = await context.SignalResolver.ReadFreshAsync(
-                PressureSignalKey, context.ResolvedSignals, ct);
-        }
-        else
-        {
-            // 没有项目级绑定时仍允许独立的仿真运行时执行基础闭环；完整设备配置走上面的固定绑定。
-            var points = await context.Runtime.ListPointsAsync(ct);
-            var pressurePoint = points.FirstOrDefault(p => p.Code == PressureSignalKey);
-            if (pressurePoint is null)
-                return new ItemExecutionOutcome(ItemResultState.Failed, null, $"仿真运行时缺少点位 {PressureSignalKey}");
-            read = await context.Runtime.ReadAsync(pressurePoint, ct);
-        }
+        var read = await context.DeviceAccess.ReadFreshAsync(PressureSignalKey, ct);
         if (read.Quality != PointQuality.Good)
             return new ItemExecutionOutcome(ItemResultState.Failed, read.Value?.ToString(), $"点位质量异常（{read.Quality}）");
 
         var summary = $"目标 {effective.TestVoltageV:0.0}V / {effective.ProtectCurrentMa:0.0}mA / {effective.TestTimeSeconds}s";
         var text = $"仿真执行通过：参数快照解析校验成功，AI_Pressure 当前值 {read.Value}";
-        return new ItemExecutionOutcome(ItemResultState.Passed, summary, text);
+        return new ItemExecutionOutcome(ItemResultState.Succeeded, summary, text);
     }
 }

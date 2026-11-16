@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text;
 using ClosedXML.Excel;
+using XXX.TestBench.Core.Common;
 using XXX.TestBench.Core.Configuration;
 using XXX.TestBench.Core.Domain.Devices;
 using XXX.TestBench.Core.Ports;
@@ -55,7 +56,7 @@ public sealed class DevicePointImporter : IDevicePointImporter
         if (rows.Count == 0)
             return Invalid("点位文件为空");
 
-        if (!TryReadTemplateHeader(rows[0], out var headerMap, out var isLegacyV5, out var headerError))
+        if (!TryReadTemplateHeader(rows[0], out var headerMap, out var headerError))
             return Invalid(headerError);
 
         var entries = new List<(int RowNumber, PointsConfig.PointEntry Entry)>();
@@ -73,7 +74,7 @@ public sealed class DevicePointImporter : IDevicePointImporter
                     $"数据列超过模板固定列数 {maxColumns} 列"));
                 continue;
             }
-            if (TryParseSimplifiedEntry(rows[i], headerMap, isLegacyV5, out var entry, out var error))
+            if (TryParseSimplifiedEntry(rows[i], headerMap, out var entry, out var error))
                 entries.Add((rowNumber, entry));
             else
                 issues.Add(new DevicePointImportIssue(rowNumber, error));
@@ -108,9 +109,8 @@ public sealed class DevicePointImporter : IDevicePointImporter
         }
 
         return new DevicePointImportResult(
-            parsed,
-            issues.OrderBy(issue => issue.RowNumber).ToList(),
-            entries.Select(item => new DevicePointImportRow(item.RowNumber, item.Entry)).ToList());
+            entries.Select(item => new DevicePointImportRow(item.RowNumber, item.Entry)).ToList(),
+            issues.OrderBy(issue => issue.RowNumber).ToList());
     }
 
     /// <summary>
@@ -119,42 +119,14 @@ public sealed class DevicePointImporter : IDevicePointImporter
     private static bool TryReadTemplateHeader(
         IReadOnlyList<string> header,
         out IReadOnlyDictionary<string, int> headerMap,
-        out bool isLegacyV5,
         out string error)
     {
         var columns = DevicePointTemplateDefinition.Columns;
-        isLegacyV5 = false;
-        var legacyHeaders = new[]
-        {
-            "点位标签", "地址", "数据类型", "访问权限", "原始下限", "原始上限", "工程下限", "工程上限", "说明"
-        };
-        if (header.Count != columns.Count && header.Count != legacyHeaders.Length)
+        if (header.Count != columns.Count)
         {
             headerMap = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
-            error = $"模板列数量不正确：当前 v{DevicePointTemplateDefinition.CurrentTemplateVersion} 应有 {columns.Count} 列，旧 v5 兼容格式为 {legacyHeaders.Length} 列，实际 {header.Count} 列。请下载并使用“{DevicePointTemplateDefinition.DefaultFileName}”，不要修改列名或顺序";
+            error = $"模板列数量不正确：当前 v{DevicePointTemplateDefinition.CurrentTemplateVersion} 必须为 {columns.Count} 列，实际 {header.Count} 列。请下载并使用“{DevicePointTemplateDefinition.DefaultFileName}”，不要修改列名或顺序";
             return false;
-        }
-
-        if (header.Count == legacyHeaders.Length)
-        {
-            for (var index = 0; index < legacyHeaders.Length; index++)
-            {
-                var actual = CleanHeader(header[index]);
-                if (!string.Equals(actual, legacyHeaders[index], StringComparison.Ordinal))
-                {
-                    headerMap = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
-                    error = $"旧 v5 模板第1行第 {index + 1} 列应为“{legacyHeaders[index]}”，实际为“{(string.IsNullOrEmpty(actual) ? "未填写" : actual)}”。请使用固定中文模板";
-                    return false;
-                }
-            }
-
-            isLegacyV5 = true;
-            headerMap = legacyHeaders
-                .Select((headerText, index) => (headerText, index))
-                .Zip(columns.Where(column => column.Field is not ("ByteOrder" or "WordOrder")))
-                .ToDictionary(item => item.Second.Field, item => item.First.index, StringComparer.OrdinalIgnoreCase);
-            error = string.Empty;
-            return true;
         }
 
         var map = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
@@ -183,7 +155,6 @@ public sealed class DevicePointImporter : IDevicePointImporter
     private static bool TryParseSimplifiedEntry(
         IReadOnlyList<string> row,
         IReadOnlyDictionary<string, int> headerMap,
-        bool isLegacyV5,
         out PointsConfig.PointEntry entry,
         out string error)
     {
@@ -191,8 +162,6 @@ public sealed class DevicePointImporter : IDevicePointImporter
         var tagText = Get(row, headerMap, "PointTag");
         var address = Get(row, headerMap, "Address");
         var dataTypeText = Get(row, headerMap, "DataType");
-        var byteOrderText = Get(row, headerMap, "ByteOrder");
-        var wordOrderText = Get(row, headerMap, "WordOrder");
         var accessText = Get(row, headerMap, "Access");
 
         if (string.IsNullOrWhiteSpace(tagText))
@@ -207,16 +176,8 @@ public sealed class DevicePointImporter : IDevicePointImporter
             && !DevicePointTag.TryParse(tagText, out tag!, out var tagError))
             errors.Add(tagError);
 
-        var dataType = ReadRawDataType(dataTypeText, errors);
-        var hasModbusAddressShape = TryCreateModbusAddressDefinition(address, out var modbusAddressDefinition);
-        var decodeOptions = ReadDecodeOptions(
-            byteOrderText,
-            wordOrderText,
-            hasModbusAddressShape,
-            isLegacyV5,
-            errors,
-            out var byteOrderSource,
-            out var wordOrderSource);
+        var dataType = ReadDataType(dataTypeText, errors);
+        _ = TryCreateModbusAddressDefinition(address, out var modbusAddressDefinition);
         var (isWritable, risk) = ReadAccess(accessText, errors);
         var rawMin = ReadDecimal(Get(row, headerMap, "RawMin"), "原始下限", errors);
         var rawMax = ReadDecimal(Get(row, headerMap, "RawMax"), "原始上限", errors);
@@ -226,15 +187,6 @@ public sealed class DevicePointImporter : IDevicePointImporter
             errors.Add("量程必须完整填写原始/工程上下限，或全部留空");
         if (rawMin > rawMax || engMin > engMax)
             errors.Add("量程下限不能大于上限");
-
-        if (hasModbusAddressShape
-            && RequiresWordOrder(dataType)
-            && string.IsNullOrWhiteSpace(wordOrderText))
-        {
-            errors.Add(isLegacyV5
-                ? "旧 v5 模板没有字序列，Modbus 32/64 位点位不能自动猜测，请改用 v6 模板并填写 HighWordFirst 或 LowWordFirst"
-                : "Modbus 32/64 位点位必须填写字序 HighWordFirst 或 LowWordFirst");
-        }
 
         if (errors.Count > 0 || tag is null)
         {
@@ -266,10 +218,8 @@ public sealed class DevicePointImporter : IDevicePointImporter
                 ? DevicePointTypeCatalog.ToStorage(DevicePointProtocol.Simulation)
                 : string.Empty,
             DataType = DevicePointTypeCatalog.ToStorage(dataType),
-            RawDataType = DevicePointTypeCatalog.ToStorage(dataType),
-            DecodeOptions = decodeOptions,
-            ByteOrderSource = byteOrderSource,
-            WordOrderSource = wordOrderSource,
+            // S7 解码参数和 Modbus 设备级数据排列都不由点位导入模板覆盖。
+            S7DecodeOptions = null,
             RawMin = rawMin,
             RawMax = rawMax,
             EngMin = engMin,
@@ -282,116 +232,8 @@ public sealed class DevicePointImporter : IDevicePointImporter
         return true;
     }
 
-    private static bool RequiresWordOrder(DevicePointDataType dataType)
-        => dataType is DevicePointDataType.Int32
-            or DevicePointDataType.UInt32
-            or DevicePointDataType.Float32
-            or DevicePointDataType.Double;
-
     /// <summary>
-    /// 解析模板中的字节序/字序。空字节序按方案采用 BigEndian 初始值，
-    /// 但把来源写入内存预览字段；多寄存器 Modbus 点位仍必须显式填写字序。
-    /// </summary>
-    private static DecodeOptions ReadDecodeOptions(
-        string byteOrderText,
-        string wordOrderText,
-        bool isModbusAddressShape,
-        bool isLegacyV5,
-        ICollection<string> errors,
-        out string byteOrderSource,
-        out string wordOrderSource)
-    {
-        var byteOrder = ReadByteOrder(
-            byteOrderText,
-            isModbusAddressShape,
-            isLegacyV5,
-            errors,
-            out byteOrderSource);
-        var wordOrder = ReadWordOrder(
-            wordOrderText,
-            isModbusAddressShape,
-            isLegacyV5,
-            errors,
-            out wordOrderSource);
-        return new DecodeOptions { ByteOrder = byteOrder, WordOrder = wordOrder };
-    }
-
-    private static ByteOrder ReadByteOrder(
-        string value,
-        bool isModbusAddressShape,
-        bool isLegacyV5,
-        ICollection<string> errors,
-        out string source)
-    {
-        if (string.IsNullOrWhiteSpace(value))
-        {
-            source = isLegacyV5
-                ? "v5 兼容/项目初始值"
-                : isModbusAddressShape ? "项目初始值" : "默认值";
-            return ByteOrder.BigEndian;
-        }
-
-        var normalized = NormalizeChoice(value);
-        source = "显式填写";
-        return normalized switch
-        {
-            "bigendian" or "大端" or "大端序" => ByteOrder.BigEndian,
-            "littleendian" or "小端" or "小端序" => ByteOrder.LittleEndian,
-            _ => ReadInvalidByteOrder(value, errors, out source)
-        };
-    }
-
-    private static ByteOrder ReadInvalidByteOrder(string value, ICollection<string> errors, out string source)
-    {
-        errors.Add($"字节序不受支持：{value}（请填写 BigEndian 或 LittleEndian）");
-        source = "填写错误";
-        return ByteOrder.Unknown;
-    }
-
-    private static WordOrder ReadWordOrder(
-        string value,
-        bool isModbusAddressShape,
-        bool isLegacyV5,
-        ICollection<string> errors,
-        out string source)
-    {
-        if (string.IsNullOrWhiteSpace(value))
-        {
-            source = isLegacyV5
-                ? "v5 兼容/未填写"
-                : isModbusAddressShape ? "项目初始值" : "默认值";
-            return WordOrder.None;
-        }
-
-        var normalized = NormalizeChoice(value);
-        source = "显式填写";
-        return normalized switch
-        {
-            "none" or "无" or "不交换" => WordOrder.None,
-            "highwordfirst" or "高字在前" or "高字优先" => WordOrder.HighWordFirst,
-            "lowwordfirst" or "低字在前" or "低字优先" => WordOrder.LowWordFirst,
-            _ => ReadInvalidWordOrder(value, errors, out source)
-        };
-    }
-
-    private static WordOrder ReadInvalidWordOrder(string value, ICollection<string> errors, out string source)
-    {
-        errors.Add($"字序不受支持：{value}（请填写 None、HighWordFirst 或 LowWordFirst）");
-        source = "填写错误";
-        return WordOrder.None;
-    }
-
-    private static string NormalizeChoice(string value)
-        => value.Trim()
-            .Replace("（", "(", StringComparison.Ordinal)
-            .Replace("）", ")", StringComparison.Ordinal)
-            .Replace(" ", string.Empty, StringComparison.Ordinal)
-            .Replace("-", string.Empty, StringComparison.Ordinal)
-            .Replace("_", string.Empty, StringComparison.Ordinal)
-            .ToLowerInvariant();
-
-    /// <summary>
-    /// 在基础层识别 Modbus 的规范地址，只为导入身份和字序必填提示服务；
+    /// 在基础层识别 Modbus 的规范地址，只为导入身份和最终驱动校验服务；
     /// 最终区域、范围和类型规则仍由已注册的 Modbus 驱动描述器负责。
     /// </summary>
     private static bool TryCreateModbusAddressDefinition(
@@ -443,7 +285,7 @@ public sealed class DevicePointImporter : IDevicePointImporter
         return false;
     }
 
-    private static DevicePointDataType ReadRawDataType(string value, ICollection<string> errors)
+    private static DevicePointDataType ReadDataType(string value, ICollection<string> errors)
     {
         if (string.IsNullOrWhiteSpace(value)) return DevicePointDataType.Unknown;
         if (DevicePointTemplateDefinition.TryMapDataType(value, out var dataType))
@@ -458,11 +300,11 @@ public sealed class DevicePointImporter : IDevicePointImporter
         var groupIds = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         foreach (var point in points)
         {
-            var deviceId = DeviceConfigurationMigrator.StableId($"import-device|{point.DeviceCode.Trim()}");
+            var deviceId = StableIdentity.FromSeed($"import-device|{point.DeviceCode.Trim()}");
             var groupCode = string.IsNullOrWhiteSpace(point.GroupCode) ? "DEFAULT" : point.GroupCode.Trim();
             var groupKey = $"{deviceId}\u001f{groupCode}";
             if (groupIds.ContainsKey(groupKey)) continue;
-            var groupId = DeviceConfigurationMigrator.StableId($"import-group|{deviceId}|{groupCode}");
+            var groupId = StableIdentity.FromSeed($"import-group|{deviceId}|{groupCode}");
             groupIds[groupKey] = groupId;
             groups.Add(new PointsConfig.PointGroupEntry
             {
@@ -477,12 +319,12 @@ public sealed class DevicePointImporter : IDevicePointImporter
         var config = new PointsConfig { SchemaVersion = PointsConfig.CurrentSchemaVersion, Groups = groups };
         foreach (var point in points)
         {
-            var deviceId = DeviceConfigurationMigrator.StableId($"import-device|{point.DeviceCode.Trim()}");
+            var deviceId = StableIdentity.FromSeed($"import-device|{point.DeviceCode.Trim()}");
             var groupCode = string.IsNullOrWhiteSpace(point.GroupCode) ? "DEFAULT" : point.GroupCode.Trim();
             var clone = new PointsConfig.PointEntry
             {
                 Id = string.IsNullOrWhiteSpace(point.Id)
-                    ? DeviceConfigurationMigrator.StableId($"import-point|{point.DeviceCode}|{point.Code}|{point.Address}")
+                    ? StableIdentity.FromSeed($"import-point|{point.DeviceCode}|{point.Code}|{point.Address}")
                     : point.Id,
                 Code = point.Code,
                 Name = point.Name,
@@ -494,8 +336,7 @@ public sealed class DevicePointImporter : IDevicePointImporter
                 AddressDefinition = point.AddressDefinition,
                 Protocol = point.Protocol,
                 DataType = point.DataType,
-                RawDataType = point.RawDataType,
-                DecodeOptions = point.DecodeOptions,
+                S7DecodeOptions = point.S7DecodeOptions,
                 WritePolicy = point.WritePolicy,
                 RawMin = point.RawMin,
                 RawMax = point.RawMax,
@@ -682,7 +523,7 @@ public sealed class DevicePointImporter : IDevicePointImporter
     /// 生成包含整体错误的结果。
     /// </summary>
     private static DevicePointImportResult Invalid(string message)
-        => new(Array.Empty<PointsConfig.PointEntry>(), new[] { new DevicePointImportIssue(0, message) });
+        => new(Array.Empty<DevicePointImportRow>(), new[] { new DevicePointImportIssue(0, message) });
 
     /// <summary>
     /// 清理表头首尾空格和 UTF-8 BOM；不转换列名，也不接受英文别名。

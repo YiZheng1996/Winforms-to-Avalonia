@@ -1,0 +1,8 @@
+<Project>
+  <PropertyGroup>
+    <!-- 构建产物放在源码外；可用 -p:ArtifactsPath=绝对路径覆盖。 -->
+    <UseArtifactsOutput>true</UseArtifactsOutput>
+    <ArtifactsPath Condition="'$(ArtifactsPath)' == ''">D:\Codex相关\XXX.TestBench.Template\artifacts</ArtifactsPath>
+    <DefaultItemExcludes>$(DefaultItemExcludes);**/bin/**;**/obj/**</DefaultItemExcludes>
+  </PropertyGroup>
+</Project>

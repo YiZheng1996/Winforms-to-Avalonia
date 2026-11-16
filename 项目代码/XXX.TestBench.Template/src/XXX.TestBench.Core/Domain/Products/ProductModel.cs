@@ -25,4 +25,12 @@ public sealed class ProductModel
     /// 创建时间。
     /// </summary>
     public DateTime CreatedAtUtc { get; init; }
+    /// <summary>
+    /// 型号字段并发版本。
+    /// </summary>
+    public long RowVersion { get; set; }
+    /// <summary>
+    /// 整组项点顺序的并发版本。
+    /// </summary>
+    public long SequenceRevision { get; set; }
 }

@@ -1,5 +1,6 @@
 using System.Data;
 using System.Data.Common;
+using System.Data.SQLite;
 using FreeSql;
 
 namespace XXX.TestBench.Infrastructure.Persistence;
@@ -94,15 +95,29 @@ public sealed class SqliteConnectionFactory : ISqliteConnectionFactory
     /// <summary>
     /// 创建连接工厂并初始化数据库访问对象。
     /// </summary>
-    public SqliteConnectionFactory(string databasePath)
+    public SqliteConnectionFactory(
+        string databasePath,
+        bool createDirectoryIfMissing = true,
+        bool failIfMissing = false)
     {
-        Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(databasePath)) ?? ".");
+        ArgumentException.ThrowIfNullOrWhiteSpace(databasePath);
         _databasePath = Path.GetFullPath(databasePath);
+        var directory = Path.GetDirectoryName(_databasePath) ?? ".";
+        if (createDirectoryIfMissing)
+            Directory.CreateDirectory(directory);
+        else if (!File.Exists(_databasePath))
+            throw new FileNotFoundException("SQLite 文件不存在；只读打开路径不会创建目录或数据库。", _databasePath);
+
+        var connectionString = new SQLiteConnectionStringBuilder
+        {
+            DataSource = _databasePath,
+            ForeignKeys = true,
+            Pooling = true,
+            FailIfMissing = failIfMissing
+        }.ToString();
 
         _db = new FreeSqlBuilder()
-            .UseConnectionString(
-                DataType.Sqlite,
-                $"Data Source={_databasePath};Foreign Keys=True;Pooling=True;")
+            .UseConnectionString(DataType.Sqlite, connectionString)
             .UseAdoConnectionPool(true)
             .UseAutoSyncStructure(false)
             .Build();

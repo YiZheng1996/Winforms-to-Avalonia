@@ -34,6 +34,9 @@ public class ShellViewModelTests
         Assert.NotNull(shell.CurrentPage);
         Assert.IsType<ProcessMonitorViewModel>(shell.CurrentPage);
         Assert.Equal("工艺监控", shell.CurrentPage!.Title);
+        Assert.True(shell.IsProcessMonitorPage);
+        Assert.True(shell.ShowProductInfoBar);
+        Assert.DoesNotContain(shell.NavItems, item => item.DisplayTitle == "工艺监控");
         Assert.NotEqual("未登录", shell.CurrentUserText);
         Assert.True(authenticationSucceeded);
     }

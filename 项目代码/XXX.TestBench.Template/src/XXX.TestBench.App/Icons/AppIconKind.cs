@@ -50,6 +50,7 @@ public enum AppIconKind
     Save,
     Cancel,
     SelectAll,
+    Information,
     Warning,
     Flow,
     Signal,

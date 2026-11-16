@@ -21,7 +21,13 @@ public sealed class S7OptimizedBlockAccessIntegrationTests
             store,
             operations,
             new NoopAuditLog(),
-            new[] { descriptor });
+            new[] { descriptor },
+            hasActiveRun: () => false,
+            runtimeFactory: (_, _) => Task.FromResult<IDeviceRuntime>(new NoopRuntime()),
+            currentRuntime: () => null,
+            publishRuntime: _ => Task.CompletedTask,
+            requiredSignals: Array.Empty<XXX.TestBench.Core.Execution.RequiredSignal>(),
+            markRuntimeFaulted: _ => { });
         var point = CreatePoint(initial, "DB1.DBD0");
 
         Assert.Empty(descriptor.ValidatePoint(point, initial.Device.Devices[0]));
@@ -29,7 +35,8 @@ public sealed class S7OptimizedBlockAccessIntegrationTests
         var unconfirmed = await service.ApplyPointsAsync(
             CreateAdmin(),
             new[] { point },
-            initial.Points.Groups);
+            initial.Points.Groups,
+            new DeviceConfigurationApplyOptions());
 
         Assert.False(unconfirmed.Ok);
         Assert.True(unconfirmed.RequiresS7OptimizedBlockAccessConfirmation);
@@ -44,7 +51,7 @@ public sealed class S7OptimizedBlockAccessIntegrationTests
             CreateAdmin(),
             new[] { point },
             initial.Points.Groups,
-            s7OptimizedBlockAccessConfirmed: true);
+            new DeviceConfigurationApplyOptions(ConfirmS7OptimizedBlockAccess: true));
 
         Assert.True(confirmed.Ok, confirmed.Error);
         Assert.NotNull(store.Staged);
@@ -72,7 +79,7 @@ public sealed class S7OptimizedBlockAccessIntegrationTests
             Code = "CH_S7",
             Name = "PLC 通道",
             TransportKind = ChannelTransportKind.Tcp,
-            Tcp = new TcpChannelParameters { Host = "127.0.0.1", Port = 102 }
+            Tcp = new TcpChannelParameters()
         };
         var device = new DeviceConfig.DeviceEntry
         {
@@ -83,6 +90,7 @@ public sealed class S7OptimizedBlockAccessIntegrationTests
             ChannelId = channel.Id,
             DriverKey = DriverKeyCatalog.SiemensS7,
             Model = "S7-1200",
+            SiemensS7 = new SiemensS7ConnectionOptions { Host = "127.0.0.1", Port = 102, Rack = 0, Slot = 0 },
             PollIntervalMs = 500,
             StaleAfterMs = 2000
         };
@@ -139,7 +147,6 @@ public sealed class S7OptimizedBlockAccessIntegrationTests
             Protocol = "SiemensS7",
             Address = address,
             DataType = "Float32",
-            RawDataType = "Float32"
         };
 
     private sealed class FakeConfigurationStore : IDeviceConfigurationStore
@@ -153,6 +160,9 @@ public sealed class S7OptimizedBlockAccessIntegrationTests
         public DeviceConfigurationSnapshot? Staged { get; private set; }
 
         public Task<DeviceConfigurationSnapshot> LoadActiveAsync(CancellationToken ct = default)
+            => Task.FromResult(Active);
+
+        public Task<DeviceConfigurationSnapshot> LoadPreviousAsync(CancellationToken ct = default)
             => Task.FromResult(Active);
 
         public Task<DeviceConfigurationSnapshot> LoadRevisionAsync(string revision, CancellationToken ct = default)
@@ -182,5 +192,29 @@ public sealed class S7OptimizedBlockAccessIntegrationTests
 
         public Task<IReadOnlyList<AuditEntry>> SearchAsync(AuditLogQuery query, CancellationToken ct = default)
             => Task.FromResult<IReadOnlyList<AuditEntry>>(Array.Empty<AuditEntry>());
+    }
+
+    private sealed class NoopRuntime : IDeviceRuntime
+    {
+        public string Name => "配置测试运行时";
+        public DeviceMode Mode => DeviceMode.Hardware;
+        public bool IsSimulation => false;
+        public DeviceRuntimeInfo Status => new(Name, "Test", "test://", false, DeviceHealth.Healthy,
+            true, null, "test-device", "test-channel", "test-revision", 1, DeviceConnectionState.Online);
+        public string ActiveRevision => "test-revision";
+        public SignalBindingsConfig SignalBindings => new();
+        public RuntimeActivationReport ActivationReport => RuntimeActivationReport.Empty;
+        public Task StartAsync(CancellationToken ct = default) => Task.CompletedTask;
+        public Task StopAsync(CancellationToken ct = default) => Task.CompletedTask;
+        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+        public Task<PointValue> ReadAsync(DevicePoint point, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<PointValue> ReadFreshAsync(string pointId, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<PointValue> WriteAsync(DevicePoint point, object? value, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<IReadOnlyList<DevicePoint>> ListPointsAsync(CancellationToken ct = default) => Task.FromResult<IReadOnlyList<DevicePoint>>(Array.Empty<DevicePoint>());
+        public bool TryGetCachedValue(string pointId, out PointValue value) { value = default!; return false; }
+        public IReadOnlyList<PointValue> ListCachedValues() => Array.Empty<PointValue>();
+        public DeviceRuntimeInfo GetDeviceStatus(string deviceId) => throw new NotSupportedException();
+        public IReadOnlyList<DeviceRuntimeInfo> ListDeviceStatuses() => Array.Empty<DeviceRuntimeInfo>();
+        public DevicePoint? GetPoint(string pointId) => null;
     }
 }

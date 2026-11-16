@@ -25,11 +25,11 @@ public sealed class IdentityAdministrationServiceTests
     }
 
     [Fact]
-    public async Task ReplaceRolePermissions_PreservesReservedLegacyPermission()
+    public async Task ReplaceRolePermissions_RemovesDeletedPermissionSeven()
     {
         var context = CreateContext();
         var role = new Role { Id = 3, Name = "兼容角色" };
-        role.Permissions.Add(PermissionCode.ManageRecipes);
+        role.Permissions.Add((PermissionCode)7);
         context.Users.Roles.Add(role);
 
         await context.Service.ReplaceRolePermissionsAsync(
@@ -37,10 +37,25 @@ public sealed class IdentityAdministrationServiceTests
             role.Id,
             new[] { PermissionCode.GenerateReports });
 
-        Assert.Contains(PermissionCode.ManageRecipes, role.Permissions);
+        Assert.DoesNotContain((PermissionCode)7, role.Permissions);
         Assert.Contains(PermissionCode.GenerateReports, role.Permissions);
         Assert.Contains(PermissionCode.ViewRecords, role.Permissions);
         Assert.True(context.Uow.Last.Committed);
+    }
+
+    [Fact]
+    public async Task ReplaceRolePermissions_RejectsUnknownPermissionValues()
+    {
+        var context = CreateContext();
+        var role = new Role { Id = 3, Name = "自定义角色" };
+        role.Permissions.Add(PermissionCode.ViewRecords);
+        context.Users.Roles.Add(role);
+
+        await Assert.ThrowsAsync<DomainException>(() => context.Service.ReplaceRolePermissionsAsync(
+            context.Admin, role.Id, new[] { PermissionCode.ViewRecords, (PermissionCode)99 }));
+
+        Assert.Contains(PermissionCode.ViewRecords, role.Permissions);
+        Assert.False(context.Uow.Last?.Committed ?? false);
     }
 
     [Fact]

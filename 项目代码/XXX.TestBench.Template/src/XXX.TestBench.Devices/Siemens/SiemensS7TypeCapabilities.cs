@@ -10,7 +10,7 @@ public static class SiemensS7TypeCapabilities
     public static IReadOnlySet<DevicePointDataType> SupportedTypes { get; } =
         new HashSet<DevicePointDataType>
         {
-            DevicePointDataType.Boolean,
+            DevicePointDataType.Bool,
             DevicePointDataType.Bool,
             DevicePointDataType.Byte,
             DevicePointDataType.Char,
@@ -39,7 +39,7 @@ public static class SiemensS7TypeCapabilities
         if (!IsSupported(dataType, out reason)) return false;
         var compatible = shape switch
         {
-            S7AddressShape.Bit => dataType is DevicePointDataType.Boolean or DevicePointDataType.Bool,
+            S7AddressShape.Bit => dataType == DevicePointDataType.Bool,
             S7AddressShape.Byte => dataType is DevicePointDataType.Byte or DevicePointDataType.Char,
             S7AddressShape.Word => dataType is DevicePointDataType.Int16 or DevicePointDataType.UInt16,
             S7AddressShape.DoubleWord => dataType is DevicePointDataType.Int32 or DevicePointDataType.UInt32 or DevicePointDataType.Float32,

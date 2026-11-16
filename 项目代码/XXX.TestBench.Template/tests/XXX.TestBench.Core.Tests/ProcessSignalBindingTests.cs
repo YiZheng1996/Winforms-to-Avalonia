@@ -1,4 +1,5 @@
 using XXX.TestBench.Core.Application;
+using XXX.TestBench.Core.Common;
 using XXX.TestBench.Core.Configuration;
 using XXX.TestBench.Core.Domain.Devices;
 using XXX.TestBench.Core.Execution;
@@ -18,7 +19,6 @@ public sealed class ProcessSignalBindingTests
                 Code = "PRESSURE",
                 Name = "压力",
                 Protocol = "SiemensS7",
-                RawDataType = "Float32",
                 DataType = "Float32",
                 DeviceId = "20000000-0000-0000-0000-000000000001",
                 GroupId = "30000000-0000-0000-0000-000000000001",
@@ -39,7 +39,6 @@ public sealed class ProcessSignalBindingTests
             Code = "SETPOINT",
             Name = "调压目标",
             Protocol = "SiemensS7",
-            RawDataType = "Boolean",
             DataType = "Boolean",
             IsWritable = false,
             DeviceId = "20000000-0000-0000-0000-000000000001",
@@ -71,10 +70,10 @@ public sealed class ProcessSignalBindingTests
             null,
             0,
             1,
-            "主管压力",
             PointId: "10000000-0000-0000-0000-000000000001",
             DeviceId: "20000000-0000-0000-0000-000000000001",
-            Revision: "r1");
+            Revision: "r1",
+            Name: "主管压力");
         var runtime = new SnapshotRuntime(
             point,
             new PointValue(
@@ -103,7 +102,7 @@ public sealed class ProcessSignalBindingTests
             Code = "CH_SIM",
             Name = "仿真通道",
             TransportKind = ChannelTransportKind.Tcp,
-            Tcp = new TcpChannelParameters { Host = "127.0.0.1", Port = 102 }
+            Tcp = new TcpChannelParameters()
         };
         return new DeviceConfigurationSnapshot
         {
@@ -121,12 +120,11 @@ public sealed class ProcessSignalBindingTests
                         Name = "仿真设备",
                         ChannelId = channel.Id,
                         DriverKey = DriverKeyCatalog.SiemensS7,
-                        Protocol = "SiemensS7",
-                        Address = "127.0.0.1",
                         Model = "S7-1500",
                         DeviceMode = DeviceMode.Simulation,
                         PollIntervalMs = 500,
-                        StaleAfterMs = 1500
+                        StaleAfterMs = 1500,
+                        SiemensS7 = new SiemensS7ConnectionOptions { Host = "127.0.0.1", Port = 102, Rack = 0, Slot = 0 }
                     }
                 }
             },
@@ -172,6 +170,7 @@ public sealed class ProcessSignalBindingTests
         public bool IsSimulation => true;
         public DeviceRuntimeInfo Status => GetDeviceStatus(_point.DeviceId);
         public string ActiveRevision => "r1";
+        public RuntimeActivationReport ActivationReport => new(1, 1, Array.Empty<DeviceActivationIssue>());
         public SignalBindingsConfig SignalBindings => new()
         {
             Bindings = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
@@ -184,6 +183,10 @@ public sealed class ProcessSignalBindingTests
         public ValueTask DisposeAsync() => ValueTask.CompletedTask;
         public Task<PointValue> ReadAsync(DevicePoint point, CancellationToken ct = default)
             => Task.FromResult(_value);
+        public Task<PointValue> ReadFreshAsync(string pointId, CancellationToken ct = default)
+            => string.Equals(pointId, _point.PointId, StringComparison.OrdinalIgnoreCase)
+                ? Task.FromResult(_value)
+                : throw new DomainException($"点位 {pointId} 不在测试运行时");
         public Task<PointValue> WriteAsync(DevicePoint point, object? value, CancellationToken ct = default)
             => Task.FromResult(_value);
         public Task<IReadOnlyList<DevicePoint>> ListPointsAsync(CancellationToken ct = default)
@@ -193,6 +196,8 @@ public sealed class ProcessSignalBindingTests
             value = _value;
             return string.Equals(pointId, _point.PointId, StringComparison.OrdinalIgnoreCase);
         }
+        public IReadOnlyList<PointValue> ListCachedValues() => new[] { _value };
+        public IReadOnlyList<DeviceRuntimeInfo> ListDeviceStatuses() => new[] { GetDeviceStatus(_point.DeviceId) };
         public DevicePoint? GetPoint(string pointId)
             => string.Equals(pointId, _point.PointId, StringComparison.OrdinalIgnoreCase) ? _point : null;
         public DeviceRuntimeInfo GetDeviceStatus(string deviceId)

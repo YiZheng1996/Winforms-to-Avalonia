@@ -2,6 +2,7 @@ using XXX.TestBench.Core.Application;
 using XXX.TestBench.Core.Configuration;
 using XXX.TestBench.Core.Domain.Devices;
 using XXX.TestBench.Core.Domain.Identity;
+using XXX.TestBench.Core.Execution;
 using XXX.TestBench.Core.Ports;
 using Xunit;
 
@@ -14,9 +15,9 @@ public sealed class DeviceConfigurationServiceTests
     {
         var store = new FakeConfigurationStore();
         await using var operations = new DeviceOperationCoordinator();
-        var service = new DeviceConfigurationService(store, operations, new FakeAuditLog());
+        var service = CreateService(store, operations, new FakeAuditLog());
 
-        var result = await service.ApplyAsync(TestContexts.Admin(), CreateSnapshot("r1"));
+        var result = await service.ApplyAsync(TestContexts.Admin(), CreateSnapshot("r1"), new());
 
         Assert.True(result.Ok, result.Error);
         Assert.Equal("r1", store.Staged?.Revision);
@@ -24,21 +25,60 @@ public sealed class DeviceConfigurationServiceTests
     }
 
     [Fact]
+    public async Task CandidateRuntimeCreationFailureKeepsOldRevisionAndRestartsOldRuntime()
+    {
+        var store = new FakeConfigurationStore();
+        var oldSnapshot = CreateSnapshot("r-old");
+        await store.StageAsync(oldSnapshot);
+        await store.CommitActiveAsync(oldSnapshot.Revision);
+
+        var oldRuntime = new FakeRuntime(isSimulation: false);
+        var audit = new FakeAuditLog();
+        var published = false;
+        await using var operations = new DeviceOperationCoordinator();
+        var service = new DeviceConfigurationService(
+            store,
+            operations,
+            audit,
+            drivers: Array.Empty<IDeviceDriverDescriptor>(),
+            hasActiveRun: () => false,
+            runtimeFactory: (_, _) => Task.FromException<IDeviceRuntime>(new InvalidOperationException("候选运行时启动失败")),
+            currentRuntime: () => oldRuntime,
+            publishRuntime: _ =>
+            {
+                published = true;
+                return Task.CompletedTask;
+            },
+            requiredSignals: Array.Empty<RequiredSignal>(),
+            markRuntimeFaulted: _ => { });
+
+        var result = await service.ApplyAsync(TestContexts.Admin(), CreateSnapshot("r-new"), new());
+
+        Assert.False(result.Ok);
+        Assert.Equal("r-old", store.ActiveRevision);
+        Assert.Equal("r-old", (await store.LoadActiveAsync()).Revision);
+        Assert.Equal(1, oldRuntime.StopCount);
+        Assert.Equal(1, oldRuntime.StartCount);
+        Assert.False(published);
+        Assert.Contains(audit.Entries, entry => entry.Contains("DeviceConfigurationApplyFailed", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public async Task ActiveRunAndZeroDevicesCannotBeApplied()
     {
         var store = new FakeConfigurationStore();
         await using var operations = new DeviceOperationCoordinator();
-        var activeService = new DeviceConfigurationService(store, operations, new FakeAuditLog(), hasActiveRun: () => true);
+        var activeService = CreateService(store, operations, new FakeAuditLog(), hasActiveRun: true);
 
-        var activeResult = await activeService.ApplyAsync(TestContexts.Admin(), CreateSnapshot("active"));
+        var activeResult = await activeService.ApplyAsync(TestContexts.Admin(), CreateSnapshot("active"), new());
         Assert.False(activeResult.Ok);
         Assert.Contains("活动试验", activeResult.Error, StringComparison.Ordinal);
         Assert.Null(store.Staged);
 
         var emptySnapshot = CreateSnapshot("empty");
         emptySnapshot.Device.Devices.Clear();
-        var emptyService = new DeviceConfigurationService(store, operations, new FakeAuditLog());
-        var emptyResult = await emptyService.ApplyAsync(TestContexts.Admin(), emptySnapshot);
+        var emptyService = CreateService(store, operations, new FakeAuditLog());
+        var emptyResult = await emptyService.ApplyAsync(TestContexts.Admin(), emptySnapshot, new());
         Assert.False(emptyResult.Ok);
         Assert.Contains("没有设备", emptyResult.Error, StringComparison.Ordinal);
     }
@@ -49,14 +89,13 @@ public sealed class DeviceConfigurationServiceTests
         var initial = CreateSnapshot("initial");
         var store = new FakeConfigurationStore();
         await store.StageAsync(initial);
+        await store.CommitActiveAsync(initial.Revision);
         await using var operations = new DeviceOperationCoordinator();
-        var service = new DeviceConfigurationService(store, operations, new FakeAuditLog());
+        var service = CreateService(store, operations, new FakeAuditLog());
         var sourceDevice = initial.Device.Devices[0];
         var replacement = new DeviceConfig
         {
             SchemaVersion = DeviceConfig.CurrentSchemaVersion,
-            PollIntervalMs = initial.Device.PollIntervalMs,
-            TimeoutMs = initial.Device.TimeoutMs,
             Channels = initial.Device.Channels,
             Devices =
             [
@@ -69,12 +108,13 @@ public sealed class DeviceConfigurationServiceTests
                     ChannelId = sourceDevice.ChannelId,
                     DriverKey = sourceDevice.DriverKey,
                     PollIntervalMs = sourceDevice.PollIntervalMs,
-                    StaleAfterMs = sourceDevice.StaleAfterMs
+                    StaleAfterMs = sourceDevice.StaleAfterMs,
+                    SiemensS7 = sourceDevice.SiemensS7
                 }
             ]
         };
 
-        var result = await service.ApplyDeviceConfigurationAsync(TestContexts.Admin(), replacement);
+        var result = await service.ApplyDeviceConfigurationAsync(TestContexts.Admin(), replacement, new());
 
         Assert.True(result.Ok, result.Error);
         Assert.Equal("改名后的仿真设备", result.Snapshot!.Device.Devices[0].Name);
@@ -88,11 +128,28 @@ public sealed class DeviceConfigurationServiceTests
     public async Task ManageDevicesPermissionIsEnforcedInService()
     {
         await using var operations = new DeviceOperationCoordinator();
-        var service = new DeviceConfigurationService(new FakeConfigurationStore(), operations, new FakeAuditLog());
+        var service = CreateService(new FakeConfigurationStore(), operations, new FakeAuditLog());
 
         await Assert.ThrowsAsync<XXX.TestBench.Core.Common.AuthorizationException>(() =>
-            service.ApplyAsync(TestContexts.With(PermissionCode.ViewRecords), CreateSnapshot("r1")));
+            service.ApplyAsync(TestContexts.With(PermissionCode.ViewRecords), CreateSnapshot("r1"), new()));
     }
+
+    private static DeviceConfigurationService CreateService(
+        IDeviceConfigurationStore store,
+        DeviceOperationCoordinator operations,
+        IAuditLog audit,
+        bool hasActiveRun = false)
+        => new(
+            store,
+            operations,
+            audit,
+            drivers: Array.Empty<IDeviceDriverDescriptor>(),
+            hasActiveRun: () => hasActiveRun,
+            runtimeFactory: (_, _) => Task.FromResult<IDeviceRuntime>(new FakeRuntime(isSimulation: true)),
+            currentRuntime: () => null,
+            publishRuntime: _ => Task.CompletedTask,
+            requiredSignals: Array.Empty<RequiredSignal>(),
+            markRuntimeFaulted: _ => { });
 
     private static DeviceConfigurationSnapshot CreateSnapshot(string revision)
     {
@@ -102,7 +159,7 @@ public sealed class DeviceConfigurationServiceTests
             Code = "SIM",
             Name = "仿真通道",
             TransportKind = ChannelTransportKind.Tcp,
-            Tcp = new TcpChannelParameters { Host = "127.0.0.1", Port = 102 }
+            Tcp = new TcpChannelParameters()
         };
         var device = new DeviceConfig.DeviceEntry
         {
@@ -114,7 +171,8 @@ public sealed class DeviceConfigurationServiceTests
             Model = "S7-1500",
             DeviceMode = DeviceMode.Simulation,
             PollIntervalMs = 500,
-            StaleAfterMs = 2000
+            StaleAfterMs = 2000,
+            SiemensS7 = new SiemensS7ConnectionOptions { Host = "127.0.0.1", Port = 102, Rack = 0, Slot = 0 }
         };
         var group = new PointsConfig.PointGroupEntry
         {
@@ -133,7 +191,6 @@ public sealed class DeviceConfigurationServiceTests
             Protocol = "SiemensS7",
             Address = "DB1.DBD0",
             DataType = "Float32",
-            RawDataType = "Float32"
         };
         return new DeviceConfigurationSnapshot
         {
@@ -157,23 +214,34 @@ public sealed class DeviceConfigurationServiceTests
 
     private sealed class FakeConfigurationStore : IDeviceConfigurationStore
     {
+        private readonly Dictionary<string, DeviceConfigurationSnapshot> _snapshots = new(StringComparer.Ordinal);
         public DeviceConfigurationSnapshot? Staged { get; private set; }
         public string? ActiveRevision { get; private set; }
 
         public Task<DeviceConfigurationSnapshot> LoadActiveAsync(CancellationToken ct = default)
-            => Task.FromResult(Staged ?? throw new InvalidOperationException("没有快照"));
+            => Task.FromResult(ActiveRevision is not null && _snapshots.TryGetValue(ActiveRevision, out var active)
+                ? active
+                : throw new InvalidOperationException("没有快照"));
+
+        public Task<DeviceConfigurationSnapshot> LoadPreviousAsync(CancellationToken ct = default)
+            => throw new InvalidOperationException("没有上一版本快照");
 
         public Task<DeviceConfigurationSnapshot> LoadRevisionAsync(string revision, CancellationToken ct = default)
-            => Task.FromResult(Staged ?? throw new InvalidOperationException("没有快照"));
+            => Task.FromResult(_snapshots.TryGetValue(revision, out var snapshot)
+                ? snapshot
+                : throw new InvalidOperationException("没有快照"));
 
         public Task StageAsync(DeviceConfigurationSnapshot snapshot, CancellationToken ct = default)
         {
             Staged = snapshot;
+            _snapshots[snapshot.Revision] = snapshot;
             return Task.CompletedTask;
         }
 
         public Task CommitActiveAsync(string revision, CancellationToken ct = default)
         {
+            if (!_snapshots.ContainsKey(revision))
+                throw new InvalidOperationException("没有可提交的候选快照");
             ActiveRevision = revision;
             return Task.CompletedTask;
         }

@@ -20,15 +20,15 @@ public interface IRecordRepository
     /// </summary>
     Task<TestRecord?> GetRecordAsync(int recordId, CancellationToken ct = default);
     /// <summary>
-    /// 读取当前正在执行的记录。
+    /// 按试验台身份读取当前正在执行的记录。
     /// </summary>
-    Task<TestRecord?> GetActiveRunningRecordAsync(CancellationToken ct = default);
+    Task<TestRecord?> GetActiveRunningRecordAsync(string benchId, CancellationToken ct = default);
     /// <summary>
     /// 按状态读取试验记录列表。
     /// </summary>
     Task<IReadOnlyList<TestRecord>> ListRecordsAsync(int? state, CancellationToken ct = default);
     /// <summary>
-    /// 更新试验记录。
+    /// 更新试验记录；新版终态须与 Pending 报表创建共享同一工作单元。
     /// </summary>
     Task UpdateRecordAsync(TestRecord record, CancellationToken ct = default);
     /// <summary>

@@ -58,6 +58,16 @@ public sealed class DecodeOptions
 }
 
 /// <summary>
+/// Modbus 设备级数据排列方式。一个设备下的所有 Modbus 点位共享这组设置，
+/// 点位本身不再保存或覆盖字节序、字序。
+/// </summary>
+public sealed class ModbusDataOrderOptions
+{
+    public ByteOrder ByteOrder { get; set; } = ByteOrder.BigEndian;
+    public WordOrder WordOrder { get; set; } = WordOrder.HighWordFirst;
+}
+
+/// <summary>
 /// 第一版允许的写入确认策略。
 /// </summary>
 public enum PointWritePolicy

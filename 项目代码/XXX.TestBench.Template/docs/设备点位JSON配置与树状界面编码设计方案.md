@@ -661,7 +661,7 @@ Excel 和 CSV 使用同一套表头。继续保留“填写说明”和“填写
 
 - `docs/设备点位管理与导入说明.md`；
 - `docs/设备点位导入模板.csv`；
-- `config/examples/points.v3.simulation.json`；
+- `config/examples/points.current-v4.simulation.json`；旧版本输入样例保存在 `tests/XXX.TestBench.Integration.Tests/Fixtures/Legacy/points-v3.simulation.Legacy.json`。
 - `docs/设备驱动支持矩阵.md`（只补充界面显示规则，不虚构驱动已实现）；
 - 本设计文档对应的决策记录。
 

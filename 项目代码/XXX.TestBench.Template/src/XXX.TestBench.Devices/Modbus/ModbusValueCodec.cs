@@ -9,15 +9,19 @@ namespace XXX.TestBench.Devices.Modbus;
 /// Modbus 寄存器值编解码器。
 ///
 /// Modbus 在线路上按“大端字节的 16 位寄存器”传输。本类先把每个寄存器
-/// 还原成字节，再按点位显式配置的 ByteOrder/WordOrder 调整，整个过程不依赖
+/// 还原成字节，再按设备显式配置的 ByteOrder/WordOrder 调整，整个过程不依赖
 /// 当前 Windows 机器的本机字节序，也不会把未配置的字序默认为某一种。
 /// </summary>
 public static class ModbusValueCodec
 {
-    public static object DecodeRegisters(DevicePoint point, ReadOnlySpan<ushort> registers)
+    public static object DecodeRegisters(
+        DevicePoint point,
+        ModbusDataOrderOptions options,
+        ReadOnlySpan<ushort> registers)
     {
         ArgumentNullException.ThrowIfNull(point);
-        var type = ResolveType(point);
+        ArgumentNullException.ThrowIfNull(options);
+        var type = ResolveType(point, options);
         var count = ModbusTypeCapabilities.GetRegisterCount(type);
         if (registers.Length < count)
             throw new DomainException($"点位“{DisplayPoint(point)}”需要 {count} 个寄存器，实际只返回 {registers.Length} 个");
@@ -25,8 +29,7 @@ public static class ModbusValueCodec
         var bytes = new byte[count * 2];
         for (var index = 0; index < count; index++)
             BinaryPrimitives.WriteUInt16BigEndian(bytes.AsSpan(index * 2, 2), registers[index]);
-        ToLogicalBytes(bytes, point.DecodeOptions ?? throw new DomainException(
-            $"点位“{DisplayPoint(point)}”未配置 Modbus 字节序和字序"));
+        ToLogicalBytes(bytes, options);
 
         // 这些 arm 的数值类型不同。显式转换为 object，避免 C# 为 switch
         // 表达式推导出 double 的公共数值类型，导致 Int16/Int32 等协议值
@@ -43,11 +46,15 @@ public static class ModbusValueCodec
         };
     }
 
-    public static ushort[] EncodeRegisters(DevicePoint point, object value)
+    public static ushort[] EncodeRegisters(
+        DevicePoint point,
+        ModbusDataOrderOptions options,
+        object value)
     {
         ArgumentNullException.ThrowIfNull(point);
+        ArgumentNullException.ThrowIfNull(options);
         ArgumentNullException.ThrowIfNull(value);
-        var type = ResolveType(point);
+        var type = ResolveType(point, options);
         var count = ModbusTypeCapabilities.GetRegisterCount(type);
         var bytes = new byte[count * 2];
         switch (type)
@@ -76,26 +83,27 @@ public static class ModbusValueCodec
                 throw new DomainException($"点位“{DisplayPoint(point)}”不是 Modbus 寄存器数值类型");
         }
 
-        FromLogicalBytes(bytes, point.DecodeOptions ?? throw new DomainException(
-            $"点位“{DisplayPoint(point)}”未配置 Modbus 字节序和字序"));
+        FromLogicalBytes(bytes, options);
         var registers = new ushort[count];
         for (var index = 0; index < count; index++)
             registers[index] = BinaryPrimitives.ReadUInt16BigEndian(bytes.AsSpan(index * 2, 2));
         return registers;
     }
 
-    private static DevicePointDataType ResolveType(DevicePoint point)
+    private static DevicePointDataType ResolveType(
+        DevicePoint point,
+        ModbusDataOrderOptions options)
     {
         var address = ModbusAddressParser.Parse(point.Address);
-        var type = ModbusTypeCapabilities.NormalizeCompatibilityType(address.Area, point.DataType);
-        if (!ModbusTypeCapabilities.TryValidate(address.Area, type, point.IsWritable, point.DecodeOptions, out var reason))
+        var type = point.DataType;
+        if (!ModbusTypeCapabilities.TryValidate(address.Area, type, point.IsWritable, options, out var reason))
             throw new DomainException($"点位“{DisplayPoint(point)}”配置无效：{reason}");
         if (ModbusTypeCapabilities.IsBitType(type))
             throw new DomainException($"点位“{DisplayPoint(point)}”是位类型，不能使用寄存器编解码");
         return type;
     }
 
-    private static void ToLogicalBytes(byte[] bytes, DecodeOptions options)
+    private static void ToLogicalBytes(byte[] bytes, ModbusDataOrderOptions options)
     {
         if (options.WordOrder == WordOrder.LowWordFirst)
             SwapWords(bytes);
@@ -103,7 +111,7 @@ public static class ModbusValueCodec
             SwapBytesInsideWords(bytes);
     }
 
-    private static void FromLogicalBytes(byte[] bytes, DecodeOptions options)
+    private static void FromLogicalBytes(byte[] bytes, ModbusDataOrderOptions options)
     {
         if (options.ByteOrder == ByteOrder.LittleEndian)
             SwapBytesInsideWords(bytes);

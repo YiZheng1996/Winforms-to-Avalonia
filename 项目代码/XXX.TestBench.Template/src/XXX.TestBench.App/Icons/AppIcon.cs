@@ -1,5 +1,4 @@
 using Avalonia;
-using Avalonia.Controls.Shapes;
 using Avalonia.Media;
 using AvaloniaPath = Avalonia.Controls.Shapes.Path;
 
@@ -96,6 +95,7 @@ internal static class AppIconGeometry
             [AppIconKind.Save] = Geometry.Parse("M5,3 H17 L20,6 V21 H5 Z M8,3 V9 H16 V5 M8,14 H16 V19 H8 Z"),
             [AppIconKind.Cancel] = Geometry.Parse("M6,6 L18,18 M18,6 L6,18"),
             [AppIconKind.SelectAll] = Geometry.Parse("M4,9 V4 H9 M15,4 H20 V9 M4,15 V20 H9 M15,20 H20 V15"),
+            [AppIconKind.Information] = Geometry.Parse("M12,3 A9,9 0 1 0 12,21 A9,9 0 1 0 12,3 M12,10 V16 M12,7 A0.5,0.5 0 1 0 12,8 A0.5,0.5 0 1 0 12,7"),
             [AppIconKind.Warning] = Geometry.Parse("M12,4 L21,20 H3 Z M12,9 V14 M12,17 V18"),
             [AppIconKind.Flow] = Geometry.Parse("M3,12 H7 L9,7 L12,17 L15,9 L17,13 H21"),
             [AppIconKind.Signal] = Geometry.Parse("M3,12 H6 L8,8 L10,16 L13,6 L16,18 L18,12 H21"),

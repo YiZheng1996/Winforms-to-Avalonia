@@ -15,12 +15,6 @@ internal sealed class SqliteProductType
     public int Id { get; set; }
 
     /// <summary>
-    /// 产品类型业务编码。
-    /// </summary>
-    [Column(Name = "code")]
-    public string Code { get; set; } = string.Empty;
-
-    /// <summary>
     /// 产品类型名称。
     /// </summary>
     [Column(Name = "name")]
@@ -37,4 +31,7 @@ internal sealed class SqliteProductType
     /// </summary>
     [Column(Name = "created_at_utc")]
     public string CreatedAtUtc { get; set; } = string.Empty;
+
+    [Column(Name = "row_version")]
+    public long RowVersion { get; set; }
 }

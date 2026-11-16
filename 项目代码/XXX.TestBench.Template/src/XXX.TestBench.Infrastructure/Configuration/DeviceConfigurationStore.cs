@@ -10,7 +10,7 @@ namespace XXX.TestBench.Infrastructure.Configuration;
 /// <summary>
 /// 设备配置版本目录存储：先写完整 revision，再原子切换 active 指针。
 /// </summary>
-public sealed class DeviceConfigurationStore : IDeviceConfigurationStore, IDeviceConfigurationMigrationSource, IAsyncDisposable
+public sealed class DeviceConfigurationStore : IDeviceConfigurationStore, IAsyncDisposable
 {
     private const int ManifestSchemaVersion = 1;
     private static readonly IReadOnlySet<string> RequiredRevisionFiles = new HashSet<string>(StringComparer.Ordinal)
@@ -57,6 +57,10 @@ public sealed class DeviceConfigurationStore : IDeviceConfigurationStore, IDevic
                         LastRecoveryMessage = $"当前生效指针损坏，已恢复上一版本：{pointer.Revision}";
                     return snapshot;
                 }
+                catch (UnsupportedCurrentConfigurationVersionException)
+                {
+                    throw;
+                }
                 catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException or ConfigValidationException)
                 {
                     failures.Add($"{pointerName}：{ex.Message}");
@@ -71,29 +75,14 @@ public sealed class DeviceConfigurationStore : IDeviceConfigurationStore, IDevic
         }
     }
 
-    /// <summary>
-    /// 迁移专用读取：验证 active/previous 指针、manifest、文件集合和哈希，保留旧 schema 供上层显式迁移。
-    /// </summary>
-    public async Task<DeviceConfigurationSnapshot> LoadActiveForMigrationAsync(CancellationToken ct = default)
+    public async Task<DeviceConfigurationSnapshot> LoadPreviousAsync(CancellationToken ct = default)
     {
         await _gate.WaitAsync(ct);
         try
         {
             ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) != 0, this);
-            var failures = new List<string>();
-            foreach (var pointerName in new[] { ActiveFileName, PreviousActiveFileName })
-            {
-                try
-                {
-                    var pointer = await ReadPointerAsync(pointerName, ct);
-                    return await LoadRevisionCoreAsync(pointer.Revision, ct, validateSemantics: false);
-                }
-                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException or ConfigValidationException)
-                {
-                    failures.Add($"{pointerName}：{ex.Message}");
-                }
-            }
-            throw new ConfigValidationException("没有可迁移读取的生效设备配置：" + string.Join("；", failures));
+            var pointer = await ReadPointerAsync(PreviousActiveFileName, ct);
+            return await LoadRevisionCoreAsync(pointer.Revision, ct);
         }
         finally
         {
@@ -127,10 +116,23 @@ public sealed class DeviceConfigurationStore : IDeviceConfigurationStore, IDevic
             ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) != 0, this);
             Directory.CreateDirectory(_revisionsRoot);
             var finalDirectory = RevisionDirectory(snapshot.Revision);
+            var files = new Dictionary<string, byte[]>(StringComparer.Ordinal)
+            {
+                ["device.json"] = Serialize(snapshot.Device),
+                ["points.json"] = Serialize(snapshot.Points),
+                ["simulation.json"] = Serialize(snapshot.Simulation),
+                ["signal-bindings.json"] = Serialize(snapshot.SignalBindings)
+            };
             if (Directory.Exists(finalDirectory))
             {
-                // revision 不可变：已有内容必须可验证，不允许原地覆盖。
+                // revision 不可变：内容相同才能幂等复用。
                 _ = await LoadRevisionCoreAsync(snapshot.Revision, ct);
+                foreach (var pair in files)
+                {
+                    var existing = await File.ReadAllBytesAsync(Path.Combine(finalDirectory, pair.Key), ct);
+                    if (!existing.AsSpan().SequenceEqual(pair.Value))
+                        throw new ConfigValidationException($"revision {snapshot.Revision} 已存在但内容不同");
+                }
                 return;
             }
 
@@ -139,13 +141,6 @@ public sealed class DeviceConfigurationStore : IDeviceConfigurationStore, IDevic
             Directory.CreateDirectory(stagingDirectory);
             try
             {
-                var files = new Dictionary<string, byte[]>(StringComparer.Ordinal)
-                {
-                    ["device.json"] = Serialize(snapshot.Device),
-                    ["points.json"] = Serialize(snapshot.Points),
-                    ["simulation.json"] = Serialize(snapshot.Simulation),
-                    ["signal-bindings.json"] = Serialize(snapshot.SignalBindings)
-                };
                 var hashes = new Dictionary<string, string>(StringComparer.Ordinal);
                 foreach (var pair in files)
                 {
@@ -180,6 +175,7 @@ public sealed class DeviceConfigurationStore : IDeviceConfigurationStore, IDevic
         try
         {
             ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) != 0, this);
+            _ = await LoadRevisionCoreAsync(revision, ct);
             var manifest = await ReadManifestAsync(revision, ct);
             var pointer = new ActivePointer
             {
@@ -217,10 +213,7 @@ public sealed class DeviceConfigurationStore : IDeviceConfigurationStore, IDevic
         return ValueTask.CompletedTask;
     }
 
-    private async Task<DeviceConfigurationSnapshot> LoadRevisionCoreAsync(
-        string revision,
-        CancellationToken ct,
-        bool validateSemantics = true)
+    private async Task<DeviceConfigurationSnapshot> LoadRevisionCoreAsync(string revision, CancellationToken ct)
     {
         ValidateRevision(revision);
         var manifest = await ReadManifestAsync(revision, ct);
@@ -249,8 +242,7 @@ public sealed class DeviceConfigurationStore : IDeviceConfigurationStore, IDevic
             Simulation = await DeserializeAsync<SimulationConfig>(Path.Combine(directory, "simulation.json"), ct),
             SignalBindings = await DeserializeAsync<SignalBindingsConfig>(Path.Combine(directory, "signal-bindings.json"), ct)
         };
-        if (validateSemantics)
-            MultiDeviceConfigurationValidator.EnsureValid(snapshot);
+        MultiDeviceConfigurationValidator.EnsureValid(snapshot);
         return snapshot;
     }
 
@@ -285,6 +277,11 @@ public sealed class DeviceConfigurationStore : IDeviceConfigurationStore, IDevic
     private static async Task<T> DeserializeAsync<T>(string path, CancellationToken ct) where T : class
     {
         if (!File.Exists(path)) throw new ConfigValidationException($"配置文件不存在：{path}");
+        if (IsCurrentDeviceConfiguration(typeof(T)))
+        {
+            var bytes = await File.ReadAllBytesAsync(path, ct);
+            return CurrentConfigurationJson.Deserialize<T>(bytes, path);
+        }
         await using var stream = File.OpenRead(path);
         return await JsonSerializer.DeserializeAsync<T>(stream, Options, ct)
             ?? throw new ConfigValidationException($"配置文件为空：{path}");
@@ -311,6 +308,12 @@ public sealed class DeviceConfigurationStore : IDeviceConfigurationStore, IDevic
     }
 
     private static byte[] Serialize<T>(T value) => JsonSerializer.SerializeToUtf8Bytes(value, Options);
+
+    private static bool IsCurrentDeviceConfiguration(Type type)
+        => type == typeof(DeviceConfig)
+           || type == typeof(PointsConfig)
+           || type == typeof(SimulationConfig)
+           || type == typeof(SignalBindingsConfig);
 
     private static string HashFile(string path)
         => Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(path))).ToLowerInvariant();

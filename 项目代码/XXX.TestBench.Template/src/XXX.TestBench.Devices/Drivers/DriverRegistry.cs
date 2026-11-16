@@ -63,6 +63,8 @@ internal sealed class UnsupportedDriverDescriptor(
         XXX.TestBench.Core.Configuration.DeviceConfig.DeviceEntry device)
         => Array.Empty<DriverValidationIssue>();
 
-    public string NormalizeAddress(XXX.TestBench.Core.Configuration.PointsConfig.PointEntry point)
+    public string NormalizeAddress(
+        XXX.TestBench.Core.Configuration.PointsConfig.PointEntry point,
+        XXX.TestBench.Core.Configuration.DeviceConfig.DeviceEntry device)
         => point.Address.Trim();
 }

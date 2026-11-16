@@ -1,7 +1,8 @@
-using System.Reflection;
 using XXX.TestBench.App.ViewModels;
+using XXX.TestBench.Core.Application;
 using XXX.TestBench.Core.Configuration;
 using XXX.TestBench.Core.Domain.Devices;
+using XXX.TestBench.Core.Ports;
 
 namespace XXX.TestBench.App.Tests;
 
@@ -73,10 +74,10 @@ public sealed class DevicePointRemainingFunctionsTests
             source.Entry.ProtocolKind,
             source.Address,
             source.Entry.DataTypeKind,
-            source.Entry.EffectiveRawMin,
-            source.Entry.EffectiveRawMax,
-            source.Entry.EffectiveEngMin,
-            source.Entry.EffectiveEngMax,
+            source.Entry.RawMin,
+            source.Entry.RawMax,
+            source.Entry.EngMin,
+            source.Entry.EngMax,
             source.Entry.IsWritable,
             source.Entry.RiskLevel,
             source.Description,
@@ -137,27 +138,52 @@ public sealed class DevicePointRemainingFunctionsTests
     {
         using var harness = AppTestHarness.Create(grouped: true);
         var actor = await harness.AdminActorAsync();
+        var exporter = new BlockingTemplateExporter();
+        var services = harness.Services with { DevicePointTemplateExporter = exporter };
+        var vm = new DevicePointManagementViewModel(services, actor);
+        await vm.LoadAsync();
+        vm.SelectedTreeNode = vm.TreeNodes.Single();
+
+        var first = vm.DownloadTemplateAsync(Path.Combine(harness.Root, "busy-template.xlsx"));
+        await exporter.Started.Task;
+
+        Assert.True(vm.IsBusy);
+        var second = await vm.RefreshAsync();
+        Assert.False(second.Succeeded);
+        Assert.Contains("正在执行", second.Message, StringComparison.Ordinal);
+        Assert.True(vm.IsBusy);
+
+        exporter.Release.TrySetResult(true);
+        var firstFeedback = await first;
+        Assert.True(firstFeedback.Succeeded, firstFeedback.Message);
+        Assert.False(vm.IsBusy);
+    }
+
+    [Fact]
+    public async Task CutPasteToSameGroupDoesNotCreateRevisionOrClearClipboard()
+    {
+        using var harness = AppTestHarness.Create(grouped: true);
+        var actor = await harness.AdminActorAsync();
         var vm = new DevicePointManagementViewModel(harness.Services, actor);
         await vm.LoadAsync();
-        var source = vm.Points.Single(row => row.Code == "A_TEMP");
+        var source = vm.Points.Single(row => row.Code == "A_PRESSURE");
         vm.SelectedPoint = source;
-        vm.SelectedTreeNode = DeviceNode(vm, "DEV_A");
-        var gateField = typeof(DevicePointManagementViewModel).GetField(
-            "_pageOperationGate",
-            BindingFlags.Instance | BindingFlags.NonPublic);
-        var gate = Assert.IsType<SemaphoreSlim>(gateField!.GetValue(vm));
-        await gate.WaitAsync();
-        try
-        {
-            var feedback = await vm.CreateFromDialogAsync(CopyResult(vm, source, "COPY_BUSY", "忙碌复制", "DB1.DBD28"));
-            Assert.False(feedback.Succeeded);
-            Assert.Contains("正在执行", feedback.Message, StringComparison.Ordinal);
-            Assert.DoesNotContain(vm.CurrentEntries, point => point.Code == "COPY_BUSY");
-        }
-        finally
-        {
-            gate.Release();
-        }
+        vm.SelectedTreeNode = vm.TreeNodes.Single().Children
+            .Single(channel => channel.Code == "CH_SIM")
+            .Children.Single(node => node.Code == "DEV_A")
+            .Children.Single(node => node.Code == "PRESSURE");
+        Assert.True(vm.CutSelectedPoint().Succeeded);
+        var revision = harness.Services.DeviceModes.Runtime?.ActiveRevision;
+
+        var draft = vm.CreatePasteDraft();
+        Assert.NotNull(draft);
+        var feedback = await vm.ApplyCutPasteAsync(draft!);
+
+        Assert.True(feedback.Succeeded, feedback.Message);
+        Assert.Contains("已在该分组", feedback.Message, StringComparison.Ordinal);
+        Assert.Equal(revision, harness.Services.DeviceModes.Runtime?.ActiveRevision);
+        Assert.True(vm.CanPastePoint);
+        Assert.Contains(vm.CurrentEntries, point => point.Id == source.PointId);
     }
 
     [Fact]
@@ -238,7 +264,7 @@ public sealed class DevicePointRemainingFunctionsTests
         try
         {
             var headers = string.Join(',', DevicePointTemplateDefinition.Columns.Select(column => column.Header));
-            var row = string.Join(',', "AI_PLAN", "DB1.DBD40", "小数", "", "", "只读", "", "", "", "", "计划测试");
+            var row = string.Join(',', "AI_PLAN", "DB1.DBD40", "小数", "只读", "", "", "", "", "计划测试");
             await File.WriteAllTextAsync(path, $"{headers}\n{row}");
             var plan = await vm.CreateImportPlanAsync(path);
             Assert.NotNull(plan);
@@ -248,10 +274,11 @@ public sealed class DevicePointRemainingFunctionsTests
             var applied = await harness.Services.DeviceConfigurations.ApplyPointsAsync(
                 actor,
                 active.Points.Points.Select(ClonePoint).ToList(),
-                active.Points.Groups);
+                active.Points.Groups,
+                new DeviceConfigurationApplyOptions());
             Assert.True(applied.Ok, applied.Error);
 
-            var feedback = await vm.ApplyImportedPointsAsync(plan);
+            var feedback = await vm.ApplyImportedPointsAsync(plan, new DeviceConfigurationApplyOptions());
 
             Assert.False(feedback.Succeeded);
             Assert.Contains("配置已变化", feedback.Message, StringComparison.Ordinal);
@@ -265,7 +292,7 @@ public sealed class DevicePointRemainingFunctionsTests
 
     private static string NewImportPath()
     {
-        var dir = @"D:\Codex相关\设备点位功能实现\test-runs";
+        var dir = @"D:\Codex相关\设备点位审计整改\impl-20260915\test-inputs";
         Directory.CreateDirectory(dir);
         return Path.Combine(dir, "import-plan-" + Guid.NewGuid().ToString("N")[..8] + ".csv");
     }
@@ -284,12 +311,10 @@ public sealed class DevicePointRemainingFunctionsTests
             Address = source.Address,
             AddressDefinition = source.AddressDefinition,
             DataType = source.DataType,
-            RawDataType = source.RawDataType,
-            DecodeOptions = source.DecodeOptions,
+            S7DecodeOptions = source.S7DecodeOptions,
             WritePolicy = source.WritePolicy,
             IsWritable = source.IsWritable,
             RiskLevel = source.RiskLevel,
-            Scale = source.Scale,
             RawMin = source.RawMin,
             RawMax = source.RawMax,
             EngMin = source.EngMin,
@@ -322,10 +347,10 @@ public sealed class DevicePointRemainingFunctionsTests
             source.Entry.ProtocolKind,
             address,
             source.Entry.DataTypeKind,
-            source.Entry.EffectiveRawMin,
-            source.Entry.EffectiveRawMax,
-            source.Entry.EffectiveEngMin,
-            source.Entry.EffectiveEngMax,
+            source.Entry.RawMin,
+            source.Entry.RawMax,
+            source.Entry.EngMin,
+            source.Entry.EngMax,
             source.Entry.IsWritable,
             source.Entry.RiskLevel,
             source.Description,
@@ -334,8 +359,25 @@ public sealed class DevicePointRemainingFunctionsTests
             source.DeviceCode,
             groupId,
             source.Entry.AddressDefinition,
-            source.Entry.RawDataType,
-            source.Entry.DecodeOptions,
+            source.Entry.S7DecodeOptions,
             source.Entry.WritePolicy);
+    }
+
+    private sealed class BlockingTemplateExporter : IDevicePointTemplateExporter
+    {
+        public TaskCompletionSource<bool> Started { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public TaskCompletionSource<bool> Release { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public Task ExportAsync(string filePath, CancellationToken ct = default)
+            => Task.CompletedTask;
+
+        public Task ExportAsync(
+            string filePath,
+            DevicePointTemplateExportRequest request,
+            CancellationToken ct = default)
+        {
+            Started.TrySetResult(true);
+            return Release.Task;
+        }
     }
 }

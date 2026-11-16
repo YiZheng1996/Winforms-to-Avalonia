@@ -15,7 +15,7 @@ public class SqliteDatabaseTests
         // 第一次初始化
         var factory = new SqliteConnectionFactory(env.DbPath);
         var db = new SqliteDatabase(factory, hasher);
-        await db.InitializeAsync();
+        await db.CreateNewAsync(Guid.NewGuid().ToString("D").ToLowerInvariant(), "admin123");
 
         Assert.Equal(1L, Convert.ToInt64(await factory.Db.Ado.ExecuteScalarAsync(
             "SELECT COUNT(1) FROM users WHERE login_name='admin'", new { }, default)));
@@ -32,7 +32,7 @@ public class SqliteDatabaseTests
         // 第二次初始化（重启回读）：schema 已存在，种子不重复
         var factory2 = new SqliteConnectionFactory(env.DbPath);
         var db2 = new SqliteDatabase(factory2, hasher);
-        await db2.InitializeAsync();
+        await db2.ValidateExistingAsync();
 
         Assert.Equal(1L, Convert.ToInt64(await factory2.Db.Ado.ExecuteScalarAsync(
             "SELECT COUNT(1) FROM users", new { }, default)));
@@ -44,7 +44,8 @@ public class SqliteDatabaseTests
         using var env = TestEnv.Create();
         var hasher = new Pbkdf2PasswordHasher();
         var factory = new SqliteConnectionFactory(env.DbPath);
-        await new SqliteDatabase(factory, hasher).InitializeAsync();
+        await new SqliteDatabase(factory, hasher)
+            .CreateNewAsync(Guid.NewGuid().ToString("D").ToLowerInvariant(), "admin123");
 
         var row = (await factory.Db.Ado.QueryAsync<AdminSeedRow>(
             "SELECT password_hash AS PasswordHash, must_change_password AS MustChangePassword FROM users WHERE login_name='admin'",

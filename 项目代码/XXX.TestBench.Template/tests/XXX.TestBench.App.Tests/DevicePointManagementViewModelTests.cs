@@ -1,8 +1,12 @@
 using XXX.TestBench.App.ViewModels;
 using XXX.TestBench.Core.Application;
+using XXX.TestBench.Core.Common;
 using XXX.TestBench.Core.Configuration;
 using XXX.TestBench.Core.Domain.Devices;
 using XXX.TestBench.Core.Domain.Identity;
+using XXX.TestBench.Core.Ports;
+using XXX.TestBench.Devices;
+using XXX.TestBench.Devices.Modbus;
 using ClosedXML.Excel;
 
 namespace XXX.TestBench.App.Tests;
@@ -170,7 +174,8 @@ public sealed class DevicePointManagementViewModelTests
             .Children.Single(node => node.Code == "DEV_A")
             .Children.Single(node => node.Code == "PRESSURE");
         vm.SelectedTreeNode = group;
-        Assert.True((await vm.DeleteSelectedTreeNodeAsync()).Succeeded);
+        var feedback = await vm.DeleteSelectedTreeNodeAsync();
+        Assert.True(feedback.Succeeded, feedback.Message);
 
         Assert.DoesNotContain(vm.CurrentGroups, item => item.Code == "PRESSURE");
         var moved = Assert.Single(vm.CurrentEntries, item => item.Code == "A_PRESSURE");
@@ -195,9 +200,12 @@ public sealed class DevicePointManagementViewModelTests
                 $"rows={vm.Points.Count}; entries={vm.CurrentEntries.Count}; selected={vm.SelectedTreeNode?.Kind}/{vm.SelectedTreeNode?.NodeKey}; tree={string.Join(",", vm.TreeNodes.SelectMany(node => node.Children).Select(node => node.Kind + "/" + node.DisplayText))}; status={vm.StatusMessage}");
 
             var headers = string.Join(',', DevicePointTemplateDefinition.Columns.Select(column => column.Header));
-            var row = string.Join(',', "AI_New", "DB1.DBD8", "小数", "", "", "只读", "", "", "", "", "新压力");
+            var row = string.Join(',', "AI_New", "DB1.DBD8", "小数", "只读", "", "", "", "", "新压力");
             await File.WriteAllTextAsync(path, $"{headers}\n{row}");
-            await vm.ImportAsync(path);
+            var plan = await vm.CreateImportPlanAsync(path);
+            Assert.NotNull(plan);
+            var importFeedback = await vm.ApplyImportedPointsAsync(plan!, new DeviceConfigurationApplyOptions());
+            Assert.True(importFeedback.Succeeded, importFeedback.Message);
 
             var point = Assert.Single(vm.Points, item => item.Code == "AI_New");
             Assert.Equal("AI_New", point.Code);
@@ -248,7 +256,7 @@ public sealed class DevicePointManagementViewModelTests
             Assert.Contains("暂不支持", instructionText, StringComparison.Ordinal);
             Assert.Equal("PRESSURE.试验压力", workbook.Worksheet(DevicePointTemplateDefinition.ExamplesSheetName).Cell(2, 1).GetString());
             Assert.Equal("DB144.DBD88", workbook.Worksheet(DevicePointTemplateDefinition.ExamplesSheetName).Cell(2, 2).GetString());
-            Assert.Equal("只读", workbook.Worksheet(DevicePointTemplateDefinition.ExamplesSheetName).Cell(2, 6).GetString());
+            Assert.Equal("只读", workbook.Worksheet(DevicePointTemplateDefinition.ExamplesSheetName).Cell(2, 4).GetString());
             Assert.Contains("生成设备点位模板", vm.StatusMessage, StringComparison.Ordinal);
         }
         finally
@@ -344,9 +352,79 @@ public sealed class DevicePointManagementViewModelTests
         Assert.NotNull(groupRequest);
         Assert.Single(groupRequest!.Targets);
         Assert.Equal("PRESSURE", groupRequest.DefaultGroupCode);
-        Assert.Single(vm.TemplateScopeOptions);
         Assert.DoesNotContain("migration-", vm.ActiveRevisionText, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("migration-", vm.SourceText, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("当前范围", vm.TemplateScopeHint, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task TemplateRequest_XinjeTargetsUseModelSpecificTypesWithoutChangingGenericDescriptor()
+    {
+        using var harness = AppTestHarness.Create(grouped: true);
+        var actor = await harness.AdminActorAsync();
+        var active = await harness.Services.DeviceConfigurations!.LoadActiveAsync();
+        var channel = active.Device.Channels.Single(item => item.Code == "CH_EMPTY");
+        var xinjeOne = CreateModbusDevice(
+            "20000000-0000-0000-0000-000000000101",
+            "DEV_XINJE_1",
+            "信捷一",
+            channel.Id,
+            DeviceModelKeyCatalog.XinjeFieldV1);
+        var xinjeTwo = CreateModbusDevice(
+            "20000000-0000-0000-0000-000000000102",
+            "DEV_XINJE_2",
+            "信捷二",
+            channel.Id,
+            DeviceModelKeyCatalog.XinjeFieldV1);
+        var descriptor = harness.Services.DriverDescriptors!
+            .Single(item => string.Equals(item.DriverKey, DriverKeyCatalog.ModbusTcp, StringComparison.OrdinalIgnoreCase));
+        var sharedTypes = descriptor.SupportedDataTypes.ToHashSet();
+
+        var firstApply = await harness.Services.DeviceConfigurations.ApplyDeviceConfigurationAsync(
+            actor,
+            WithAdditionalDevices(active.Device, xinjeOne, xinjeTwo),
+            new DeviceConfigurationApplyOptions());
+        Assert.True(firstApply.Ok, firstApply.Error);
+
+        var vm = new DevicePointManagementViewModel(harness.Services, actor);
+        await vm.LoadAsync();
+        var signalDeviceNode = vm.TreeNodes.Single().Children.Single(node => node.Code == "CH_EMPTY")
+            .Children.Single(node => node.Code == "DEV_XINJE_1");
+        vm.SelectedTreeNode = signalDeviceNode;
+        var singleRequest = Assert.IsType<DevicePointTemplateExportRequest>(vm.CreateTemplateExportRequest());
+        var singleTarget = Assert.Single(singleRequest.Targets);
+        Assert.Equal(DeviceModelKeyCatalog.XinjeFieldV1, singleTarget.Model);
+        Assert.True(XinjeTemplateTypes().SetEquals(singleTarget.SupportedDataTypes));
+
+        var xinjeChannel = vm.TreeNodes.Single().Children.Single(node => node.Code == "CH_EMPTY");
+        vm.SelectedTreeNode = xinjeChannel;
+        var allXinjeRequest = Assert.IsType<DevicePointTemplateExportRequest>(vm.CreateTemplateExportRequest());
+        Assert.Equal(2, allXinjeRequest.Targets.Count);
+        Assert.All(allXinjeRequest.Targets, target => Assert.True(XinjeTemplateTypes().SetEquals(target.SupportedDataTypes)));
+
+        var latest = await harness.Services.DeviceConfigurations.LoadActiveAsync();
+        var genericModbus = CreateModbusDevice(
+            "20000000-0000-0000-0000-000000000103",
+            "DEV_MODBUS",
+            "通用 Modbus",
+            channel.Id,
+            "GENERIC_MODBUS_TCP");
+        var mixedApply = await harness.Services.DeviceConfigurations.ApplyDeviceConfigurationAsync(
+            actor,
+            WithAdditionalDevices(latest.Device, genericModbus),
+            new DeviceConfigurationApplyOptions());
+        Assert.True(mixedApply.Ok, mixedApply.Error);
+
+        await vm.LoadAsync();
+        vm.SelectedTreeNode = vm.TreeNodes.Single().Children.Single(node => node.Code == "CH_EMPTY");
+        var mixedRequest = Assert.IsType<DevicePointTemplateExportRequest>(vm.CreateTemplateExportRequest());
+        var xinjeTargets = mixedRequest.Targets.Where(target => target.DeviceCode.StartsWith("DEV_XINJE", StringComparison.Ordinal)).ToArray();
+        Assert.Equal(2, xinjeTargets.Length);
+        Assert.All(xinjeTargets, target => Assert.Equal(DeviceModelKeyCatalog.XinjeFieldV1, target.Model));
+        Assert.All(xinjeTargets, target => Assert.True(XinjeTemplateTypes().SetEquals(target.SupportedDataTypes)));
+        var genericTarget = Assert.Single(mixedRequest.Targets, target => target.DeviceCode == "DEV_MODBUS");
+        Assert.Contains(DevicePointDataType.Int16, genericTarget.SupportedDataTypes);
+        Assert.Contains(DevicePointDataType.Double, genericTarget.SupportedDataTypes);
+        Assert.True(sharedTypes.SetEquals(descriptor.SupportedDataTypes));
     }
 
     [Fact]
@@ -433,7 +511,10 @@ public sealed class DevicePointManagementViewModelTests
         var readOnlyViewModel = new DevicePointManagementViewModel(harness.Services, viewer);
         await readOnlyViewModel.LoadAsync();
 
-        Assert.Empty(readOnlyViewModel.GetPointRowActions(row));
+        var readOnlyActions = readOnlyViewModel.GetPointRowActions(row);
+        Assert.Equal(
+            new[] { DevicePointTreeActionKind.DiagnosePoint },
+            readOnlyActions.Select(action => action.Kind));
     }
 
     [Fact]
@@ -449,19 +530,22 @@ public sealed class DevicePointManagementViewModelTests
             vm.SelectedTreeNode = vm.TreeNodes.Single().Children.Single(node => node.Code == "CH_SIM")
                 .Children.Single(node => node.Code == "DEV_A");
             var headers = string.Join(',', DevicePointTemplateDefinition.Columns.Select(column => column.Header));
-            var row = string.Join(',', "AI_Preview", "DB1.DBD8", "小数", "", "", "只读", "", "", "", "", "预览压力");
+            var row = string.Join(',', "AI_Preview", "DB1.DBD8", "小数", "只读", "", "", "", "", "预览压力");
             await File.WriteAllTextAsync(path, $"{headers}\n{row}");
 
-            var result = await vm.ValidateImportAsync(path);
+            var plan = await vm.CreateImportPlanAsync(path);
 
-            Assert.True(result.IsValid, string.Join("；", result.Issues.Select(issue => issue.Message)));
+            Assert.NotNull(plan);
+            Assert.True(plan!.CanApply, string.Join("；", plan.Rows.SelectMany(row => row.Issues)));
             Assert.Equal(2, vm.Points.Count);
             Assert.Contains("校验通过", vm.StatusMessage, StringComparison.Ordinal);
 
-            await vm.ApplyImportedPointsAsync(result);
+            var applied = await vm.ApplyImportedPointsAsync(plan, new DeviceConfigurationApplyOptions());
+            Assert.True(applied.Succeeded, applied.Message);
 
             Assert.Equal(3, vm.Points.Count);
-            Assert.Contains(vm.Points, point => point.Code == "AI_Preview");
+            var imported = Assert.Single(vm.Points, point => point.Code == "AI_Preview");
+            Assert.Equal(nameof(DevicePointProtocol.SiemensS7), imported.Protocol);
         }
         finally
         {
@@ -488,8 +572,53 @@ public sealed class DevicePointManagementViewModelTests
 
     private static string NewTestPath(string prefix, string extension)
     {
-        var directory = @"D:\Codex相关\设备点位简化改造\test-inputs";
+        var directory = @"D:\Codex相关\设备点位审计整改\impl-20260915\test-inputs";
         Directory.CreateDirectory(directory);
         return Path.Combine(directory, prefix + Guid.NewGuid().ToString("N") + extension);
     }
+
+    private static HashSet<DevicePointDataType> XinjeTemplateTypes()
+        => new()
+        {
+            DevicePointDataType.UInt16,
+            DevicePointDataType.Int32,
+            DevicePointDataType.UInt32,
+            DevicePointDataType.Float32,
+            DevicePointDataType.Bool
+        };
+
+    private static DeviceConfig.DeviceEntry CreateModbusDevice(
+        string id,
+        string code,
+        string name,
+        string channelId,
+        string model)
+        => new()
+        {
+            Id = id,
+            Code = code,
+            Name = name,
+            ChannelId = channelId,
+            DriverKey = DriverKeyCatalog.ModbusTcp,
+            Model = model,
+            DeviceMode = DeviceMode.Simulation,
+            ModbusUnitId = 1,
+            ModbusDataOrder = new ModbusDataOrderOptions
+            {
+                ByteOrder = ByteOrder.BigEndian,
+                WordOrder = WordOrder.LowWordFirst
+            },
+            PollIntervalMs = 500,
+            StaleAfterMs = 1500
+        };
+
+    private static DeviceConfig WithAdditionalDevices(
+        DeviceConfig source,
+        params DeviceConfig.DeviceEntry[] additions)
+        => new()
+        {
+            SchemaVersion = source.SchemaVersion,
+            Channels = source.Channels.ToList(),
+            Devices = source.Devices.Concat(additions).ToList()
+        };
 }
