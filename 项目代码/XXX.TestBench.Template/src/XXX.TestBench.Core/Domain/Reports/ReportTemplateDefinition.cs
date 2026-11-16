@@ -127,7 +127,7 @@ public sealed record ReportInputDefinition(
 }
 
 /// <summary>
-/// Excel 原结论文本到产品结论状态的精确映射；不使用包含关系判断。
+/// 按模板配置产品级总判定公式目标及精确结论文本；不在通用代码中固定单元格位置。
 /// </summary>
 public sealed record ReportConclusionDefinition(
     ReportTarget Target,

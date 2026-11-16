@@ -56,6 +56,10 @@ public sealed partial class ParameterManagementViewModel : PageViewModel
     /// </summary>
     public PointConfigurationViewModel PointConfigTab { get; }
 
+    /// <summary>创建当前所选型号的报表资源编辑窗口模型。</summary>
+    public ModelResourceDialogViewModel CreateModelResourceDialogViewModel(ProductModel model)
+        => new(_services.ModelResources ?? throw new InvalidOperationException("型号资源服务尚未装配。"), model, _actor);
+
     /// <summary>
     /// 产品类型列表。
     /// </summary>

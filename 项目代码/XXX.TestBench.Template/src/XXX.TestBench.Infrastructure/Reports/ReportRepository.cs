@@ -102,6 +102,23 @@ public sealed class ReportRepository : SqliteRepositoryBase, IReportRepository
             PdfState = (int)record.PdfState
         }, ct);
         record.Id = checked((int)id);
+        if (record.Trigger == "ManualRetry")
+        {
+            // 新版本与主记录恢复待判定状态同事务提交；失败旧版本保留不动。
+            if (testRecord.CurrentReportRevisionId is not null)
+                throw new DomainException("已有成功报表的试验不允许失败重试。");
+            var affected = await RunDbAsync(() => Update<SqliteTestRecord>()
+                .Where(x => x.Id == testRecord.Id && x.RowVersion == testRecord.RowVersion
+                    && x.InputHash == record.InputHash && x.State != (int)RecordState.Running
+                    && x.CurrentReportRevisionId == null)
+                .Set(x => x.EvaluationState, (int?)(record.Purpose == ReportPurpose.ProductEvaluation
+                    ? EvaluationState.Pending : EvaluationState.NotEvaluated))
+                .Set(x => x.EvaluationText, (string?)null)
+                .Set(x => x.ConclusionSource, (string?)null)
+                .Set(x => x.RowVersion, checked(testRecord.RowVersion + 1))
+                .ExecuteAffrows(), ct);
+            if (affected != 1) throw new DomainException("试验记录已变化，必须回滚本次报表重试。");
+        }
         return record;
     }
 
@@ -276,14 +293,20 @@ public sealed class ReportRepository : SqliteRepositoryBase, IReportRepository
         ReportRecord result,
         string attemptToken,
         string inputHash,
+        EvaluationState evaluationState,
         CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(result);
         ArgumentException.ThrowIfNullOrWhiteSpace(attemptToken);
+        if (SqliteAmbient.Current is null)
+            throw new DomainException("报表失败状态和主记录产品判定必须在同一工作单元事务中提交");
         if (result.Status != ReportStatus.Failed || string.IsNullOrWhiteSpace(result.RevisionId)
             || result.CompletedAtUtc is null || string.IsNullOrWhiteSpace(result.Error)
             || string.IsNullOrWhiteSpace(result.ErrorStage) || !IsSha256(inputHash)
-            || !string.Equals(result.InputHash, inputHash, StringComparison.Ordinal))
+            || !string.Equals(result.InputHash, inputHash, StringComparison.Ordinal)
+            || result.Purpose is null
+            || (result.Purpose == ReportPurpose.ProductEvaluation && evaluationState != EvaluationState.Error)
+            || (result.Purpose == ReportPurpose.ProcessOnly && evaluationState is not (EvaluationState.NotEvaluated or EvaluationState.Error)))
             throw new DomainException("报表失败结果缺少阶段、原因或输入摘要");
 
         var row = await RunDbAsync(() => Select<SqliteReportRecord>()
@@ -293,6 +316,19 @@ public sealed class ReportRepository : SqliteRepositoryBase, IReportRepository
             || row.OwnerNodeId != result.OwnerNodeId || row.InputHash != inputHash || row.AttemptToken != attemptToken
             || row.ActiveAttemptKey is null || row.RowVersion != result.RowVersion)
             return false;
+
+        var testRecord = await RunDbAsync(() => Select<SqliteTestRecord>()
+            .Where(x => x.Id == row.TestRecordId)
+            .ToOne(), ct);
+        if (testRecord is null || testRecord.ResultContractVersion != 2
+            || testRecord.State == (int)RecordState.Running
+            || testRecord.InputHash != inputHash
+            || (result.Purpose == ReportPurpose.ProductEvaluation
+                && testRecord.EvaluationState != (int)EvaluationState.Pending)
+            || (result.Purpose == ReportPurpose.ProcessOnly
+                && testRecord.EvaluationState != (int)EvaluationState.NotEvaluated
+                && testRecord.EvaluationState != (int)EvaluationState.Error))
+            throw new DomainException("报表失败时所属试验记录不再匹配冻结输入或判定状态");
 
         var nextVersion = checked(row.RowVersion + 1);
         var affected = await RunDbAsync(() => Update<SqliteReportRecord>()
@@ -311,6 +347,20 @@ public sealed class ReportRepository : SqliteRepositoryBase, IReportRepository
             .Set(x => x.RowVersion, nextVersion)
             .ExecuteAffrows(), ct);
         if (affected != 1) return false;
+
+        var recordAffected = await RunDbAsync(() => Update<SqliteTestRecord>()
+            .Where(x => x.Id == testRecord.Id
+                && x.ResultContractVersion == 2
+                && x.State != (int)RecordState.Running
+                && x.InputHash == inputHash
+                && x.RowVersion == testRecord.RowVersion)
+            .Set(x => x.EvaluationState, (int?)evaluationState)
+            .Set(x => x.EvaluationText, (string?)null)
+            .Set(x => x.ConclusionSource, result.Purpose == ReportPurpose.ProductEvaluation ? "ReportCalculationError" : "ProcessOnly")
+            .Set(x => x.RowVersion, checked(testRecord.RowVersion + 1))
+            .ExecuteAffrows(), ct);
+        if (recordAffected != 1)
+            throw new DomainException("主记录在报表失败时发生并发更新；必须回滚整个工作单元");
 
         result.RowVersion = nextVersion;
         result.ActiveAttemptKey = null;

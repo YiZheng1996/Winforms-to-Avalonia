@@ -44,6 +44,10 @@ public sealed class AppComposition
     /// </summary>
     public string? StartupError { get; private set; }
     /// <summary>
+    /// 首次安装未登记时，引导用户进入明确的初始化或已有库登记流程。
+    /// </summary>
+    public bool RequiresInstallationSetup { get; private set; }
+    /// <summary>
     /// 登录服务。
     /// </summary>
     public AuthenticationService? Authentication { get; private set; }
@@ -73,6 +77,9 @@ public sealed class AppComposition
     public DatabaseServices? DatabaseServices { get; private set; }
 
     private ApplicationBootstrapResult? _bootstrapResult;
+    private ReportTaskDispatcher? _reportDispatcher;
+    /// <summary>仅明确配置计算工具和工作目录后提供人工重试。</summary>
+    public ReportRetryService? ReportRetries { get; private set; }
 
     /// <summary>
     /// 创建并完成全部依赖装配。
@@ -184,7 +191,7 @@ public sealed class AppComposition
             var runtimeFactory = new DeviceRuntimeFactory(
                 snapshot, clock, s7ClientFactory, deviceEvents, modbusClientFactory,
                 requiredSignals: requiredSignals);
-            DeviceModes = new DeviceModeController(runtimeFactory, Logger, audit);
+            DeviceModes = new DeviceModeController(runtimeFactory, Logger, audit, DeviceOperations);
             DeviceModes.InitializeAsync().GetAwaiter().GetResult();
             var diagnosticReader = new DevicePointDiagnosticReader(
                 manualOperationGuard,
@@ -192,6 +199,22 @@ public sealed class AppComposition
                 Logger);
 
             var reportRepository = DatabaseServices.Reports;
+            ReportGenerationWorker? reportWorker = null;
+            FileReportStorage? reportStorage = null;
+            var settings = _bootstrapResult.Settings;
+            if (!string.IsNullOrWhiteSpace(settings.ReportToolPath)
+                && !string.IsNullOrWhiteSpace(settings.ReportWorkRoot) && settings.Storage is not null)
+            {
+                reportStorage = new FileReportStorage(settings.Storage.ReportRoot);
+                var requestFactory = new FileReportCalculationRequestFactory(recordRepo,
+                    new FileModelResourceStore(settings.Storage.ResourceRoot), DatabaseServices.DatabaseInstanceId,
+                    settings.ReportWorkRoot, TimeSpan.FromSeconds(settings.ReportTimeoutSeconds));
+                reportWorker = new ReportGenerationWorker(reportRepository, requestFactory,
+                    new LibreOfficeReportCalculationEngine(settings.ReportToolPath), reportStorage,
+                    uowFactory, TimeProvider.System, settings.ReportWorkRoot);
+                ReportRetries = new ReportRetryService(Authentication, userRepo, reportRepository,
+                    uowFactory, audit, settings.NodeId, TimeProvider.System);
+            }
 
             var services = new ShellServices(
                 Authentication,
@@ -224,14 +247,24 @@ public sealed class AppComposition
                 connectionTester,
                 deviceEvents,
                 manualOperationGuard,
-                diagnosticReader);
+                diagnosticReader,
+                ReportRetries,
+                new ModelResourceService(productRepo, DatabaseServices.ModelResourceProfiles,
+                    new FileModelResourceStore(settings.Storage!.ResourceRoot), uowFactory, audit, clock));
 
             Shell = new ShellViewModel(services);
+            // 最后启动后台处理；旧试验入口仍停用，持久队列只消费真实提交的任务。
+            if (reportWorker is not null && reportStorage is not null)
+                _reportDispatcher = new ReportTaskDispatcher(reportWorker, recordRepo, reportStorage,
+                    settings.NodeId, DatabaseServices.DatabaseInstanceId, Logger, TimeSpan.FromSeconds(5));
         }
         // 启动失败进入故障页，不静默回退。
         catch (Exception ex)
         {
-            StartupError = ex is ConfigValidationException or DomainException ? ex.Message : ex.ToString();
+            RequiresInstallationSetup = ex is InstallationSettingsMissingException;
+            StartupError = ex is ConfigValidationException or DomainException or InstallationSettingsMissingException
+                ? ex.Message
+                : ex.ToString();
             Logger.Error("启动失败", ex);
             Shell = new ShellViewModel(null, isFaulted: true, faultMessage: StartupError);
         }
@@ -242,6 +275,12 @@ public sealed class AppComposition
     /// </summary>
     public void Dispose()
     {
+        // 必须先等待计算/数据库任务退出，再释放安装锁，避免新进程与旧 worker 重叠。
+        if (_reportDispatcher is not null)
+        {
+            _reportDispatcher.DisposeAsync().AsTask().GetAwaiter().GetResult();
+            _reportDispatcher = null;
+        }
         _bootstrapResult?.Dispose();
         _bootstrapResult = null;
         DatabaseServices = null;

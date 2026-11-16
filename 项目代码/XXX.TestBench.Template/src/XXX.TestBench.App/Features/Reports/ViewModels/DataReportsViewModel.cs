@@ -10,81 +10,21 @@ using XXX.TestBench.Core.Domain.Records;
 namespace XXX.TestBench.App.ViewModels;
 
 /// <summary>
-/// 记录列表中的一行，其中结论可被界面修改。
-/// </summary>
-public sealed partial class RecordRow : ObservableObject
-{
-    /// <summary>
-    /// 记录编号。
-    /// </summary>
-    public required int Id { get; init; }
-    /// <summary>
-    /// 记录流水号。
-    /// </summary>
-    public required string RecordNumber { get; init; }
-    /// <summary>
-    /// 产品编号。
-    /// </summary>
-    public required string ProductNumber { get; init; }
-    /// <summary>
-    /// 产品型号名称。
-    /// </summary>
-    public required string ProductModelName { get; init; }
-    /// <summary>
-    /// 记录状态文字。
-    /// </summary>
-    public required string StateText { get; init; }
-    /// <summary>
-    /// 设备模式文字。
-    /// </summary>
-    public required string DeviceModeText { get; init; }
-    /// <summary>
-    /// 开始时间文字。
-    /// </summary>
-    public required string StartedAt { get; init; }
-
-    /// <summary>
-    /// 记录结论文字。
-    /// </summary>
-    [ObservableProperty]
-    private string _conclusion = string.Empty;
-}
-
-/// <summary>
-/// 报表列表中的一行。
-/// </summary>
-public sealed class ReportRow
-{
-    /// <summary>
-    /// 报表编号。
-    /// </summary>
-    public required int Id { get; init; }
-    /// <summary>
-    /// 报表状态文字。
-    /// </summary>
-    public required string StatusText { get; init; }
-    /// <summary>
-    /// 输出文件路径。
-    /// </summary>
-    public required string OutputPath { get; init; }
-    /// <summary>
-    /// 创建时间文字。
-    /// </summary>
-    public required string CreatedAt { get; init; }
-}
-
-/// <summary>
-/// 数据与报表页面：试验记录查询、为已完成记录生成报表、展示报表记录列表。
+/// 数据与报表页面：查询试验及报告版本，按原冻结输入重试失败报告。
 /// </summary>
 public sealed partial class DataReportsViewModel : PageViewModel
 {
     private readonly ShellServices _services;
     private readonly UserContext _actor;
+    private readonly Func<string?>? _sessionToken;
 
-    public DataReportsViewModel(ShellServices services, UserContext actor)
+    public DataReportsViewModel(ShellServices services, UserContext actor, Func<string?>? sessionToken = null)
     {
         _services = services;
         _actor = actor;
+        _sessionToken = sessionToken;
+        if (services.ReportRetries is null)
+            StatusMessage = "报表计算工具或工作目录尚未配置，当前仅支持查询。";
     }
 
     public override string Title => "数据与报表";
@@ -104,6 +44,32 @@ public sealed partial class DataReportsViewModel : PageViewModel
     /// </summary>
     [ObservableProperty]
     private RecordRow? _selectedRecord;
+
+    [ObservableProperty]
+    private ReportRow? _selectedReport;
+
+    partial void OnSelectedReportChanged(ReportRow? value) => RetryReportCommand.NotifyCanExecuteChanged();
+
+    private bool CanRetryReport() => !IsBusy && SelectedReport?.Status == ReportStatus.Failed
+        && CanGenerateReports && _services.ReportRetries is not null && _sessionToken?.Invoke() is not null;
+
+    /// <summary>按原冻结输入新建失败重试版本，由后台队列计算；不重新评价成功记录。</summary>
+    [RelayCommand(CanExecute = nameof(CanRetryReport))]
+    public async Task RetryReportAsync()
+    {
+        if (!CanRetryReport()) return;
+        var reportId = SelectedReport!.Id;
+        IsBusy = true;
+        RetryReportCommand.NotifyCanExecuteChanged();
+        try
+        {
+            var result = await _services.ReportRetries!.RetryAsync(reportId, _sessionToken!()!);
+            StatusMessage = $"报表版本 {result.RevisionNo} 已登记，刷新可查看处理状态。";
+            await LoadReportsAsync();
+        }
+        catch (Exception ex) { StatusMessage = ex.Message; }
+        finally { IsBusy = false; RetryReportCommand.NotifyCanExecuteChanged(); }
+    }
 
     partial void OnSelectedRecordChanged(RecordRow? value)
     {
@@ -166,11 +132,18 @@ public sealed partial class DataReportsViewModel : PageViewModel
     /// </summary>
     private async Task LoadReportsAsync()
     {
+        SelectedReport = null;
         Reports.Clear();
         if (SelectedRecord is null) return;
-        var list = await _services.ReportRepository.ListByRecordAsync(SelectedRecord.Id);
+        var recordId = SelectedRecord.Id;
+        var list = await _services.ReportRepository.ListByRecordAsync(recordId);
+        if (SelectedRecord?.Id != recordId) return;
+        Reports.Clear();
         foreach (var r in list)
-            Reports.Add(new ReportRow { Id = r.Id, StatusText = r.Status.ToString(), OutputPath = r.OutputPath ?? string.Empty, CreatedAt = r.CreatedAtUtc.ToString("yyyy-MM-dd HH:mm") });
+            Reports.Add(new ReportRow { Id = r.Id, Status = r.Status, RevisionNo = r.RevisionNo, Error = r.Error,
+                StatusText = r.Status switch { ReportStatus.Pending => "等待生成", ReportStatus.Generating => "生成中/待核查",
+                    ReportStatus.Completed => "已完成", ReportStatus.Failed => "生成失败", _ => "未知" },
+                OutputPath = r.StorageKey ?? r.OutputPath ?? string.Empty, CreatedAt = r.CreatedAtUtc.ToString("yyyy-MM-dd HH:mm") });
     }
 
 }

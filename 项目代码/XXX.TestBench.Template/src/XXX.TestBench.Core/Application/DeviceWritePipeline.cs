@@ -44,7 +44,9 @@ public sealed class DeviceWritePipeline
     /// </summary>
     public async Task<PointValue> ExecuteAsync(WriteCommand command, CancellationToken ct = default)
     {
-        await using var lease = await _operations.EnterExecutionAsync(ct);
+        // 现有入口用于手动写入；调用方提供 ActiveRunOk 也不能绕过新版操作占用。
+        // 新版执行器只获得绑定操作的 IBenchDeviceAccess，不调用本手工入口。
+        await using var lease = await _operations.EnterDiagnosticsAsync(ct);
         return await ExecuteCoreAsync(command, ct);
     }
 

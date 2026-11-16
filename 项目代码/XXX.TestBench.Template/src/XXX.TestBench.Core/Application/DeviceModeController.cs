@@ -28,15 +28,18 @@ public sealed class DeviceModeController
     /// 审计日志。
     /// </summary>
     private readonly IAuditLog _audit;
+    private readonly DeviceOperationCoordinator? _operations;
 
     /// <summary>
     /// 创建设备模式控制器。
     /// </summary>
-    public DeviceModeController(IDeviceRuntimeFactory factory, IAppLogger logger, IAuditLog audit)
+    public DeviceModeController(IDeviceRuntimeFactory factory, IAppLogger logger, IAuditLog audit,
+        DeviceOperationCoordinator? operations = null)
     {
         _factory = factory;
         _logger = logger;
         _audit = audit;
+        _operations = operations;
     }
 
     /// <summary>
@@ -61,6 +64,7 @@ public sealed class DeviceModeController
     /// </summary>
     public async Task<DeviceModeResult> InitializeAsync(CancellationToken ct = default)
     {
+        await using var gate = _operations is null ? null : await _operations.EnterConfigurationAsync(ct);
         await DisposeRuntimeAsync();
         const string auditMode = "PerDevice";
         try
@@ -99,6 +103,7 @@ public sealed class DeviceModeController
     /// </summary>
     public async Task<DeviceModeResult> ReconnectAsync(CancellationToken ct = default)
     {
+        await using var gate = _operations is null ? null : await _operations.EnterConfigurationAsync(ct);
         if (Runtime is null) return new DeviceModeResult(false, "设备运行时未初始化");
         try
         {

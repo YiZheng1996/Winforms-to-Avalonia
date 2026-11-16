@@ -499,6 +499,7 @@ public class ShellHeadlessTests
         {
             if (composition.DeviceModes is { } deviceModes)
                 await deviceModes.ShutdownAsync();
+            composition.Dispose();
         }
     }
 
@@ -590,7 +591,13 @@ public class ShellHeadlessTests
                 // Avalonia/xUnit 会把测试同步上下文附着到线程池任务；组合根内部仍有同步等待，
                 // 因此在测试专用线程池入口明确清除它，避免 JSON 异步 I/O 回投到已被阻塞的 UI 线程。
                 SynchronizationContext.SetSynchronizationContext(null);
-                return AppComposition.Create(configRoot, dataRoot);
+                // 启动门不再从 app.json 建库。每个用例必须显式隔离安装身份，
+                // 否则默认 StateRoot 会打开开发机已登记的数据库并占用其进程锁。
+                var stateRoot = Path.Combine(dataRoot, "test-installation-state");
+                new ApplicationBootstrapper(stateRoot)
+                    .InitializeNewInstallationAsync("headless-test-bench", Path.Combine(dataRoot, "testbench.db"),
+                        dataRoot, "admin123").GetAwaiter().GetResult();
+                return AppComposition.Create(configRoot, dataRoot, stateRoot);
             }).GetAwaiter().GetResult();
         }
         return composition;
@@ -803,6 +810,7 @@ public class ShellHeadlessTests
         {
             if (composition.DeviceModes is { } deviceModes)
                 await deviceModes.ShutdownAsync();
+            composition.Dispose();
         }
     }
 

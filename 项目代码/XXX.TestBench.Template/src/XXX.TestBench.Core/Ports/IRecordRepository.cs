@@ -20,6 +20,14 @@ public interface IRecordRepository
     /// </summary>
     Task<TestRecord?> GetRecordAsync(int recordId, CancellationToken ct = default);
     /// <summary>
+    /// 按稳定运行标识读取新版记录，用于开始请求的提交查证。
+    /// </summary>
+    Task<TestRecord?> GetRecordByRunIdAsync(string runId, CancellationToken ct = default);
+    /// <summary>
+    /// 按稳定开始请求标识读取记录，用于幂等重试及提交结果查证。
+    /// </summary>
+    Task<TestRecord?> GetRecordByStartRequestIdAsync(string startRequestId, CancellationToken ct = default);
+    /// <summary>
     /// 按试验台身份读取当前正在执行的记录。
     /// </summary>
     Task<TestRecord?> GetActiveRunningRecordAsync(string benchId, CancellationToken ct = default);

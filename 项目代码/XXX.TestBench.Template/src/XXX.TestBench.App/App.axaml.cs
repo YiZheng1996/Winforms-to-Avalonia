@@ -49,7 +49,7 @@ public partial class App : Application
             var dataRoot = Path.Combine(baseDir, "data");
             _composition = AppComposition.Create(configRoot, dataRoot);
 
-            if (_composition.Shell is not { } shell)
+            if (_composition.Shell is null)
                 throw new InvalidOperationException("应用组合根未创建外壳视图模型。");
 
             // 登录窗口是桌面生命周期的初始主窗口；认证完成后会被 LoginWindow 替换为工艺主窗口。
@@ -57,23 +57,69 @@ public partial class App : Application
             desktop.ShutdownMode = ShutdownMode.OnMainWindowClose;
             desktop.Exit += (_, _) => _composition?.Dispose();
 
-            if (_composition.StartupError is null)
+            if (_composition.RequiresInstallationSetup)
             {
-                desktop.MainWindow = new LoginWindow(shell)
+                var setupWindow = new FirstRunSetupWindow(_composition.StartupError)
+                {
+                    Icon = AppIconProvider.Create()
+                };
+
+                setupWindow.SetupCompleted += (_, _) =>
+                {
+                    _composition?.Dispose();
+                    var configuredComposition = AppComposition.Create(configRoot, dataRoot);
+                    _composition = configuredComposition;
+
+                    Window nextWindow;
+                    if (configuredComposition.StartupError is null && configuredComposition.Shell is { } configuredShell)
+                    {
+                        nextWindow = new LoginWindow(configuredShell)
+                        {
+                            Icon = AppIconProvider.Create()
+                        };
+                    }
+                    else if (configuredComposition.Shell is { } faultShell)
+                    {
+                        nextWindow = new MainWindow
+                        {
+                            DataContext = faultShell,
+                            WindowState = WindowState.Maximized,
+                            Icon = AppIconProvider.Create()
+                        };
+                    }
+                    else
+                    {
+                        nextWindow = new MainWindow { Icon = AppIconProvider.Create() };
+                    }
+
+                    desktop.MainWindow = nextWindow;
+                    nextWindow.Show();
+                    setupWindow.Close();
+                };
+
+                desktop.MainWindow = setupWindow;
+            }
+            else if (_composition.StartupError is null && _composition.Shell is { } loginShell)
+            {
+                desktop.MainWindow = new LoginWindow(loginShell)
                 {
                     Icon = AppIconProvider.Create()
                 };
             }
-            else
+            else if (_composition.Shell is { } startupFaultShell)
             {
                 // 启动故障没有可用认证服务，直接显示诊断主窗口，不进入登录流程。
                 var faultWindow = new MainWindow
                 {
-                    DataContext = shell,
+                    DataContext = startupFaultShell,
                     WindowState = WindowState.Maximized,
                     Icon = AppIconProvider.Create()
                 };
                 desktop.MainWindow = faultWindow;
+            }
+            else
+            {
+                throw new InvalidOperationException("应用组合根未创建启动视图模型。");
             }
         }
 

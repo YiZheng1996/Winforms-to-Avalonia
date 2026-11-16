@@ -1,0 +1,74 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:XXX.TestBench.App.ViewModels"
+        x:Class="XXX.TestBench.App.Views.ModelResourceDialogWindow"
+        x:DataType="vm:ModelResourceDialogViewModel"
+        Title="型号报表资源"
+        Width="820" Height="740" MinWidth="760" MinHeight="680"
+        CanResize="False" WindowStartupLocation="CenterScreen"
+        SystemDecorations="None" TransparencyLevelHint="Transparent"
+        Background="Transparent" UseLayoutRounding="True">
+  <Border Background="White" BorderBrush="#C9D3E0" BorderThickness="1" CornerRadius="8">
+    <Grid RowDefinitions="Auto,*,Auto">
+      <Border Grid.Row="0" Background="#F8FAFD" BorderBrush="#E4EAF2" BorderThickness="0,0,0,1"
+              CornerRadius="8,8,0,0" Padding="24,14" PointerPressed="OnTitleBarPointerPressed">
+        <StackPanel Spacing="3">
+          <TextBlock Text="型号报表资源" FontSize="20" FontWeight="Bold" Foreground="#151A24" />
+          <TextBlock Text="{Binding ModelName}" Foreground="#667085" />
+        </StackPanel>
+      </Border>
+      <ScrollViewer Grid.Row="1" Margin="24,18">
+      <StackPanel Spacing="16">
+        <TextBlock Text="{Binding ExistingProfileText}" Foreground="#164B95" TextWrapping="Wrap" />
+        <Border BorderBrush="#D6DEEA" BorderThickness="1" CornerRadius="6" Padding="14">
+          <StackPanel Spacing="10">
+            <TextBlock Text="产品判定报告（自动试验）" FontWeight="SemiBold" />
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+              <TextBox Text="{Binding EvaluationTemplatePath}" Watermark="选择 .xlsx 模板" IsReadOnly="True" />
+              <Button Grid.Column="1" Content="选择模板" Click="OnEvaluationTemplateClick" />
+            </Grid>
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+              <TextBox Text="{Binding EvaluationMappingPath}" Watermark="选择 .json 映射" IsReadOnly="True" />
+              <Button Grid.Column="1" Content="选择映射" Click="OnEvaluationMappingClick" />
+            </Grid>
+          </StackPanel>
+        </Border>
+        <Border BorderBrush="#D6DEEA" BorderThickness="1" CornerRadius="6" Padding="14">
+          <StackPanel Spacing="10">
+            <TextBlock Text="准备指导图文包" FontWeight="SemiBold" />
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+              <TextBox Text="{Binding GuidancePackagePath}" Watermark="选择 ZIP 包（guidance.json + images/ PNG/JPEG）" IsReadOnly="True" />
+              <Button Grid.Column="1" Content="选择 ZIP 包" Click="OnGuidancePackageClick" />
+            </Grid>
+            <TextBlock Text="导入前会检查步骤字段、图片路径与文件格式。单项/自动准备确认界面将在试验页接入阶段使用该版本。"
+                       Foreground="#667085" TextWrapping="Wrap" />
+            <Button Content="预览已导入指导" HorizontalAlignment="Left" IsEnabled="{Binding HasGuidance}"
+                    Click="OnGuidancePreviewClick" />
+          </StackPanel>
+        </Border>
+        <Border BorderBrush="#D6DEEA" BorderThickness="1" CornerRadius="6" Padding="14">
+          <StackPanel Spacing="10">
+            <TextBlock Text="过程报告（单项和中止试验）" FontWeight="SemiBold" />
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+              <TextBox Text="{Binding ProcessTemplatePath}" Watermark="选择 .xlsx 模板" IsReadOnly="True" />
+              <Button Grid.Column="1" Content="选择模板" Click="OnProcessTemplateClick" />
+            </Grid>
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+              <TextBox Text="{Binding ProcessMappingPath}" Watermark="选择 .json 映射" IsReadOnly="True" />
+              <Button Grid.Column="1" Content="选择映射" Click="OnProcessMappingClick" />
+            </Grid>
+          </StackPanel>
+        </Border>
+        <TextBlock Text="产品判定映射必须声明 Excel 总判定公式目标；过程映射必须包含自动与单项范围且不得包含产品结论。导入的文件按摘要保存为独立版本。"
+                   Foreground="#667085" TextWrapping="Wrap" />
+        <TextBlock Text="{Binding StatusMessage}" Foreground="#1F618D" TextWrapping="Wrap" />
+      </StackPanel>
+      </ScrollViewer>
+      <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10" Margin="24,0,24,20">
+        <Button Content="关闭" Click="OnCancelClick" MinWidth="96" />
+        <Button Content="导入并保存" IsEnabled="{Binding !IsBusy}" Click="OnSaveClick"
+                Background="#0868F7" Foreground="White" MinWidth="120" />
+      </StackPanel>
+    </Grid>
+  </Border>
+</Window>

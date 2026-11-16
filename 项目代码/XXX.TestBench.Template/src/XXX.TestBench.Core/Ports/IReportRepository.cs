@@ -51,5 +51,10 @@ public interface IReportRepository
     /// <summary>
     /// 以尝试令牌和输入摘要提交失败状态，迟到 worker 不能覆盖其他尝试。
     /// </summary>
-    Task<bool> TryFailAsync(ReportRecord result, string attemptToken, string inputHash, CancellationToken ct = default);
+    Task<bool> TryFailAsync(
+        ReportRecord result,
+        string attemptToken,
+        string inputHash,
+        EvaluationState evaluationState,
+        CancellationToken ct = default);
 }

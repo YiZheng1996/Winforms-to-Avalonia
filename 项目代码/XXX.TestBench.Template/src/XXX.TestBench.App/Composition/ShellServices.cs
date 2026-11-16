@@ -39,4 +39,6 @@ public sealed record ShellServices(
     IDeviceConnectionTester? DeviceConnectionTester = null,
     IDeviceEventSink? DeviceEvents = null,
     DeviceManualOperationGuard? ManualOperationGuard = null,
-    IDevicePointDiagnosticReader? DiagnosticReader = null);
+    IDevicePointDiagnosticReader? DiagnosticReader = null,
+    ReportRetryService? ReportRetries = null,
+    ModelResourceService? ModelResources = null);

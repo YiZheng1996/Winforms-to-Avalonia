@@ -190,6 +190,8 @@
                 </Border>
                 <Button Classes="parameter-ghost" Content="启用 / 停用"
                         Click="OnToggleModelClick" IsEnabled="{Binding CanManageProducts}" />
+                <Button Classes="parameter-secondary" Content="报表资源"
+                        Click="OnConfigureModelResourcesClick" IsEnabled="{Binding CanManageProducts}" />
                 <Button Classes="parameter-secondary" Content="编辑"
                         Click="OnEditModelClick" IsEnabled="{Binding CanManageProducts}" />
                 <Button Classes="parameter-danger" Content="删除"

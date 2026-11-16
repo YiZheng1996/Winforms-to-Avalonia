@@ -19,6 +19,10 @@ public sealed record SystemSettings
     public DatabaseProfile? PreviousProfile { get; init; }
     public StorageProfile? Storage { get; init; }
     public string? ReportToolPath { get; init; }
+    /// <summary>报表隔离计算目录，必须明确配置；不放到源码或不可变归档目录。</summary>
+    public string? ReportWorkRoot { get; init; }
+    /// <summary>单次报表计算上限（秒），超时不改变产品为不合格。</summary>
+    public int ReportTimeoutSeconds { get; init; } = 120;
 
     /// <summary>
     /// 检查结构与路径；不创建目录、不测试连接、不补造台架身份。
@@ -56,6 +60,9 @@ public sealed record SystemSettings
         }
         if (ReportToolPath is not null && !Path.IsPathFullyQualified(ReportToolPath))
             errors.Add("ReportToolPath 必须是绝对路径");
+        if (ReportWorkRoot is not null && !Path.IsPathFullyQualified(ReportWorkRoot))
+            errors.Add("ReportWorkRoot 必须是绝对路径");
+        if (ReportTimeoutSeconds <= 0) errors.Add("ReportTimeoutSeconds 必须大于零");
         return errors;
     }
 

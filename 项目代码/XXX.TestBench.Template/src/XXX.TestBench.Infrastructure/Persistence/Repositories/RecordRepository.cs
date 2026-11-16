@@ -85,6 +85,12 @@ public sealed class RecordRepository : SqliteRepositoryBase, IRecordRepository
         => Guid.TryParseExact(value, "D", out var id) && id != Guid.Empty
            && string.Equals(value, id.ToString("D"), StringComparison.Ordinal);
 
+    private static void EnsureCurrentId(string? value, string parameterName)
+    {
+        if (!IsCurrentId(value))
+            throw new ArgumentException("运行与请求标识必须为小写 GUID D 格式。", parameterName);
+    }
+
     /// <summary>
     /// 按编号读取试验记录。
     /// </summary>
@@ -92,6 +98,30 @@ public sealed class RecordRepository : SqliteRepositoryBase, IRecordRepository
     {
         var row = await RunDbAsync(() => Select<SqliteTestRecord>()
             .Where(x => x.Id == recordId)
+            .ToOne(), ct);
+        return row is null ? null : MapRecord(row);
+    }
+
+    /// <summary>
+    /// 按唯一运行标识读取记录；调用方使用稳定 ID 查证重试，不创建第二次试验。
+    /// </summary>
+    public async Task<TestRecord?> GetRecordByRunIdAsync(string runId, CancellationToken ct = default)
+    {
+        EnsureCurrentId(runId, nameof(runId));
+        var row = await RunDbAsync(() => Select<SqliteTestRecord>()
+            .Where(x => x.RunId == runId)
+            .ToOne(), ct);
+        return row is null ? null : MapRecord(row);
+    }
+
+    /// <summary>
+    /// 按唯一开始请求标识读取记录；数据库唯一索引负责并发请求之间的最终仲裁。
+    /// </summary>
+    public async Task<TestRecord?> GetRecordByStartRequestIdAsync(string startRequestId, CancellationToken ct = default)
+    {
+        EnsureCurrentId(startRequestId, nameof(startRequestId));
+        var row = await RunDbAsync(() => Select<SqliteTestRecord>()
+            .Where(x => x.StartRequestId == startRequestId)
             .ToOne(), ct);
         return row is null ? null : MapRecord(row);
     }

@@ -371,6 +371,12 @@ public sealed class FakeRecordRepository : IRecordRepository
     public Task<TestRecord?> GetRecordAsync(int recordId, CancellationToken ct = default)
         => Task.FromResult(Records.FirstOrDefault(r => r.Id == recordId));
 
+    public Task<TestRecord?> GetRecordByRunIdAsync(string runId, CancellationToken ct = default)
+        => Task.FromResult(Records.FirstOrDefault(r => r.RunId == runId));
+
+    public Task<TestRecord?> GetRecordByStartRequestIdAsync(string startRequestId, CancellationToken ct = default)
+        => Task.FromResult(Records.FirstOrDefault(r => r.StartRequestId == startRequestId));
+
     public Task<TestRecord?> GetActiveRunningRecordAsync(string benchId, CancellationToken ct = default)
         => Task.FromResult(Records.FirstOrDefault(r => r.State == RecordState.Running && r.BenchId == benchId));
 
@@ -549,7 +555,7 @@ public sealed class FakeReportRepository : IReportRepository
     }
 
     public Task<bool> TryFailAsync(ReportRecord result, string attemptToken, string inputHash,
-        CancellationToken ct = default)
+        EvaluationState evaluationState, CancellationToken ct = default)
     {
         var record = Records.FirstOrDefault(r => r.RevisionId == result.RevisionId
             && r.Status == ReportStatus.Generating && r.AttemptToken == attemptToken

@@ -15,6 +15,32 @@ public partial class ParameterManagementView : UserControl
     /// </summary>
     public ParameterManagementView() => InitializeComponent();
 
+    /// <summary>为所选产品型号导入独立的产品判定和过程报告资源。</summary>
+    private async void OnConfigureModelResourcesClick(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is not ParameterManagementViewModel viewModel || GetOwner() is not { } owner)
+            return;
+        if (viewModel.SelectedModel is not { } model)
+        {
+            await ShowFeedbackAsync(owner, OperationFeedback.Failure("请先选择产品型号"));
+            return;
+        }
+
+        try
+        {
+            var dialogViewModel = viewModel.CreateModelResourceDialogViewModel(model);
+            await dialogViewModel.LoadAsync();
+            var dialog = new ModelResourceDialogWindow { DataContext = dialogViewModel };
+            var saved = await ShowDialogAsync<bool>(owner, dialog);
+            if (saved)
+                await ShowFeedbackAsync(owner, OperationFeedback.Success("型号报表资源已保存。"));
+        }
+        catch (Exception ex)
+        {
+            await ShowFeedbackAsync(owner, OperationFeedback.Failure(ex.Message));
+        }
+    }
+
     /// <summary>
     /// 打开新增产品类型弹窗，创建成功后刷新页面数据。
     /// </summary>

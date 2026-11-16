@@ -51,22 +51,6 @@ public sealed class ApplicationBootstrapper
             if (!test.Succeeded)
                 throw new InvalidOperationException(test.Message);
             database = await provider.OpenExistingAsync(settings.ActiveProfile, cancellationToken);
-
-            var benchState = await database.BenchControlStates.GetAsync(settings.BenchId, cancellationToken);
-            if (benchState is not null)
-            {
-                if (!string.Equals(benchState.OwnerNodeId, settings.NodeId, StringComparison.Ordinal))
-                    throw new InvalidDataException("数据库台架控制状态属于其他控制节点；启动进入恢复受限状态，不会启用设备。");
-                if (!benchState.IsIdle)
-                    throw new InvalidOperationException(
-                        $"数据库存在未闭合台架操作（{benchState.OperationId:D}，{benchState.Phase}）；启动进入恢复受限状态，不会启用设备。");
-            }
-
-            var activeRecord = await database.Records.GetActiveRunningRecordAsync(settings.BenchId, cancellationToken);
-            if (activeRecord is not null)
-                throw new InvalidOperationException(
-                    $"数据库存在未收尾试验记录（RunId={activeRecord.RunId ?? "未知"}，记录号={activeRecord.RecordNumber}）；启动进入恢复受限状态，不会启用设备。");
-
             return new ApplicationBootstrapResult(settings, database, processLock);
         }
         catch
@@ -111,43 +95,68 @@ public sealed class ApplicationBootstrapper
     }
 
     /// <summary>
-    /// 已有升级库的显式登记流程。必须提供离线升级报告中的两个身份值；此流程不会写入数据库。
+    /// 现有数据库登记流程：检查数据库并自动读取身份信息。
     /// </summary>
     public async Task<SystemSettings> AdoptExistingAsync(
         string benchId,
         string databasePath,
         string storageRoot,
-        string expectedDatabaseInstanceId,
-        string expectedStorageId,
         CancellationToken cancellationToken = default)
     {
         ValidateIdentityAndPaths(benchId, databasePath, storageRoot);
-        if (!IsCanonicalGuid(expectedDatabaseInstanceId) || !IsCanonicalGuid(expectedStorageId))
-            throw new ArgumentException("必须提供离线升级报告中的小写 GUID DatabaseInstanceId 和 StorageId。");
-
         using var processLock = InstallationProcessLock.Acquire(_stateRoot);
         var store = CreateSettingsStore();
         if (await store.ReadAsync(cancellationToken) is not null)
             throw new InvalidOperationException("安装级设置已存在；登记流程不会覆盖现有身份或数据库配置。");
         await EnsureNoRecoveryFencesAsync(cancellationToken);
 
+        await SqliteStorageIdentityInitializer.EnsureAsync(
+            databasePath, Path.Combine(_stateRoot, "database-backups"), cancellationToken);
+        var identity = await ReadExistingDatabaseIdentityAsync(databasePath, cancellationToken);
+
         var storageRootFull = Path.GetFullPath(storageRoot);
-        var profile = CreateSqliteProfile(Path.GetFullPath(databasePath), expectedDatabaseInstanceId, expectedStorageId);
+        var profile = CreateSqliteProfile(
+            Path.GetFullPath(databasePath), identity.DatabaseInstanceId, identity.StorageId);
         var provider = CreateSqliteProvider();
         var check = await provider.TestAsync(profile, cancellationToken);
         if (!check.Succeeded) throw new InvalidOperationException(check.Message);
         await using var services = await provider.OpenExistingAsync(profile, cancellationToken);
 
-        var settings = CreateSettings(benchId.Trim(), profile, CreateStorageProfile(storageRootFull, expectedStorageId));
+        var settings = CreateSettings(
+            benchId.Trim(), profile, CreateStorageProfile(storageRootFull, identity.StorageId));
         await store.SaveAsync(settings, expectedRevision: null, cancellationToken);
         return settings;
+    }
+
+    /// <summary>
+    /// 只读读取现有数据库的两个身份编号，并先核对完整数据库合同。
+    /// </summary>
+    public async Task<(string DatabaseInstanceId, string StorageId)> ReadExistingDatabaseIdentityAsync(
+        string databasePath,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(databasePath) || !Path.IsPathFullyQualified(databasePath))
+            throw new ArgumentException("数据库路径必须是绝对路径。", nameof(databasePath));
+
+        var fullPath = Path.GetFullPath(databasePath);
+        if (!File.Exists(fullPath))
+            throw new FileNotFoundException("所选数据库文件不存在。", fullPath);
+
+        var inspection = await SqliteDatabaseInspector.InspectReadOnlyAsync(fullPath, cancellationToken);
+        var issues = SqliteStorageIdentityInitializer.ValidateForAdoption(inspection);
+        if (issues.Count > 0)
+            throw new InvalidDataException("数据库检查未通过：" + string.Join("；", issues));
+
+        return (
+            inspection.AppMetadataDatabaseInstanceId!,
+            inspection.AppMetadataStorageId!);
     }
 
     private async Task<SystemSettings> ReadSettingsAsync(CancellationToken cancellationToken)
     {
         var settings = await CreateSettingsStore().ReadAsync(cancellationToken);
-        return settings ?? throw new InvalidOperationException(
-            $"未找到安装级设置：{Path.Combine(_stateRoot, "system-settings.json")}。请通过受控初始化或既有库登记入口配置；不会自动采用 app.json 路径或创建空库。");
+        return settings ?? throw new InstallationSettingsMissingException(
+            Path.Combine(_stateRoot, "system-settings.json"));
     }
 
     private async Task<IReadOnlyList<XXX.TestBench.Core.Domain.Execution.OperationFence>> ReadFencesAsync(

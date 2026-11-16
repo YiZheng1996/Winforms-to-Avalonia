@@ -556,7 +556,7 @@ public sealed partial class ShellViewModel : ObservableObject
         var pages = new (string Title, string DisplayTitle, AppIconKind Icon, Func<UserContext, bool> CanOpen, Func<PageViewModel> Create)[]
         {
             ( "运行总览", "工艺界面", AppIconKind.Overview, actor => actor.HasPermission(PermissionCode.ViewOverview), () => new ProcessMonitorViewModel(_services, user) ),
-            ( "数据与报表", "报表界面", AppIconKind.Reports, actor => actor.HasPermission(PermissionCode.ViewRecords), () => new DataReportsViewModel(_services, user) ),
+            ( "数据与报表", "报表界面", AppIconKind.Reports, actor => actor.HasPermission(PermissionCode.ViewRecords), () => new DataReportsViewModel(_services, user, () => _token) ),
             ( "参数管理", "参数管理", AppIconKind.Parameters, actor => actor.HasPermission(PermissionCode.ManageProducts)
                 || actor.HasPermission(PermissionCode.ManageTestPoints)
                 || actor.HasPermission(PermissionCode.ManageTestDefinitions), () => new ParameterManagementViewModel(_services, user) ),

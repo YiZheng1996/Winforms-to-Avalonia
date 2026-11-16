@@ -113,6 +113,10 @@ public sealed class DeviceManualOperationGuardTests
         public Task AddRecordAsync(TestRecord record, CancellationToken ct = default) => Fail();
         public Task<TestRecord?> GetRecordAsync(int recordId, CancellationToken ct = default)
             => Fail<TestRecord?>();
+        public Task<TestRecord?> GetRecordByRunIdAsync(string runId, CancellationToken ct = default)
+            => Fail<TestRecord?>();
+        public Task<TestRecord?> GetRecordByStartRequestIdAsync(string startRequestId, CancellationToken ct = default)
+            => Fail<TestRecord?>();
         public Task<TestRecord?> GetActiveRunningRecordAsync(string benchId, CancellationToken ct = default)
             => Fail<TestRecord?>();
         public Task<IReadOnlyList<TestRecord>> ListRecordsAsync(int? state, CancellationToken ct = default)

@@ -1,0 +1,120 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="XXX.TestBench.App.FirstRunSetupWindow"
+        Title="首次启动配置"
+        Width="820" Height="760"
+        MinWidth="720" MinHeight="680"
+        WindowStartupLocation="CenterScreen"
+        SystemDecorations="None"
+        TransparencyLevelHint="Transparent"
+        Background="Transparent"
+        UseLayoutRounding="True">
+  <Window.Styles>
+    <Style Selector="Button.setup-secondary">
+      <Setter Property="Background" Value="White" />
+      <Setter Property="Foreground" Value="#344054" />
+      <Setter Property="BorderBrush" Value="#C9D3E0" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="MinWidth" Value="108" />
+    </Style>
+    <Style Selector="Button.setup-primary">
+      <Setter Property="Background" Value="#0868F7" />
+      <Setter Property="Foreground" Value="White" />
+      <Setter Property="BorderBrush" Value="#0868F7" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="MinHeight" Value="38" />
+    </Style>
+  </Window.Styles>
+
+  <Border Background="#F4F7FC" BorderBrush="#D9E1EC" BorderThickness="1" CornerRadius="10" ClipToBounds="True">
+    <Grid RowDefinitions="Auto,*,Auto">
+      <Border Grid.Row="0" Background="White" BorderBrush="#E4EAF2" BorderThickness="0,0,0,1"
+              Padding="28,20" PointerPressed="OnTitleBarPointerPressed">
+        <StackPanel Spacing="5">
+          <TextBlock Text="首次启动配置" FontSize="22" FontWeight="Bold" Foreground="#151A24" />
+          <TextBlock Text="配置台架身份、SQLite 数据库和文件存储后，应用会继续进入登录界面。"
+                     Foreground="#667085" FontSize="13" TextWrapping="Wrap" />
+        </StackPanel>
+      </Border>
+
+      <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+        <StackPanel x:Name="SetupFieldsPanel" Margin="28,22" Spacing="16">
+          <Border Background="#FFF8E8" BorderBrush="#F3D38A" BorderThickness="1" CornerRadius="6" Padding="12,10">
+            <TextBlock x:Name="StartupReasonText" Foreground="#805B00" FontSize="12" TextWrapping="Wrap" />
+          </Border>
+
+          <StackPanel Spacing="7">
+            <TextBlock Text="台架标识" FontWeight="SemiBold" Foreground="#344054" />
+            <TextBox x:Name="BenchIdTextBox" Watermark="输入稳定的台架标识，例如 BENCH-01" />
+            <TextBlock Text="使用现有数据库时填写该台架原有的稳定标识。"
+                       Foreground="#667085" FontSize="12" TextWrapping="Wrap" />
+          </StackPanel>
+
+          <StackPanel Spacing="7">
+            <TextBlock Text="数据库配置方式" FontWeight="SemiBold" Foreground="#344054" />
+            <ComboBox x:Name="SetupModeComboBox" SelectedIndex="0" SelectionChanged="OnSetupModeChanged">
+              <ComboBoxItem Content="新建 SQLite 数据库" />
+              <ComboBoxItem Content="现有 SQLite 数据库" />
+            </ComboBox>
+          </StackPanel>
+
+          <StackPanel Spacing="7">
+            <TextBlock Text="数据库文件" FontWeight="SemiBold" Foreground="#344054" />
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+              <TextBox x:Name="DatabasePathTextBox" IsReadOnly="True" Watermark="选择数据库文件的绝对路径" />
+              <Button Grid.Column="1" Classes="setup-secondary" Content="浏览…" Click="OnBrowseDatabaseClick" />
+            </Grid>
+            <TextBlock x:Name="DatabaseHelpText" Foreground="#667085" FontSize="12" TextWrapping="Wrap" />
+          </StackPanel>
+
+          <StackPanel x:Name="NewDatabasePanel" Spacing="12">
+            <StackPanel Spacing="7">
+              <TextBlock Text="初始管理员密码" FontWeight="SemiBold" Foreground="#344054" />
+              <TextBox x:Name="AdministratorPasswordBox" PasswordChar="●"
+                       InputMethod.IsInputMethodEnabled="False" Watermark="至少 8 个字符" />
+              <TextBlock Text="至少 8 个字符。密码只用于创建初始管理员，不写入安装级设置或日志。"
+                         Foreground="#667085" FontSize="12" TextWrapping="Wrap" />
+            </StackPanel>
+            <StackPanel Spacing="7">
+              <TextBlock Text="确认初始管理员密码" FontWeight="SemiBold" Foreground="#344054" />
+              <TextBox x:Name="ConfirmAdministratorPasswordBox" PasswordChar="●"
+                       InputMethod.IsInputMethodEnabled="False" Watermark="再次输入管理员密码" />
+            </StackPanel>
+          </StackPanel>
+
+          <StackPanel x:Name="AdoptDatabasePanel" IsVisible="False" Spacing="12">
+            <Border Background="#F0F7FF" BorderBrush="#CFE0FF" BorderThickness="1" CornerRadius="6" Padding="12,9">
+              <TextBlock Text="程序会自动检查所选数据库并读取身份信息，保留原有数据和用户账号。"
+                         Foreground="#164B95" FontSize="12" TextWrapping="Wrap" />
+            </Border>
+            <StackPanel Spacing="7">
+              <TextBlock Text="数据库身份编号（自动读取）" FontWeight="SemiBold" Foreground="#344054" />
+              <TextBox x:Name="DatabaseInstanceIdTextBox" IsReadOnly="True" Watermark="选择数据库后自动读取" />
+            </StackPanel>
+            <StackPanel Spacing="7">
+              <TextBlock Text="文件存储身份编号（自动读取）" FontWeight="SemiBold" Foreground="#344054" />
+              <TextBox x:Name="StorageIdTextBox" IsReadOnly="True" Watermark="选择数据库后自动读取" />
+            </StackPanel>
+          </StackPanel>
+
+          <StackPanel Spacing="7">
+            <TextBlock Text="文件存储根目录" FontWeight="SemiBold" Foreground="#344054" />
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+              <TextBox x:Name="StorageRootTextBox" Watermark="选择报表、资源和证据文件的存储根目录" />
+              <Button Grid.Column="1" Classes="setup-secondary" Content="浏览…" Click="OnBrowseStorageClick" />
+            </Grid>
+          </StackPanel>
+
+          <TextBlock x:Name="StatusText" Foreground="#D92D20" FontSize="13" TextWrapping="Wrap" />
+        </StackPanel>
+      </ScrollViewer>
+
+      <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10"
+                  Margin="28,0,28,22">
+        <Button x:Name="ExitButton" Classes="setup-secondary" Content="退出" Click="OnExitClick" />
+        <Button x:Name="CompleteButton" Classes="setup-primary" Content="创建新库并初始化管理员"
+                Click="OnCompleteClick" />
+      </StackPanel>
+    </Grid>
+  </Border>
+</Window>

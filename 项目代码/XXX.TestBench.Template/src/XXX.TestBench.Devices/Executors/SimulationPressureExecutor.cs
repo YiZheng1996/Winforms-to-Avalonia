@@ -22,6 +22,10 @@ public sealed class SimulationPressureExecutor : ITestItemExecutor
     /// </summary>
     public string ExecutorCode => "PressureExecutor";
 
+    /// <summary>仿真压力测量合同；仅表示采集完成，不表示产品合格。</summary>
+    public IReadOnlyList<ItemOutputDefinition> Outputs { get; } =
+        [new("Pressure", MeasuredValueKind.Number, "MPa", true)];
+
     /// <summary>
     /// 压力执行器的必需输入信号。实际点位由项目级绑定映射到 PointId。
     /// </summary>
@@ -49,6 +53,12 @@ public sealed class SimulationPressureExecutor : ITestItemExecutor
 
         var summary = $"目标 {effective.TestVoltageV:0.0}V / {effective.ProtectCurrentMa:0.0}mA / {effective.TestTimeSeconds}s";
         var text = $"仿真执行通过：参数快照解析校验成功，AI_Pressure 当前值 {read.Value}";
-        return new ItemExecutionOutcome(ItemResultState.Succeeded, summary, text);
+        var pressure = Convert.ToDouble(read.Value, System.Globalization.CultureInfo.InvariantCulture);
+        if (read.Value is null || !double.IsFinite(pressure))
+            return new ItemExecutionOutcome(ItemResultState.Failed, null, "仿真压力没有有效数值。");
+        return new ItemExecutionOutcome(ItemResultState.Succeeded, summary, text,
+            [new MeasuredValue("Pressure", MeasuredValueKind.Number, pressure, null, null, "MPa",
+                read.TimestampUtc, read.PointId, read.DeviceId, read.Revision, read.ConnectionGeneration,
+                read.Quality, true, null)]);
     }
 }

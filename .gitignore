@@ -31,3 +31,4 @@
 **/DB/*.sqlite
 **/DB/reports/
 **/DB/SumatraPDF.exe
+/项目代码/XXX.TestBench.Template/data/testbench.db

@@ -3,7 +3,7 @@ using XXX.TestBench.Core.Domain.Reports;
 namespace XXX.TestBench.Core.Ports;
 
 /// <summary>
-/// 独立报表引擎。结果必须携带输入摘要、引擎版本、原始结论和输出摘要，不能只返回成功布尔值。
+/// 独立报表引擎。结果必须携带输入摘要、引擎版本、判定来源、原始结论和输出摘要，不能只返回成功布尔值。
 /// </summary>
 public interface IReportCalculationEngine
 {
@@ -14,7 +14,10 @@ public interface IReportCalculationEngine
 
 public sealed record ReportCalculationRequest(
     Guid RevisionId,
+    string DatabaseInstanceId,
     string InputHash,
+    string AttemptToken,
+    string WorkDirectoryPath,
     string InputJsonPath,
     string InputWorkbookPath,
     string TemplatePath,
@@ -33,6 +36,7 @@ public sealed record ReportCalculationResult(
     string? CalculatedWorkbookHash,
     string? PdfPath,
     string? PdfHash,
+    string? ConclusionSource,
     string? RawConclusion,
     string? ErrorStage,
     string? Error);
